@@ -414,6 +414,8 @@ type QuotationBuilderProps = {
   products: Product[];
   paymentMethods: PaymentMethod[];
   loading: boolean;
+  /** True while product catalog is still loading (Contact tab stays usable). */
+  productsLoading?: boolean;
   error: string;
   onDiscard: () => void;
   onSave: (draft: QuotationDraft) => void;
@@ -428,6 +430,7 @@ export function QuotationBuilder({
   products,
   paymentMethods,
   loading,
+  productsLoading = false,
   error,
   onDiscard,
   onSave,
@@ -1112,6 +1115,18 @@ export function QuotationBuilder({
       return;
     }
 
+    if (!shippingPartnerId.trim()) {
+      setContactError('Delivery location is required.');
+      setTab('contact');
+      return;
+    }
+
+    if (!paymentMethodLineId.trim()) {
+      setContactError('Payment method is required.');
+      setTab('contact');
+      return;
+    }
+
     if (lines.length === 0) {
       setContactError('Add at least one product before saving.');
       setTab('products');
@@ -1147,12 +1162,12 @@ export function QuotationBuilder({
 
     onSave({
       customer,
-      shippingPartnerId: shippingPartnerId || customer.id,
+      shippingPartnerId,
       salePersonName: salePersonName.trim(),
       phoneNumber: normalizedPhone,
       deliveryNote,
       preferredDeliveryDate,
-      paymentMethodLineId: paymentMethodLineId || undefined,
+      paymentMethodLineId,
       lines,
       total,
     });
@@ -1161,8 +1176,11 @@ export function QuotationBuilder({
   const canSave =
     !!customer &&
     !!salePersonName.trim() &&
+    !!shippingPartnerId.trim() &&
+    !!paymentMethodLineId.trim() &&
     lines.length > 0 &&
     !saving &&
+    !loadingAddresses &&
     !phoneError &&
     !!phone.trim() &&
     !!preferredDeliveryDate.trim() &&
@@ -1179,7 +1197,7 @@ export function QuotationBuilder({
         <Text
           variant="labelMedium"
           style={[styles.fieldLabel, { color: theme.colors.onSurfaceVariant }]}>
-          Phone Number
+          Phone Number *
         </Text>
         <TextInput
           mode="outlined"
@@ -1248,7 +1266,7 @@ export function QuotationBuilder({
         <Text
           variant="labelMedium"
           style={[styles.fieldLabel, { color: theme.colors.onSurfaceVariant }]}>
-          Customer
+          Customer *
         </Text>
         <Pressable
           onPress={() => setCustomerPickerOpen(true)}
@@ -1303,11 +1321,12 @@ export function QuotationBuilder({
       {customer ? (
         <View style={styles.panelGap}>
           <DropdownField
-            label="Delivery Location"
+            label="Delivery Location *"
             placeholder={loadingAddresses ? 'Loading addresses…' : 'Select location'}
             value={selectedLocationLabel}
             options={locationOptions}
             sortOptions={false}
+            showClearOption={false}
             onChange={label => {
               if (label === ADD_NEW_ADDRESS_OPTION) {
                 void openAddAddressModal();
@@ -1316,6 +1335,7 @@ export function QuotationBuilder({
               const match = addresses.find(address => address.label === label);
               if (match) {
                 setShippingPartnerId(match.id);
+                setContactError('');
               }
             }}
           />
@@ -1325,6 +1345,9 @@ export function QuotationBuilder({
             </Text>
           ) : null}
           {addressError ? <HelperText type="error">{addressError}</HelperText> : null}
+          {contactError && !shippingPartnerId.trim() ? (
+            <HelperText type="error">{contactError}</HelperText>
+          ) : null}
           <View
             style={[
               styles.infoCard,
@@ -1354,21 +1377,26 @@ export function QuotationBuilder({
 
       <View>
         <DropdownField
-          label="Payment Method"
+          label="Payment Method *"
           placeholder="Select payment method"
           value={paymentMethodLabel}
           options={paymentMethods.map(method => method.name)}
           onChange={label => {
             const match = paymentMethods.find(method => method.name === label);
             setPaymentMethodLineId(match?.id ?? '');
+            setContactError('');
           }}
           sortOptions={false}
+          showClearOption={false}
         />
         {paymentMethods.length === 0 ? (
           <HelperText type="info">
             Payment methods could not be loaded. Restart the backend with the latest
             update, then open New Quotation again.
           </HelperText>
+        ) : null}
+        {contactError && !paymentMethodLineId.trim() ? (
+          <HelperText type="error">{contactError}</HelperText>
         ) : null}
       </View>
 
@@ -1613,7 +1641,12 @@ export function QuotationBuilder({
           style={styles.productScroll}
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled>
-          {filteredProducts.length === 0 ? (
+          {productsLoading && products.length === 0 ? (
+            <View style={styles.productsLoading}>
+              <ActivityIndicator />
+              <Text style={{ marginTop: 12 }}>Loading products…</Text>
+            </View>
+          ) : filteredProducts.length === 0 ? (
             <Text style={styles.emptyText}>No products found.</Text>
           ) : productView === 'list' ? (
             filteredProducts.map(renderProductListRow)
@@ -1827,7 +1860,7 @@ export function QuotationBuilder({
       {loading ? (
         <View style={styles.loading}>
           <ActivityIndicator />
-          <Text style={{ marginTop: 12 }}>Loading data from Odoo...</Text>
+          <Text style={{ marginTop: 12 }}>Loading customers…</Text>
         </View>
       ) : (
         <View
@@ -2123,6 +2156,11 @@ const styles = StyleSheet.create({
   },
   loading: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  productsLoading: {
+    paddingVertical: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },

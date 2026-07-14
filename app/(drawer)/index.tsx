@@ -339,12 +339,13 @@ export default function QuotationScreen() {
     null,
   );
   const [builderLoading, setBuilderLoading] = useState(false);
+  const [builderProductsLoading, setBuilderProductsLoading] = useState(false);
   const [builderError, setBuilderError] = useState('');
   const [builderSaving, setBuilderSaving] = useState(false);
   const [builderCustomers, setBuilderCustomers] = useState<Customer[]>([]);
   const [builderProducts, setBuilderProducts] = useState<Product[]>([]);
   const [builderPaymentMethods, setBuilderPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const builderPrefetchStarted = useRef(false);  const [detailId, setDetailId] = useState<string | null>(null);
   const [detail, setDetail] = useState<QuotationDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
@@ -409,6 +410,9 @@ export default function QuotationScreen() {
     setViewMode(prev => (prev === 'list' ? 'card' : 'list'));
   }, []);
 
+  const builderProductsRef = useRef(builderProducts);
+  builderProductsRef.current = builderProducts;
+
   const loadBuilderData = useCallback(
     async (options?: { showLoading?: boolean }) => {
       if (!session?.token) {
@@ -420,23 +424,42 @@ export default function QuotationScreen() {
         setBuilderLoading(true);
       }
       setBuilderError('');
+
       try {
-        const [customerData, productData, paymentMethodData] = await Promise.all([
-          fetchCustomers(session.token),
-          fetchProducts(session.token),
+        // Phase 1: unlock Contact tab as soon as customers/payment methods are ready.
+        const [customerData, paymentMethodData] = await Promise.all([
+          fetchCustomers(session.token, { lite: true }),
           fetchPaymentMethods(session.token).catch(() => [] as PaymentMethod[]),
         ]);
         setBuilderCustomers(customerData);
-        setBuilderProducts(productData);
         setBuilderPaymentMethods(paymentMethodData);
+        if (showLoading) {
+          setBuilderLoading(false);
+        }
+
+        // Phase 2: products (heavier) — load without blocking contact entry.
+        const showProductSpinner = builderProductsRef.current.length === 0;
+        if (showProductSpinner) {
+          setBuilderProductsLoading(true);
+        }
+        try {
+          const productData = await fetchProducts(session.token);
+          setBuilderProducts(productData);
+        } catch (err) {
+          setBuilderError(
+            err instanceof Error ? err.message : 'Failed to load products from Odoo.',
+          );
+        } finally {
+          setBuilderProductsLoading(false);
+        }
       } catch (err) {
         setBuilderError(
           err instanceof Error ? err.message : 'Failed to load data from Odoo.',
         );
-      } finally {
         if (showLoading) {
           setBuilderLoading(false);
         }
+        setBuilderProductsLoading(false);
       }
     },
     [session?.token],
@@ -448,13 +471,11 @@ export default function QuotationScreen() {
       setBuilderInitialCustomerId(customerId ?? null);
       setBuilderReorderSeed(null);
 
-      // Reuse already-loaded data so reopening New Quotation is instant;
-      // refresh quietly in the background.
-      const hasCachedData =
-        builderCustomers.length > 0 && builderProducts.length > 0;
+      // Customers alone unlock Contact; products may still load in background.
+      const hasCachedData = builderCustomers.length > 0;
       await loadBuilderData({ showLoading: !hasCachedData });
     },
-    [builderCustomers.length, builderProducts.length, loadBuilderData],
+    [builderCustomers.length, loadBuilderData],
   );
 
   const closeBuilder = useCallback(() => {
@@ -474,11 +495,10 @@ export default function QuotationScreen() {
       setDetail(null);
       setDetailError('');
       setBuilderOpen(true);
-      const hasCachedData =
-        builderCustomers.length > 0 && builderProducts.length > 0;
+      const hasCachedData = builderCustomers.length > 0;
       await loadBuilderData({ showLoading: !hasCachedData });
     },
-    [builderCustomers.length, builderProducts.length, loadBuilderData],
+    [builderCustomers.length, loadBuilderData],
   );
 
   useEffect(() => {
@@ -765,6 +785,15 @@ export default function QuotationScreen() {
     loadQuotations().finally(() => setLoading(false));
   }, [loadQuotations]);
 
+  // Prefetch builder data while browsing the list so New Quotation opens faster.
+  useEffect(() => {
+    if (!session?.token || builderPrefetchStarted.current) {
+      return;
+    }
+    builderPrefetchStarted.current = true;
+    void loadBuilderData({ showLoading: false });
+  }, [session?.token, loadBuilderData]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadQuotations();
@@ -806,6 +835,7 @@ export default function QuotationScreen() {
           products={builderProducts}
           paymentMethods={builderPaymentMethods}
           loading={builderLoading}
+          productsLoading={builderProductsLoading}
           error={builderError}
           onDiscard={closeBuilder}
           onSave={handleSaveDraft}

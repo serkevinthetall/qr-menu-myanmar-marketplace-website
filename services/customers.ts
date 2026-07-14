@@ -50,8 +50,14 @@ type CreateAddressResponse = {
   };
 };
 
-export async function fetchCustomers(token: string): Promise<Customer[]> {
-  const response = await apiRequest<CustomersResponse>('/customers', { token });
+export async function fetchCustomers(
+  token: string,
+  options?: { lite?: boolean },
+): Promise<Customer[]> {
+  const query = options?.lite ? '?lite=1' : '';
+  const response = await apiRequest<CustomersResponse>(`/customers${query}`, {
+    token,
+  });
   return response.data;
 }
 
