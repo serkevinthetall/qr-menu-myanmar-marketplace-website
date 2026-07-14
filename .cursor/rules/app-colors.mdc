@@ -1,0 +1,44 @@
+---
+description: QR Shop ERP color palette — use everywhere, no hardcoded hex in components
+globs: frontend/**/*.{tsx,ts}
+alwaysApply: true
+---
+
+# App Color Palette
+
+All UI colors must come from `frontend/constants/colors.ts`. Never hardcode hex values in components.
+
+## Light mode tokens
+
+| Token | Hex | Use |
+|-------|-----|-----|
+| `background` | `#F6F8FB` | Page background |
+| `primary` | `#2563EB` | Main buttons, navbar, links |
+| `success` | `#10B981` | Success / active states |
+| `text` | `#0F172A` | Primary text |
+| `card` | `#FFFFFF` | Cards, sidebar surface |
+| `border` | `#E2E8F0` | Borders, dividers |
+
+## How to use in code
+
+```tsx
+// Preferred — respects light/dark mode
+import { useAppColors } from '@/hooks/use-app-colors';
+const colors = useAppColors();
+
+// Paper components — use theme (mapped from AppColors)
+import { useTheme } from 'react-native-paper';
+const theme = useTheme();
+theme.colors.primary;   // #2563EB light
+theme.colors.background;
+theme.colors.outline;   // border
+
+// Static reference / theme setup only
+import { AppColors, Palette } from '@/constants/colors';
+```
+
+## Rules
+
+- Add new colors to `constants/colors.ts` first, then wire through `paper-theme.ts`
+- Use `useAppColors()` or `useTheme()` from Paper — never inline `#2563EB` etc.
+- Dark mode variants live in `AppColors.dark` — keep light tokens as the brand source of truth
