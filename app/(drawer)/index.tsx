@@ -409,43 +409,52 @@ export default function QuotationScreen() {
     setViewMode(prev => (prev === 'list' ? 'card' : 'list'));
   }, []);
 
-  const loadBuilderData = useCallback(async () => {
-    if (!session?.token) {
-      return;
-    }
-    setBuilderLoading(true);
-    setBuilderError('');
-    try {
-      const [customerData, productData] = await Promise.all([
-        fetchCustomers(session.token),
-        fetchProducts(session.token),
-      ]);
-      setBuilderCustomers(customerData);
-      setBuilderProducts(productData);
-
-      try {
-        const paymentMethodData = await fetchPaymentMethods(session.token);
-        setBuilderPaymentMethods(paymentMethodData);
-      } catch {
-        setBuilderPaymentMethods([]);
+  const loadBuilderData = useCallback(
+    async (options?: { showLoading?: boolean }) => {
+      if (!session?.token) {
+        return;
       }
-    } catch (err) {
-      setBuilderError(
-        err instanceof Error ? err.message : 'Failed to load data from Odoo.',
-      );
-    } finally {
-      setBuilderLoading(false);
-    }
-  }, [session?.token]);
+
+      const showLoading = options?.showLoading ?? true;
+      if (showLoading) {
+        setBuilderLoading(true);
+      }
+      setBuilderError('');
+      try {
+        const [customerData, productData, paymentMethodData] = await Promise.all([
+          fetchCustomers(session.token),
+          fetchProducts(session.token),
+          fetchPaymentMethods(session.token).catch(() => [] as PaymentMethod[]),
+        ]);
+        setBuilderCustomers(customerData);
+        setBuilderProducts(productData);
+        setBuilderPaymentMethods(paymentMethodData);
+      } catch (err) {
+        setBuilderError(
+          err instanceof Error ? err.message : 'Failed to load data from Odoo.',
+        );
+      } finally {
+        if (showLoading) {
+          setBuilderLoading(false);
+        }
+      }
+    },
+    [session?.token],
+  );
 
   const openBuilder = useCallback(
     async (customerId?: string) => {
       setBuilderOpen(true);
       setBuilderInitialCustomerId(customerId ?? null);
       setBuilderReorderSeed(null);
-      await loadBuilderData();
+
+      // Reuse already-loaded data so reopening New Quotation is instant;
+      // refresh quietly in the background.
+      const hasCachedData =
+        builderCustomers.length > 0 && builderProducts.length > 0;
+      await loadBuilderData({ showLoading: !hasCachedData });
     },
-    [loadBuilderData],
+    [builderCustomers.length, builderProducts.length, loadBuilderData],
   );
 
   const closeBuilder = useCallback(() => {
@@ -465,9 +474,11 @@ export default function QuotationScreen() {
       setDetail(null);
       setDetailError('');
       setBuilderOpen(true);
-      await loadBuilderData();
+      const hasCachedData =
+        builderCustomers.length > 0 && builderProducts.length > 0;
+      await loadBuilderData({ showLoading: !hasCachedData });
     },
-    [loadBuilderData],
+    [builderCustomers.length, builderProducts.length, loadBuilderData],
   );
 
   useEffect(() => {
