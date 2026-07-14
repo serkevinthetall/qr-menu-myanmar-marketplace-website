@@ -35,9 +35,16 @@ import {
   useSearch,
 } from '@/contexts/search-context';
 import { useResponsive } from '@/hooks/use-responsive';
-import { fetchCustomers } from '@/services/customers';
-import { fetchProducts } from '@/services/products';
+import { fetchCustomersPage } from '@/services/customers';
+import { fetchProductsPage } from '@/services/products';
 import { fetchQuotationDetail, fetchQuotations, createQuotation, fetchPaymentMethods } from '@/services/quotations';
+import {
+  getQuotationBuilderCache,
+  isQuotationBuilderCacheFresh,
+  mergeById,
+  patchQuotationBuilderCache,
+  setQuotationBuilderCache,
+} from '@/utils/quotation-builder-cache';
 import { Customer } from '@/types/customer';
 import { Product } from '@/types/product';
 import { Quotation, QuotationDetail, PaymentMethod, QuotationReorderSeed } from '@/types/quotation';
@@ -50,6 +57,9 @@ import {
 import { PrintFormat } from '@/utils/print-quotation';
 
 const PAGE_SIZE = 50;
+/** First page size for New Quotation progressive load. */
+const BUILDER_PAGE_SIZE = 100;
+const BUILDER_MAX_PAGES = 10;
 
 type ViewMode = 'list' | 'card';
 
@@ -412,47 +422,164 @@ export default function QuotationScreen() {
 
   const builderProductsRef = useRef(builderProducts);
   builderProductsRef.current = builderProducts;
+  const builderLoadGen = useRef(0);
 
   const loadBuilderData = useCallback(
-    async (options?: { showLoading?: boolean }) => {
+    async (options?: { showLoading?: boolean; force?: boolean }) => {
       if (!session?.token) {
         return;
       }
 
       const showLoading = options?.showLoading ?? true;
-      if (showLoading) {
+      const force = options?.force ?? false;
+      const cached = getQuotationBuilderCache();
+
+      // Session cache: open instantly, skip network when still fresh.
+      if (!force && isQuotationBuilderCacheFresh() && cached) {
+        setBuilderCustomers(cached.customers);
+        setBuilderProducts(cached.products);
+        setBuilderPaymentMethods(cached.paymentMethods);
+        setBuilderLoading(false);
+        setBuilderProductsLoading(false);
+        setBuilderError('');
+        return;
+      }
+
+      if (!force && cached && cached.customers.length > 0) {
+        setBuilderCustomers(cached.customers);
+        setBuilderProducts(cached.products);
+        setBuilderPaymentMethods(cached.paymentMethods);
+        if (showLoading) {
+          setBuilderLoading(false);
+        }
+      }
+
+      const gen = ++builderLoadGen.current;
+      if (showLoading && builderCustomers.length === 0 && !(cached && cached.customers.length > 0)) {
         setBuilderLoading(true);
       }
       setBuilderError('');
 
       try {
-        // Phase 1: unlock Contact tab as soon as customers/payment methods are ready.
-        const [customerData, paymentMethodData] = await Promise.all([
-          fetchCustomers(session.token, { lite: true }),
+        // Phase 1: first page of customers + payment methods → unlock Contact.
+        const [customerPage, paymentMethodData] = await Promise.all([
+          fetchCustomersPage(session.token, {
+            lite: true,
+            limit: BUILDER_PAGE_SIZE,
+            offset: 0,
+          }),
           fetchPaymentMethods(session.token).catch(() => [] as PaymentMethod[]),
         ]);
-        setBuilderCustomers(customerData);
+
+        if (gen !== builderLoadGen.current) {
+          return;
+        }
+
+        setBuilderCustomers(customerPage.data);
         setBuilderPaymentMethods(paymentMethodData);
+        setQuotationBuilderCache({
+          customers: customerPage.data,
+          products: cached?.products ?? [],
+          paymentMethods: paymentMethodData,
+          customersComplete: !customerPage.hasMore,
+          productsComplete: Boolean(cached?.productsComplete),
+          updatedAt: Date.now(),
+        });
         if (showLoading) {
           setBuilderLoading(false);
         }
 
-        // Phase 2: products (heavier) — load without blocking contact entry.
-        const showProductSpinner = builderProductsRef.current.length === 0;
-        if (showProductSpinner) {
+        // Continue customers in background.
+        if (customerPage.hasMore) {
+          void (async () => {
+            let offset = customerPage.data.length;
+            let all = customerPage.data;
+            for (let page = 1; page < BUILDER_MAX_PAGES; page += 1) {
+              if (gen !== builderLoadGen.current || !session.token) {
+                return;
+              }
+              const next = await fetchCustomersPage(session.token, {
+                lite: true,
+                limit: BUILDER_PAGE_SIZE,
+                offset,
+              });
+              all = mergeById(all, next.data);
+              setBuilderCustomers(all);
+              patchQuotationBuilderCache({
+                customers: all,
+                customersComplete: !next.hasMore,
+              });
+              if (!next.hasMore) {
+                break;
+              }
+              offset += next.data.length;
+            }
+          })().catch(() => {
+            // Keep the first page if background customer load fails.
+          });
+        }
+
+        // Phase 2: first page of products (non-blocking for Contact).
+        const needProductSpinner =
+          (cached?.products.length ?? builderProductsRef.current.length) === 0;
+        if (needProductSpinner) {
           setBuilderProductsLoading(true);
         }
-        try {
-          const productData = await fetchProducts(session.token);
-          setBuilderProducts(productData);
-        } catch (err) {
-          setBuilderError(
-            err instanceof Error ? err.message : 'Failed to load products from Odoo.',
-          );
-        } finally {
-          setBuilderProductsLoading(false);
+
+        const productPage = await fetchProductsPage(session.token, {
+          limit: BUILDER_PAGE_SIZE,
+          offset: 0,
+        });
+
+        if (gen !== builderLoadGen.current) {
+          return;
+        }
+
+        setBuilderProducts(productPage.data);
+        patchQuotationBuilderCache({
+          products: productPage.data,
+          productsComplete: !productPage.hasMore,
+        });
+        setBuilderProductsLoading(false);
+
+        // Continue products in background.
+        if (productPage.hasMore) {
+          void (async () => {
+            let offset = productPage.data.length;
+            let all = productPage.data;
+            for (let page = 1; page < BUILDER_MAX_PAGES; page += 1) {
+              if (gen !== builderLoadGen.current || !session.token) {
+                return;
+              }
+              const next = await fetchProductsPage(session.token, {
+                limit: BUILDER_PAGE_SIZE,
+                offset,
+              });
+              all = mergeById(all, next.data);
+              setBuilderProducts(all);
+              patchQuotationBuilderCache({
+                products: all,
+                productsComplete: !next.hasMore,
+              });
+              if (!next.hasMore) {
+                break;
+              }
+              offset += next.data.length;
+            }
+          })().catch(err => {
+            if (gen === builderLoadGen.current) {
+              setBuilderError(
+                err instanceof Error
+                  ? err.message
+                  : 'Failed to load remaining products.',
+              );
+            }
+          });
         }
       } catch (err) {
+        if (gen !== builderLoadGen.current) {
+          return;
+        }
         setBuilderError(
           err instanceof Error ? err.message : 'Failed to load data from Odoo.',
         );
@@ -462,7 +589,7 @@ export default function QuotationScreen() {
         setBuilderProductsLoading(false);
       }
     },
-    [session?.token],
+    [session?.token, builderCustomers.length],
   );
 
   const openBuilder = useCallback(
@@ -471,8 +598,8 @@ export default function QuotationScreen() {
       setBuilderInitialCustomerId(customerId ?? null);
       setBuilderReorderSeed(null);
 
-      // Customers alone unlock Contact; products may still load in background.
-      const hasCachedData = builderCustomers.length > 0;
+      const hasCachedData =
+        isQuotationBuilderCacheFresh() || builderCustomers.length > 0;
       await loadBuilderData({ showLoading: !hasCachedData });
     },
     [builderCustomers.length, loadBuilderData],
@@ -495,7 +622,8 @@ export default function QuotationScreen() {
       setDetail(null);
       setDetailError('');
       setBuilderOpen(true);
-      const hasCachedData = builderCustomers.length > 0;
+      const hasCachedData =
+        isQuotationBuilderCacheFresh() || builderCustomers.length > 0;
       await loadBuilderData({ showLoading: !hasCachedData });
     },
     [builderCustomers.length, loadBuilderData],
@@ -791,7 +919,17 @@ export default function QuotationScreen() {
       return;
     }
     builderPrefetchStarted.current = true;
-    void loadBuilderData({ showLoading: false });
+
+    const cached = getQuotationBuilderCache();
+    if (cached) {
+      setBuilderCustomers(cached.customers);
+      setBuilderProducts(cached.products);
+      setBuilderPaymentMethods(cached.paymentMethods);
+    }
+
+    if (!isQuotationBuilderCacheFresh()) {
+      void loadBuilderData({ showLoading: false });
+    }
   }, [session?.token, loadBuilderData]);
 
   const onRefresh = async () => {

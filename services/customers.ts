@@ -13,6 +13,12 @@ import { apiRequest } from '@/services/api';
 
 type CustomersResponse = {
   data: Customer[];
+  meta?: {
+    limit: number;
+    offset: number;
+    count: number;
+    hasMore: boolean;
+  };
 };
 
 type CustomerDetailResponse = {
@@ -50,15 +56,47 @@ type CreateAddressResponse = {
   };
 };
 
+export type CustomersPage = {
+  data: Customer[];
+  hasMore: boolean;
+  offset: number;
+  limit: number;
+};
+
 export async function fetchCustomers(
   token: string,
-  options?: { lite?: boolean },
+  options?: { lite?: boolean; limit?: number; offset?: number },
 ): Promise<Customer[]> {
-  const query = options?.lite ? '?lite=1' : '';
+  const page = await fetchCustomersPage(token, options);
+  return page.data;
+}
+
+export async function fetchCustomersPage(
+  token: string,
+  options?: { lite?: boolean; limit?: number; offset?: number },
+): Promise<CustomersPage> {
+  const params = new URLSearchParams();
+  if (options?.lite) {
+    params.set('lite', '1');
+  }
+  if (options?.limit !== undefined) {
+    params.set('limit', String(options.limit));
+  }
+  if (options?.offset !== undefined) {
+    params.set('offset', String(options.offset));
+  }
+  const query = params.toString() ? `?${params.toString()}` : '';
   const response = await apiRequest<CustomersResponse>(`/customers${query}`, {
     token,
   });
-  return response.data;
+  const limit = options?.limit ?? response.meta?.limit ?? response.data.length;
+  const offset = options?.offset ?? response.meta?.offset ?? 0;
+  return {
+    data: response.data,
+    hasMore: Boolean(options?.lite) ? (response.meta?.hasMore ?? false) : false,
+    offset,
+    limit,
+  };
 }
 
 export async function fetchCustomerDetail(
