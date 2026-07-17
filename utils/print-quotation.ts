@@ -474,23 +474,36 @@ function buildThermalHtml(detail: QuotationDetail): string {
       vertical-align: top;
       border-bottom: 1px dashed #ccc;
     }
-    table.lines td.product { word-break: break-word; }
+    table.lines th:first-child,
+    table.lines td.product {
+      word-break: break-word;
+      padding-right: 4px;
+      width: 55%;
+    }
     table.lines .qty-col {
-      text-align: right;
+      text-align: center;
       white-space: nowrap;
-      width: 1%;
-      padding-right: 2px;
+      width: 18%;
       padding-left: 4px;
+      padding-right: 4px;
     }
     table.lines .amount-col {
       text-align: right;
       white-space: nowrap;
-      width: 1%;
-      padding-left: 2px;
+      width: 27%;
+      padding-left: 4px;
       padding-right: 0;
     }
-    table.lines th.qty-col { text-align: right; padding-right: 2px; padding-left: 4px; }
-    table.lines th.amount-col { text-align: right; padding-left: 2px; padding-right: 0; }
+    table.lines th.qty-col {
+      text-align: center;
+      padding-left: 4px;
+      padding-right: 4px;
+    }
+    table.lines th.amount-col {
+      text-align: right;
+      padding-left: 4px;
+      padding-right: 0;
+    }
     .delivery-address {
       margin: 6px 0 4px;
       padding: 6px;
