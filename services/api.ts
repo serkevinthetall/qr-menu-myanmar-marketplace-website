@@ -1,5 +1,3 @@
-import { Platform } from 'react-native';
-
 import { API_BASE_URL } from '@/constants/api';
 
 type ApiOptions = {
@@ -25,10 +23,7 @@ export async function apiRequest<T>(
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch (error) {
-    const hint =
-      Platform.OS === 'web'
-        ? ` Could not reach the API at ${API_BASE_URL}. Is the backend running on port 4000?`
-        : '';
+    const hint = ` Could not reach the API at ${API_BASE_URL}. For the sales-rep app use the ERP backend (…/api), not qr-shop-app-backend.`;
     throw new Error(
       `Failed to fetch.${hint}${error instanceof Error && error.message !== 'Failed to fetch' ? ` ${error.message}` : ''}`,
     );
