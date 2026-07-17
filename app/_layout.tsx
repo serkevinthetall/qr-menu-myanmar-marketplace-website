@@ -7,11 +7,12 @@ import { ActivityIndicator, PaperProvider } from 'react-native-paper';
 import { View } from 'react-native';
 import 'react-native-reanimated';
 
+import { homeRouteForSurface, isSalesRepAppSurface } from '@/constants/app-surface';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { AppThemeProvider, useAppTheme } from '@/contexts/theme-context';
 
 export const unstable_settings = {
-  anchor: '(drawer)',
+  anchor: isSalesRepAppSurface() ? '(app)' : '(drawer)',
 };
 
 function ThemeLoading() {
@@ -41,6 +42,8 @@ function AuthGate({ children }: { children: ReactNode }) {
     }
 
     const onLoginScreen = segments[0] === 'login';
+    const onApp = segments[0] === '(app)';
+    const onDrawer = segments[0] === '(drawer)';
 
     if (!isAuthenticated && !onLoginScreen) {
       router.replace('/login');
@@ -48,6 +51,16 @@ function AuthGate({ children }: { children: ReactNode }) {
     }
 
     if (isAuthenticated && onLoginScreen) {
+      router.replace(homeRouteForSurface());
+      return;
+    }
+
+    // Keep web on drawer ERP; native POS on sales-rep tabs.
+    if (isAuthenticated && isSalesRepAppSurface() && onDrawer) {
+      router.replace(homeRouteForSurface());
+      return;
+    }
+    if (isAuthenticated && !isSalesRepAppSurface() && onApp) {
       router.replace('/');
     }
   }, [isAuthenticated, isLoading, router, segments]);
@@ -75,6 +88,7 @@ function RootLayoutNav() {
       <AuthGate>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="login" />
+          <Stack.Screen name="(app)" />
           <Stack.Screen name="(drawer)" />
           <Stack.Screen
             name="modal"

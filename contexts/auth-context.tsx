@@ -9,6 +9,8 @@ import {
   useState,
 } from 'react';
 
+import { isSalesRepAppSurface } from '@/constants/app-surface';
+import { authenticateAppUser, logoutAppUser } from '@/services/app/auth';
 import { authenticateUser, isSessionValid, logoutUser } from '@/services/auth';
 import { AuthSession, AuthUser, LoginCredentials } from '@/types/auth';
 
@@ -47,7 +49,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (credentials: LoginCredentials) => {
-    const nextSession = await authenticateUser(credentials);
+    const nextSession = isSalesRepAppSurface()
+      ? await authenticateAppUser(credentials)
+      : await authenticateUser(credentials);
     setSession(nextSession);
     await AsyncStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession));
   }, []);
@@ -55,7 +59,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     if (session?.token) {
       try {
-        await logoutUser(session.token);
+        if (isSalesRepAppSurface()) {
+          await logoutAppUser(session.token);
+        } else {
+          await logoutUser(session.token);
+        }
       } catch {
         // Clear local session even if backend logout fails.
       }
