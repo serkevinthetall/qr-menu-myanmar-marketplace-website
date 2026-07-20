@@ -10,11 +10,11 @@ import {
 import {
   ActivityIndicator,
   FAB,
-  Searchbar,
   Text,
   useTheme,
 } from 'react-native-paper';
 
+import { AppSearchBar } from '@/components/app/AppSearchBar';
 import { getQuotationStatusColors } from '@/constants/status-colors';
 import { useAuth } from '@/contexts/auth-context';
 import { useAppTheme } from '@/contexts/theme-context';
@@ -39,6 +39,7 @@ export default function AppQuotationsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(query.trim()), 300);
@@ -53,6 +54,7 @@ export default function AppQuotationsScreen() {
         q: debounced || undefined,
       });
       setItems(data);
+      setHasLoadedOnce(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load quotations.');
     } finally {
@@ -62,14 +64,14 @@ export default function AppQuotationsScreen() {
   }, [session?.token, debounced]);
 
   useEffect(() => {
-    setLoading(true);
+    if (!hasLoadedOnce) setLoading(true);
     void load();
-  }, [load]);
+  }, [load, hasLoadedOnce]);
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
       <View style={styles.searchWrap}>
-        <Searchbar
+        <AppSearchBar
           placeholder="Search number or customer"
           value={query}
           onChangeText={setQuery}

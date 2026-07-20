@@ -2,6 +2,10 @@ import { Platform } from 'react-native';
 
 import { QR_SHOP_LOGO_DATA_URI } from '@/constants/qr-shop-logo';
 import { QuotationDetail } from '@/types/quotation';
+import {
+  formatMyanmarDate,
+  formatMyanmarDateTime,
+} from '@/utils/myanmar-datetime';
 
 export type PrintFormat = 'a4' | 'thermal';
 
@@ -13,11 +17,6 @@ const COMPANY = {
   website: 'www.qrshopmyanmar.com',
   email: 'billing@qrshopmyanmar.com',
 };
-
-const MONTHS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
 
 function escapeHtml(text: string): string {
   return text
@@ -40,38 +39,11 @@ function formatMoneyMmk(value: number): string {
 }
 
 function formatDate(value: string): string {
-  if (!value?.trim()) {
-    return '—';
-  }
-  const datePart = value.trim().split(/[T ]/)[0];
-  const [year, month, day] = datePart.split('-').map(Number);
-  if (!year || !month || !day) {
-    return escapeHtml(value.trim());
-  }
-  return `${MONTHS[month - 1]} ${day}, ${year}`;
+  return formatMyanmarDate(value, { includeYear: true }) || '—';
 }
 
 function formatDateTime(value: string): string {
-  if (!value?.trim()) {
-    return '—';
-  }
-  const trimmed = value.trim();
-  const normalized = trimmed.replace('T', ' ').replace(/\.\d+Z?$/, '').replace(/Z$/, '');
-  const [datePart, timePart = ''] = normalized.split(' ');
-  const [year, month, day] = datePart.split('-').map(Number);
-  if (!year || !month || !day) {
-    return escapeHtml(trimmed);
-  }
-  const dateLabel = `${MONTHS[month - 1]} ${day}, ${year}`;
-  if (!timePart || timePart.startsWith('00:00:00')) {
-    return dateLabel;
-  }
-  const [hourRaw, minuteRaw] = timePart.split(':').map(Number);
-  const hours = Number.isFinite(hourRaw) ? hourRaw : 0;
-  const minutes = Number.isFinite(minuteRaw) ? minuteRaw : 0;
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const hour12 = hours % 12 || 12;
-  return `${dateLabel} ${hour12}:${String(minutes).padStart(2, '0')} ${period}`;
+  return formatMyanmarDateTime(value, { includeYear: true, empty: '—' });
 }
 
 function buildA4Html(detail: QuotationDetail): string {

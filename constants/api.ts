@@ -1,3 +1,11 @@
+/**
+ * Shared API host (Vercel or local). Path prefixes differ by surface:
+ *
+ *   WEB  → /api/auth, /api/customers, /api/products, /api/quotations
+ *   APP  → /api/app/auth, /api/app/contacts, /api/app/products, /api/app/quotations
+ *
+ * Clients: `@/services/web/client` vs `@/services/app/client`
+ */
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
@@ -29,17 +37,10 @@ function getExpoLanHost(): string | null {
   return host;
 }
 
-/**
- * Resolves the API base URL for web ERP and the sales-rep native app.
- * - Hosted HTTPS URLs are never overridden.
- * - On native, localhost is rewritten to the Expo LAN IP (phones cannot reach Mac localhost).
- * - On web via LAN IP, local backends use the same host on port 4000.
- */
 function resolveApiBaseUrl(): string {
   const fromEnv =
     process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
-  // Native POS / Expo Go: rewrite loopback → Mac LAN IP so login works on device.
   if (Platform.OS !== 'web' && isLoopbackApiUrl(fromEnv)) {
     const lanHost = getExpoLanHost();
     if (lanHost) {

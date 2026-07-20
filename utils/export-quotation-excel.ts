@@ -1,12 +1,8 @@
 import { Quotation } from '@/types/quotation';
 import { exportToXlsx } from '@/utils/export-excel';
+import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
 
 type Cell = string | number | null | undefined;
-
-const MONTHS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
 
 function statusLabel(state: string): string {
   switch (state) {
@@ -35,39 +31,7 @@ function formatMoney(value: unknown): string {
 }
 
 function formatDateTime(value: unknown): string {
-  if (!value || typeof value !== 'string') {
-    return '';
-  }
-  const trimmed = value.trim();
-  if (/AM|PM/i.test(trimmed)) {
-    return trimmed;
-  }
-
-  const normalized = trimmed.replace('T', ' ').replace(/\.\d+Z?$/, '').replace(/Z$/, '');
-  const [datePart, timePart = ''] = normalized.split(' ');
-  const [year, month, day] = datePart.split('-').map(Number);
-  if (!year || !month || !day) {
-    return trimmed;
-  }
-
-  const now = new Date();
-  const sameYear = year === now.getFullYear();
-  const dateLabel = sameYear
-    ? `${MONTHS[month - 1]} ${day}`
-    : `${MONTHS[month - 1]} ${day}, ${year}`;
-
-  if (!timePart || timePart.startsWith('00:00:00')) {
-    return dateLabel;
-  }
-
-  const [hourRaw, minuteRaw] = timePart.split(':').map(Number);
-  const hours = Number.isFinite(hourRaw) ? hourRaw : 0;
-  const minutes = Number.isFinite(minuteRaw) ? minuteRaw : 0;
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const hour12 = hours % 12 || 12;
-  const minuteStr = String(minutes).padStart(2, '0');
-
-  return `${dateLabel}, ${hour12}:${minuteStr} ${period}`;
+  return formatMyanmarDateTime(value);
 }
 
 function escapeHtml(value: string): string {

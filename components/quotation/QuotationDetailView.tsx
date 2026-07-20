@@ -5,13 +5,12 @@ import { ActivityIndicator, Button, Checkbox, Icon, Text, useTheme } from 'react
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
 import { QuotationDetail, QuotationLine, QuotationReorderSeed } from '@/types/quotation';
+import {
+  formatMyanmarDate,
+  formatMyanmarDateTime,
+} from '@/utils/myanmar-datetime';
 
 type DetailTab = 'lines' | 'other';
-
-const MONTHS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
 
 function formatMoney(value: number): string {
   const safe = Number.isFinite(value) ? value : 0;
@@ -22,55 +21,11 @@ function formatMoney(value: number): string {
 }
 
 function formatDate(value: string): string {
-  if (!value?.trim()) {
-    return '';
-  }
-  const datePart = value.trim().split(/[T ]/)[0];
-  const [year, month, day] = datePart.split('-').map(Number);
-  if (!year || !month || !day) {
-    return value.trim();
-  }
-
-  const now = new Date();
-  const sameYear = year === now.getFullYear();
-  return sameYear
-    ? `${MONTHS[month - 1]} ${day}`
-    : `${MONTHS[month - 1]} ${day}, ${year}`;
+  return formatMyanmarDate(value);
 }
 
 function formatDateTime(value: string): string {
-  if (!value) {
-    return '';
-  }
-  const trimmed = value.trim();
-  if (/AM|PM/i.test(trimmed)) {
-    return trimmed;
-  }
-
-  const normalized = trimmed.replace('T', ' ').replace(/\.\d+Z?$/, '').replace(/Z$/, '');
-  const [datePart, timePart = ''] = normalized.split(' ');
-  const [year, month, day] = datePart.split('-').map(Number);
-  if (!year || !month || !day) {
-    return trimmed;
-  }
-
-  const now = new Date();
-  const sameYear = year === now.getFullYear();
-  const dateLabel = sameYear
-    ? `${MONTHS[month - 1]} ${day}`
-    : `${MONTHS[month - 1]} ${day}, ${year}`;
-
-  if (!timePart || timePart.startsWith('00:00:00')) {
-    return dateLabel;
-  }
-
-  const [hourRaw, minuteRaw] = timePart.split(':').map(Number);
-  const hours = Number.isFinite(hourRaw) ? hourRaw : 0;
-  const minutes = Number.isFinite(minuteRaw) ? minuteRaw : 0;
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const hour12 = hours % 12 || 12;
-
-  return `${dateLabel} ${hour12}:${String(minutes).padStart(2, '0')} ${period}`;
+  return formatMyanmarDateTime(value);
 }
 
 function SurfaceCard({ children }: { children: ReactNode }) {

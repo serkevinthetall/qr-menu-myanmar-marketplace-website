@@ -1,5 +1,7 @@
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
+  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -7,24 +9,44 @@ import {
 } from 'react-native';
 import {
   ActivityIndicator,
-  IconButton,
-  Searchbar,
+  Button,
+  FAB,
   Text,
   useTheme,
 } from 'react-native-paper';
 
+import { AppNewCustomerForm } from '@/components/app/AppNewCustomerForm';
+import { AppSearchBar } from '@/components/app/AppSearchBar';
 import { useAuth } from '@/contexts/auth-context';
 import { AppContact, fetchAppContacts } from '@/services/app/contacts';
 
+function openNewQuotation(
+  router: ReturnType<typeof useRouter>,
+  contact: AppContact,
+) {
+  router.push({
+    pathname: '/(app)/quotations/new',
+    params: {
+      customerId: contact.id,
+      customerName: contact.name,
+      customerPhone: contact.phone ?? '',
+    },
+  });
+}
+
 export default function AppContactsScreen() {
   const theme = useTheme();
-  const { session, logout } = useAuth();
+  const { session } = useAuth();
+  const router = useRouter();
+
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
   const [contacts, setContacts] = useState<AppContact[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(query.trim()), 300);
@@ -40,6 +62,7 @@ export default function AppContactsScreen() {
         limit: 100,
       });
       setContacts(data);
+      setHasLoadedOnce(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load contacts.');
     } finally {
@@ -49,20 +72,51 @@ export default function AppContactsScreen() {
   }, [session?.token, debounced]);
 
   useEffect(() => {
-    setLoading(true);
+    if (!hasLoadedOnce) setLoading(true);
     void load();
-  }, [load]);
+  }, [load, hasLoadedOnce]);
+
+  const handleCreated = (contact: AppContact) => {
+    setCreating(false);
+    setContacts(prev => {
+      if (prev.some(item => item.id === contact.id)) return prev;
+      return [contact, ...prev];
+    });
+
+    Alert.alert(
+      'Customer created',
+      `${contact.name} was saved. Do you want to create a quotation?`,
+      [
+        { text: 'Not now', style: 'cancel' },
+        {
+          text: 'Create quotation',
+          onPress: () => openNewQuotation(router, contact),
+        },
+      ],
+    );
+  };
+
+  if (creating) {
+    return (
+      <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
+        <AppNewCustomerForm
+          initialName={/\d/.test(query) ? '' : query}
+          initialPhone={/\d/.test(query) ? query : ''}
+          onCancel={() => setCreating(false)}
+          onCreated={handleCreated}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.topRow}>
-        <Searchbar
+      <View style={styles.searchWrap}>
+        <AppSearchBar
           placeholder="Search name or phone"
           value={query}
           onChangeText={setQuery}
-          style={styles.search}
         />
-        <IconButton icon="logout" onPress={() => void logout()} />
       </View>
 
       {loading ? (
@@ -88,7 +142,12 @@ export default function AppContactsScreen() {
           }
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <Text style={styles.empty}>No contacts found.</Text>
+            <View style={styles.emptyWrap}>
+              <Text style={styles.empty}>No contacts found.</Text>
+              <Button mode="contained" onPress={() => setCreating(true)}>
+                Create new customer
+              </Button>
+            </View>
           }
           renderItem={({ item }) => (
             <View
@@ -96,46 +155,81 @@ export default function AppContactsScreen() {
                 styles.card,
                 {
                   backgroundColor: theme.colors.surface,
-                  borderColor: theme.colors.outlineVariant ?? theme.colors.outline,
+                  borderColor:
+                    theme.colors.outlineVariant ?? theme.colors.outline,
                 },
               ]}>
-              <Text variant="titleMedium" style={styles.name}>
-                {item.name}
-              </Text>
-              <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-                {item.phone || 'No phone'}
-              </Text>
-              {[item.township, item.city].filter(Boolean).length ? (
-                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                  {[item.township, item.city].filter(Boolean).join(', ')}
+              <View style={styles.cardBody}>
+                <Text variant="titleMedium" style={styles.name}>
+                  {item.name}
                 </Text>
-              ) : null}
+                <Text
+                  variant="bodyMedium"
+                  style={{ color: theme.colors.onSurfaceVariant }}>
+                  {item.phone || 'No phone'}
+                </Text>
+                {[item.township, item.city].filter(Boolean).length ? (
+                  <Text
+                    variant="bodySmall"
+                    style={{ color: theme.colors.onSurfaceVariant }}>
+                    {[item.township, item.city].filter(Boolean).join(', ')}
+                  </Text>
+                ) : null}
+              </View>
+              <Button
+                mode="contained"
+                compact
+                icon="file-document-plus-outline"
+                onPress={() => openNewQuotation(router, item)}
+                style={styles.quoteBtn}>
+                Quote
+              </Button>
             </View>
           )}
         />
       )}
+
+      <FAB
+        icon="account-plus"
+        label="New customer"
+        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+        color={theme.colors.onPrimary}
+        onPress={() => setCreating(true)}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
+  searchWrap: {
+    paddingHorizontal: 12,
     paddingTop: 8,
-    gap: 4,
   },
-  search: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  list: { padding: 12, paddingBottom: 32, gap: 10 },
+  list: { padding: 12, paddingBottom: 100 },
   card: {
     borderWidth: 1,
     borderRadius: 12,
     padding: 14,
     marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
+  cardBody: { flex: 1, minWidth: 0 },
   name: { fontWeight: '700', marginBottom: 2 },
-  empty: { textAlign: 'center', marginTop: 40, opacity: 0.6 },
+  quoteBtn: { alignSelf: 'center' },
+  emptyWrap: {
+    alignItems: 'center',
+    marginTop: 48,
+    gap: 16,
+    paddingHorizontal: 24,
+  },
+  empty: { textAlign: 'center', opacity: 0.6 },
+  fab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 20,
+  },
 });

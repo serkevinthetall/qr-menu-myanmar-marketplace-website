@@ -1,4 +1,4 @@
-import { apiRequest } from '@/services/api';
+import { webApiRequest } from '@/services/web/client';
 import { Product } from '@/types/product';
 
 type ProductsResponse = {
@@ -38,7 +38,7 @@ export async function fetchProductsPage(
     params.set('offset', String(options.offset));
   }
   const query = params.toString() ? `?${params.toString()}` : '';
-  const response = await apiRequest<ProductsResponse>(`/products${query}`, {
+  const response = await webApiRequest<ProductsResponse>(`/products${query}`, {
     token,
   });
   const limit = options?.limit ?? response.meta?.limit ?? response.data.length;

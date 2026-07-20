@@ -36,8 +36,16 @@ import {
 } from '@/contexts/search-context';
 import { useResponsive } from '@/hooks/use-responsive';
 import { fetchCustomersPage } from '@/services/customers';
-import { fetchProductsPage } from '@/services/products';
-import { fetchQuotationDetail, fetchQuotations, createQuotation, fetchPaymentMethods } from '@/services/quotations';
+import {
+  ensureWebProductCatalog,
+  subscribeWebProductCatalog,
+} from '@/services/web/product-catalog-cache';
+import {
+  fetchQuotationDetail,
+  fetchQuotationsPage,
+  createQuotation,
+  fetchPaymentMethods,
+} from '@/services/quotations';
 import {
   getQuotationBuilderCache,
   isQuotationBuilderCacheFresh,
@@ -54,12 +62,14 @@ import {
   clearQuotationDraft,
   shouldResumeQuotationDraft,
 } from '@/utils/quotation-draft-storage';
+import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
 import { PrintFormat } from '@/utils/print-quotation';
 
 const PAGE_SIZE = 50;
-/** First page size for New Quotation progressive load. */
+/** First page size for New Quotation progressive customer load. */
 const BUILDER_PAGE_SIZE = 100;
-const BUILDER_MAX_PAGES = 10;
+/** Safety cap for background customer pages (products use unlimited catalog cache). */
+const BUILDER_MAX_CUSTOMER_PAGES = 50;
 
 type ViewMode = 'list' | 'card';
 
@@ -79,11 +89,6 @@ const COLUMNS: Column[] = [
   { key: 'paymentMethod', label: 'Payment Method', flex: 1.6 },
 ];
 
-const MONTHS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
-
 function formatMoney(value: unknown) {
   const num = Number(value ?? 0);
   const safe = Number.isFinite(num) ? num : 0;
@@ -94,39 +99,7 @@ function formatMoney(value: unknown) {
 }
 
 function formatDateTime(value: unknown) {
-  if (!value || typeof value !== 'string') {
-    return '';
-  }
-  const trimmed = value.trim();
-  if (/AM|PM/i.test(trimmed)) {
-    return trimmed;
-  }
-
-  const normalized = trimmed.replace('T', ' ').replace(/\.\d+Z?$/, '').replace(/Z$/, '');
-  const [datePart, timePart = ''] = normalized.split(' ');
-  const [year, month, day] = datePart.split('-').map(Number);
-  if (!year || !month || !day) {
-    return trimmed;
-  }
-
-  const now = new Date();
-  const sameYear = year === now.getFullYear();
-  const dateLabel = sameYear
-    ? `${MONTHS[month - 1]} ${day}`
-    : `${MONTHS[month - 1]} ${day}, ${year}`;
-
-  if (!timePart || timePart.startsWith('00:00:00')) {
-    return dateLabel;
-  }
-
-  const [hourRaw, minuteRaw] = timePart.split(':').map(Number);
-  const hours = Number.isFinite(hourRaw) ? hourRaw : 0;
-  const minutes = Number.isFinite(minuteRaw) ? minuteRaw : 0;
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const hour12 = hours % 12 || 12;
-  const minuteStr = String(minutes).padStart(2, '0');
-
-  return `${dateLabel}, ${hour12}:${minuteStr} ${period}`;
+  return formatMyanmarDateTime(value);
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -355,7 +328,8 @@ export default function QuotationScreen() {
   const [builderCustomers, setBuilderCustomers] = useState<Customer[]>([]);
   const [builderProducts, setBuilderProducts] = useState<Product[]>([]);
   const [builderPaymentMethods, setBuilderPaymentMethods] = useState<PaymentMethod[]>([]);
-  const builderPrefetchStarted = useRef(false);  const [detailId, setDetailId] = useState<string | null>(null);
+  const builderPrefetchStarted = useRef(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [detail, setDetail] = useState<QuotationDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
@@ -494,7 +468,7 @@ export default function QuotationScreen() {
           void (async () => {
             let offset = customerPage.data.length;
             let all = customerPage.data;
-            for (let page = 1; page < BUILDER_MAX_PAGES; page += 1) {
+            for (let page = 1; page < BUILDER_MAX_CUSTOMER_PAGES; page += 1) {
               if (gen !== builderLoadGen.current || !session.token) {
                 return;
               }
@@ -519,62 +493,16 @@ export default function QuotationScreen() {
           });
         }
 
-        // Phase 2: first page of products (non-blocking for Contact).
+        // Phase 2: full product catalog (shared cache, background pages).
         const needProductSpinner =
           (cached?.products.length ?? builderProductsRef.current.length) === 0;
         if (needProductSpinner) {
           setBuilderProductsLoading(true);
         }
 
-        const productPage = await fetchProductsPage(session.token, {
-          limit: BUILDER_PAGE_SIZE,
-          offset: 0,
-        });
-
-        if (gen !== builderLoadGen.current) {
-          return;
-        }
-
-        setBuilderProducts(productPage.data);
-        patchQuotationBuilderCache({
-          products: productPage.data,
-          productsComplete: !productPage.hasMore,
-        });
-        setBuilderProductsLoading(false);
-
-        // Continue products in background.
-        if (productPage.hasMore) {
-          void (async () => {
-            let offset = productPage.data.length;
-            let all = productPage.data;
-            for (let page = 1; page < BUILDER_MAX_PAGES; page += 1) {
-              if (gen !== builderLoadGen.current || !session.token) {
-                return;
-              }
-              const next = await fetchProductsPage(session.token, {
-                limit: BUILDER_PAGE_SIZE,
-                offset,
-              });
-              all = mergeById(all, next.data);
-              setBuilderProducts(all);
-              patchQuotationBuilderCache({
-                products: all,
-                productsComplete: !next.hasMore,
-              });
-              if (!next.hasMore) {
-                break;
-              }
-              offset += next.data.length;
-            }
-          })().catch(err => {
-            if (gen === builderLoadGen.current) {
-              setBuilderError(
-                err instanceof Error
-                  ? err.message
-                  : 'Failed to load remaining products.',
-              );
-            }
-          });
+        await ensureWebProductCatalog(session.token, { force });
+        if (gen === builderLoadGen.current) {
+          setBuilderProductsLoading(false);
         }
       } catch (err) {
         if (gen !== builderLoadGen.current) {
@@ -871,12 +799,40 @@ export default function QuotationScreen() {
 
     try {
       setError('');
-      const data = await fetchQuotations(session.token);
-      setQuotations(data);
+      const pageSize = 200;
+      let offset = 0;
+      let all: Quotation[] = [];
+      let hasMore = true;
+
+      while (hasMore) {
+        const page = await fetchQuotationsPage(session.token, {
+          limit: pageSize,
+          offset,
+        });
+        all = mergeById(all, page.data);
+        setQuotations(all);
+        setLoading(false);
+        hasMore = page.hasMore && page.data.length > 0;
+        offset += page.data.length;
+        if (page.data.length === 0) break;
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load quotations.');
     }
   }, [session?.token]);
+
+  useEffect(() => {
+    return subscribeWebProductCatalog(catalog => {
+      setBuilderProducts(catalog.products);
+      patchQuotationBuilderCache({
+        products: catalog.products,
+        productsComplete: catalog.complete,
+      });
+      if (catalog.products.length > 0 || catalog.complete) {
+        setBuilderProductsLoading(false);
+      }
+    });
+  }, []);
 
   const handleSaveDraft = useCallback(
     async (draft: QuotationDraft) => {

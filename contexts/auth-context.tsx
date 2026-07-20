@@ -9,12 +9,12 @@ import {
   useState,
 } from 'react';
 
-import { isSalesRepAppSurface } from '@/constants/app-surface';
+import { isSalesRepAppSurface, sessionStorageKeyForSurface } from '@/constants/app-surface';
 import { authenticateAppUser, logoutAppUser } from '@/services/app/auth';
+import { clearAppProductCatalog } from '@/services/app/product-catalog-cache';
 import { authenticateUser, isSessionValid, logoutUser } from '@/services/auth';
+import { clearWebProductCatalog } from '@/services/web/product-catalog-cache';
 import { AuthSession, AuthUser, LoginCredentials } from '@/types/auth';
-
-const SESSION_STORAGE_KEY = '@qr_shop_session';
 
 type AuthContextValue = {
   session: AuthSession | null;
@@ -30,9 +30,10 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const storageKey = sessionStorageKeyForSurface();
 
   useEffect(() => {
-    AsyncStorage.getItem(SESSION_STORAGE_KEY)
+    AsyncStorage.getItem(storageKey)
       .then(stored => {
         if (!stored) {
           return;
@@ -42,19 +43,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (isSessionValid(parsed)) {
           setSession(parsed);
         } else {
-          AsyncStorage.removeItem(SESSION_STORAGE_KEY);
+          AsyncStorage.removeItem(storageKey);
         }
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [storageKey]);
 
   const login = useCallback(async (credentials: LoginCredentials) => {
     const nextSession = isSalesRepAppSurface()
       ? await authenticateAppUser(credentials)
       : await authenticateUser(credentials);
     setSession(nextSession);
-    await AsyncStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession));
-  }, []);
+    await AsyncStorage.setItem(storageKey, JSON.stringify(nextSession));
+  }, [storageKey]);
 
   const logout = useCallback(async () => {
     if (session?.token) {
@@ -70,8 +71,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setSession(null);
-    await AsyncStorage.removeItem(SESSION_STORAGE_KEY);
-  }, [session?.token]);
+    if (isSalesRepAppSurface()) {
+      clearAppProductCatalog();
+    } else {
+      clearWebProductCatalog();
+    }
+    await AsyncStorage.removeItem(storageKey);
+  }, [session?.token, storageKey]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

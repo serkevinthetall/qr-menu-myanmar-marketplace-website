@@ -18,7 +18,12 @@ import {
   useModuleSearch,
 } from '@/contexts/search-context';
 import { useResponsive } from '@/hooks/use-responsive';
-import { fetchProducts } from '@/services/products';
+import {
+  ensureWebProductCatalog,
+  filterWebProducts,
+  subscribeWebProductCatalog,
+  WebProductCatalog,
+} from '@/services/web/product-catalog-cache';
 import { Product } from '@/types/product';
 
 const PAGE_SIZE = 50;
@@ -263,6 +268,7 @@ export default function ProductsScreen() {
   const { session } = useAuth();
   const { width } = useResponsive();
   const [products, setProducts] = useState<Product[]>([]);
+  const [catalogComplete, setCatalogComplete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -302,17 +308,10 @@ export default function ProductsScreen() {
 
   useHeaderActions(headerActions);
 
-  const filteredProducts = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) {
-      return products;
-    }
-    return products.filter(
-      product =>
-        product.name.toLowerCase().includes(term) ||
-        product.sku.toLowerCase().includes(term),
-    );
-  }, [products, query]);
+  const filteredProducts = useMemo(
+    () => filterWebProducts(products, { q: query }),
+    [products, query],
+  );
 
   const pageCount = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
@@ -364,28 +363,40 @@ export default function ProductsScreen() {
     return available / numColumns;
   }, [width, numColumns]);
 
-  const loadProducts = useCallback(async () => {
-    if (!session?.token) {
-      return;
-    }
+  const loadProducts = useCallback(
+    async (force = false) => {
+      if (!session?.token) {
+        return;
+      }
 
-    try {
-      setError('');
-      const data = await fetchProducts(session.token);
-      setProducts(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load products.');
-    }
-  }, [session?.token]);
+      try {
+        setError('');
+        await ensureWebProductCatalog(session.token, { force });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load products.');
+      }
+    },
+    [session?.token],
+  );
+
+  useEffect(() => {
+    return subscribeWebProductCatalog((catalog: WebProductCatalog) => {
+      setProducts(catalog.products);
+      setCatalogComplete(catalog.complete);
+      if (catalog.products.length > 0 || catalog.complete) {
+        setLoading(false);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     setLoading(true);
-    loadProducts().finally(() => setLoading(false));
+    loadProducts(false).finally(() => setLoading(false));
   }, [loadProducts]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadProducts();
+    await loadProducts(true);
     setRefreshing(false);
   };
 
@@ -413,6 +424,17 @@ export default function ProductsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {!catalogComplete ? (
+        <Text
+          style={{
+            paddingHorizontal: 16,
+            paddingTop: 8,
+            fontSize: 12,
+            color: theme.colors.onSurfaceVariant,
+          }}>
+          Loading full catalog…
+        </Text>
+      ) : null}
       {viewMode === 'list' ? (
         filteredProducts.length === 0 ? (
           <ScrollView

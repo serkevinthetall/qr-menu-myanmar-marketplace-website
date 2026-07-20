@@ -9,7 +9,7 @@ import {
   CustomerDetail,
   Township,
 } from '@/types/customer';
-import { apiRequest } from '@/services/api';
+import { webApiRequest } from '@/services/web/client';
 
 type CustomersResponse = {
   data: Customer[];
@@ -86,7 +86,7 @@ export async function fetchCustomersPage(
     params.set('offset', String(options.offset));
   }
   const query = params.toString() ? `?${params.toString()}` : '';
-  const response = await apiRequest<CustomersResponse>(`/customers${query}`, {
+  const response = await webApiRequest<CustomersResponse>(`/customers${query}`, {
     token,
   });
   const limit = options?.limit ?? response.meta?.limit ?? response.data.length;
@@ -103,21 +103,21 @@ export async function fetchCustomerDetail(
   token: string,
   id: string,
 ): Promise<CustomerDetail> {
-  const response = await apiRequest<CustomerDetailResponse>(`/customers/${id}`, {
+  const response = await webApiRequest<CustomerDetailResponse>(`/customers/${id}`, {
     token,
   });
   return response.data;
 }
 
 export async function fetchTownships(token: string): Promise<Township[]> {
-  const response = await apiRequest<TownshipsResponse>('/customers/townships', {
+  const response = await webApiRequest<TownshipsResponse>('/customers/townships', {
     token,
   });
   return response.data;
 }
 
 export async function fetchContactTags(token: string): Promise<ContactTag[]> {
-  const response = await apiRequest<TagsResponse>('/customers/tags', { token });
+  const response = await webApiRequest<TagsResponse>('/customers/tags', { token });
   return response.data;
 }
 
@@ -126,7 +126,7 @@ export async function searchContactsByPhone(
   phone: string,
 ): Promise<ContactSearchResult[]> {
   const query = encodeURIComponent(phone);
-  const response = await apiRequest<SearchContactsResponse>(
+  const response = await webApiRequest<SearchContactsResponse>(
     `/customers/search?phone=${query}`,
     { token },
   );
@@ -137,7 +137,7 @@ export async function createCustomer(
   token: string,
   input: CreateCustomerInput,
 ): Promise<Customer> {
-  const response = await apiRequest<CreateCustomerResponse>('/customers', {
+  const response = await webApiRequest<CreateCustomerResponse>('/customers', {
     token,
     method: 'POST',
     body: input,
@@ -149,7 +149,7 @@ export async function fetchCustomerAddresses(
   token: string,
   customerId: string,
 ): Promise<CustomerAddressesResult> {
-  const response = await apiRequest<CustomerAddressesResponse>(
+  const response = await webApiRequest<CustomerAddressesResponse>(
     `/customers/${customerId}/addresses`,
     { token },
   );
@@ -161,7 +161,7 @@ export async function createCustomerAddress(
   companyId: string,
   input: CreateAddressInput,
 ): Promise<CreateAddressResponse['data']> {
-  const response = await apiRequest<CreateAddressResponse>(
+  const response = await webApiRequest<CreateAddressResponse>(
     `/customers/${companyId}/addresses`,
     {
       token,

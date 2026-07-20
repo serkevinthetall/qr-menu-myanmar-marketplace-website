@@ -1,5 +1,5 @@
 import { AuthSession, LoginCredentials } from '@/types/auth';
-import { apiRequest } from '@/services/api';
+import { webApiRequest } from '@/services/web/client';
 
 type LoginResponse = {
   token: string;
@@ -15,10 +15,11 @@ export function isSessionValid(session: AuthSession | null): boolean {
   return new Date(session.expiresAt).getTime() > Date.now();
 }
 
+/** Website ERP login → POST /api/auth/login */
 export async function authenticateUser(
   credentials: LoginCredentials,
 ): Promise<AuthSession> {
-  const response = await apiRequest<LoginResponse>('/auth/login', {
+  const response = await webApiRequest<LoginResponse>('/auth/login', {
     method: 'POST',
     body: credentials,
   });
@@ -31,7 +32,7 @@ export async function authenticateUser(
 }
 
 export async function logoutUser(token: string): Promise<void> {
-  await apiRequest('/auth/logout', {
+  await webApiRequest('/auth/logout', {
     method: 'POST',
     token,
   });

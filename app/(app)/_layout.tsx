@@ -1,78 +1,70 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Drawer } from 'expo-router/drawer';
+import { useEffect, useMemo } from 'react';
 import { useTheme } from 'react-native-paper';
+
+import { AppMenuButton } from '@/components/app/AppMenuButton';
+import { AppShellSidebar } from '@/components/app/AppShellSidebar';
+import { AppColors } from '@/constants/colors';
+import { useAuth } from '@/contexts/auth-context';
+import { useAppTheme } from '@/contexts/theme-context';
+import { ensureAppProductCatalog } from '@/services/app/product-catalog-cache';
 
 export default function SalesRepAppLayout() {
   const theme = useTheme();
+  const { mode } = useAppTheme();
+  const { session } = useAuth();
+  const colors = AppColors[mode];
+
+  // Warm the product catalog in the background after login so Catalog /
+  // create-quote search can filter locally without reloading.
+  useEffect(() => {
+    if (!session?.token) return;
+    void ensureAppProductCatalog(session.token).catch(() => undefined);
+  }, [session?.token]);
+
+  const screenOptions = useMemo(
+    () => ({
+      headerStyle: { backgroundColor: theme.colors.primary },
+      headerTintColor: theme.colors.onPrimary,
+      headerTitleStyle: {
+        fontWeight: '700' as const,
+        color: theme.colors.onPrimary,
+      },
+      headerLeft: () => <AppMenuButton />,
+      drawerType: 'front' as const,
+      drawerStyle: {
+        width: 280,
+        backgroundColor: theme.colors.surface,
+      },
+      sceneContainerStyle: {
+        backgroundColor: theme.colors.background,
+      },
+      overlayColor: colors.drawerOverlay,
+      swipeEnabled: true,
+    }),
+    [colors.drawerOverlay, theme.colors],
+  );
 
   return (
-    <Tabs
-      screenOptions={{
-        headerStyle: { backgroundColor: theme.colors.primary },
-        headerTintColor: theme.colors.onPrimary,
-        headerTitleStyle: { fontWeight: '700' },
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
-        tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.outlineVariant ?? theme.colors.outline,
-        },
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
-      }}>
-      <Tabs.Screen
+    <Drawer
+      drawerContent={props => <AppShellSidebar {...props} />}
+      screenOptions={screenOptions}>
+      <Drawer.Screen
         name="contacts/index"
+        options={{ title: 'Contacts', drawerLabel: 'Contacts' }}
+      />
+      <Drawer.Screen
+        name="quotations"
         options={{
-          title: 'Contact',
-          tabBarLabel: 'Contact',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="account-group" color={color} size={size} />
-          ),
+          title: 'Quotes',
+          drawerLabel: 'Quotes',
+          headerShown: false,
         }}
       />
-      <Tabs.Screen
-        name="quotations/index"
-        options={{
-          title: 'Quotation',
-          tabBarLabel: 'Quotation',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons
-              name="file-document-outline"
-              color={color}
-              size={size}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
+      <Drawer.Screen
         name="products/index"
-        options={{
-          title: 'Product',
-          tabBarLabel: 'Product',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons
-              name="package-variant-closed"
-              color={color}
-              size={size}
-            />
-          ),
-        }}
+        options={{ title: 'Catalog', drawerLabel: 'Catalog' }}
       />
-      <Tabs.Screen
-        name="quotations/new"
-        options={{
-          href: null,
-          title: 'New Quotation',
-          headerShown: true,
-        }}
-      />
-      <Tabs.Screen
-        name="quotations/[id]"
-        options={{
-          href: null,
-          title: 'Quotation Detail',
-          headerShown: true,
-        }}
-      />
-    </Tabs>
+    </Drawer>
   );
 }

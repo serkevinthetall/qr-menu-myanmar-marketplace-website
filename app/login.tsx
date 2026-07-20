@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View
 import { Button, Checkbox, HelperText, Text, TextInput, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { isSalesRepAppSurface } from '@/constants/app-surface';
 import { useAuth } from '@/contexts/auth-context';
 import {
   clearSavedCredentials,
@@ -15,6 +16,7 @@ export default function LoginScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { login } = useAuth();
+  const isApp = isSalesRepAppSurface();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,13 +38,21 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     setError('');
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password;
+
+    if (!trimmedEmail || !trimmedPassword) {
+      setError('Please enter your Odoo login and password.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      await login({ email, password });
+      await login({ email: trimmedEmail, password: trimmedPassword });
 
       if (savePassword) {
-        await saveCredentials({ email, password });
+        await saveCredentials({ email: trimmedEmail, password: trimmedPassword });
       } else {
         await clearSavedCredentials();
       }
@@ -78,21 +88,24 @@ export default function LoginScreen() {
           />
 
           <Text variant="headlineSmall" style={styles.title}>
-            Sign in to QR Shop ERP
+            {isApp ? 'Field sales sign-in' : 'Sign in to QR Shop ERP'}
           </Text>
           <Text
             variant="bodyMedium"
             style={{ color: theme.colors.onSurfaceVariant, marginBottom: 20 }}>
-            Use your Odoo account credentials to continue.
+            {isApp
+              ? 'Use your Odoo login for the handheld sales app.'
+              : 'Use your Odoo account credentials to continue.'}
           </Text>
 
           <TextInput
-            label="Email"
+            label="Email or Odoo login"
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
-            autoComplete="email"
-            keyboardType="email-address"
+            autoCorrect={false}
+            autoComplete="username"
+            keyboardType="default"
             mode="outlined"
             style={styles.input}
           />

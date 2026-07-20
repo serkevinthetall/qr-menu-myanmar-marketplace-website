@@ -1,5 +1,5 @@
 import { AuthSession, LoginCredentials } from '@/types/auth';
-import { apiRequest } from '@/services/api';
+import { appApiRequest } from '@/services/app/client';
 
 type LoginResponse = {
   token: string;
@@ -7,10 +7,11 @@ type LoginResponse = {
   expiresAt: string;
 };
 
+/** Phone app login → POST /api/app/auth/login */
 export async function authenticateAppUser(
   credentials: LoginCredentials,
 ): Promise<AuthSession> {
-  const response = await apiRequest<LoginResponse>('/app/auth/login', {
+  const response = await appApiRequest<LoginResponse>('/auth/login', {
     method: 'POST',
     body: credentials,
   });
@@ -23,7 +24,7 @@ export async function authenticateAppUser(
 }
 
 export async function logoutAppUser(token: string): Promise<void> {
-  await apiRequest('/app/auth/logout', {
+  await appApiRequest('/auth/logout', {
     method: 'POST',
     token,
   });

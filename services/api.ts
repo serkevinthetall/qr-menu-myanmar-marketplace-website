@@ -1,5 +1,10 @@
 import { API_BASE_URL } from '@/constants/api';
 
+/**
+ * Low-level HTTP helper. Prefer surface-specific clients:
+ * - Phone app → `@/services/app/client` (`appApiRequest` → `/api/app/*`)
+ * - Website ERP → `@/services/web/client` (`webApiRequest` → `/api/*` web routes)
+ */
 type ApiOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   token?: string;
@@ -22,10 +27,10 @@ export async function apiRequest<T>(
       },
       body: body ? JSON.stringify(body) : undefined,
     });
-  } catch (error) {
-    const hint = ` Could not reach the API at ${API_BASE_URL}. For the sales-rep app use the ERP backend (…/api), not qr-shop-app-backend.`;
+  } catch {
+    const hint = ` Could not reach the API at ${API_BASE_URL}.`;
     throw new Error(
-      `Failed to fetch.${hint}${error instanceof Error && error.message !== 'Failed to fetch' ? ` ${error.message}` : ''}`,
+      `Failed to fetch.${hint} The API may be up, but this website origin is blocked by CORS — deploy the backend CORS update, or open DevTools → Network for the blocked request.`,
     );
   }
 

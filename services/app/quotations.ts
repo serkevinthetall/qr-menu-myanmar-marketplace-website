@@ -1,5 +1,5 @@
-import { apiRequest } from '@/services/api';
 import { Quotation, QuotationDetail } from '@/types/quotation';
+import { appApiRequest } from '@/services/app/client';
 
 type ListResponse = { data: Quotation[] };
 type DetailResponse = { data: QuotationDetail };
@@ -27,7 +27,7 @@ export async function fetchAppQuotations(
   options?: { q?: string },
 ): Promise<Quotation[]> {
   const query = options?.q ? `?q=${encodeURIComponent(options.q)}` : '';
-  const response = await apiRequest<ListResponse>(`/app/quotations${query}`, {
+  const response = await appApiRequest<ListResponse>(`/quotations${query}`, {
     token,
   });
   return response.data;
@@ -37,7 +37,7 @@ export async function fetchAppQuotationDetail(
   token: string,
   id: string,
 ): Promise<QuotationDetail> {
-  const response = await apiRequest<DetailResponse>(`/app/quotations/${id}`, {
+  const response = await appApiRequest<DetailResponse>(`/quotations/${id}`, {
     token,
   });
   return response.data;
@@ -46,8 +46,8 @@ export async function fetchAppQuotationDetail(
 export async function fetchAppPaymentMethods(
   token: string,
 ): Promise<{ id: string; name: string }[]> {
-  const response = await apiRequest<PaymentMethodsResponse>(
-    '/app/quotations/payment-methods',
+  const response = await appApiRequest<PaymentMethodsResponse>(
+    '/quotations/payment-methods',
     { token },
   );
   return response.data;
@@ -57,7 +57,7 @@ export async function createAppQuotation(
   token: string,
   input: AppCreateQuotationInput,
 ): Promise<Quotation> {
-  const response = await apiRequest<CreateResponse>('/app/quotations', {
+  const response = await appApiRequest<CreateResponse>('/quotations', {
     method: 'POST',
     token,
     body: input,

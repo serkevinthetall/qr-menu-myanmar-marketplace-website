@@ -19,7 +19,10 @@ export async function loadSavedCredentials(): Promise<SavedCredentials | null> {
       return null;
     }
 
-    return parsed;
+    return {
+      email: String(parsed.email).trim(),
+      password: String(parsed.password),
+    };
   } catch {
     return null;
   }
