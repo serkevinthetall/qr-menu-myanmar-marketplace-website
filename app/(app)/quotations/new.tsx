@@ -1,7 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   FlatList,
   Pressable,
   ScrollView,
@@ -11,19 +10,25 @@ import {
 import {
   ActivityIndicator,
   Button,
+  Dialog,
   HelperText,
   Icon,
   IconButton,
+  Portal,
   Text,
   TextInput,
   useTheme,
 } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   AppSearchBar,
   AppSearchViewToggle,
+  appSearchWrapStyle,
 } from '@/components/app/AppSearchBar';
+import { QuotationPrintPreview } from '@/components/quotation/QuotationPrintPreview';
 import { useAuth } from '@/contexts/auth-context';
+import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { DropdownField } from '@/components/ui/DropdownField';
 import {
   AppContact,
@@ -40,7 +45,9 @@ import {
 import {
   createAppQuotation,
   fetchAppPaymentMethods,
+  fetchAppQuotationDetail,
 } from '@/services/app/quotations';
+import { QuotationDetail } from '@/types/quotation';
 
 const SALE_PERSON_OPTIONS = [
   'Me Me',
@@ -75,6 +82,7 @@ function addressLines(address: AppContactAddress): string {
 
 export default function AppNewQuotationScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const router = useRouter();
   const params = useLocalSearchParams<{
@@ -111,6 +119,13 @@ export default function AppNewQuotationScreen() {
   const [saving, setSaving] = useState(false);
   const [orderExpanded, setOrderExpanded] = useState(false);
   const [productView, setProductView] = useState<'list' | 'grid'>('list');
+  const [printDetail, setPrintDetail] = useState<QuotationDetail | null>(null);
+  const [loadingPrint, setLoadingPrint] = useState(false);
+  const [printPrompt, setPrintPrompt] = useState<{
+    id: string;
+    number: string;
+  } | null>(null);
+  const savedQuoteIdRef = useRef<string | null>(null);
 
   const selectedAddress = useMemo(
     () => addresses.find(item => item.id === shippingPartnerId) ?? null,
@@ -277,6 +292,37 @@ export default function AppNewQuotationScreen() {
     return false;
   };
 
+  const goToSavedQuote = useCallback(() => {
+    const id = savedQuoteIdRef.current;
+    if (id) {
+      router.replace(`/(app)/quotations/${id}`);
+      return;
+    }
+    router.replace('/(app)/quotations');
+  }, [router]);
+
+  const openThermalPrintPreview = useCallback(
+    async (quotationId: string) => {
+      if (!session?.token) return;
+      setLoadingPrint(true);
+      setError('');
+      try {
+        const detail = await fetchAppQuotationDetail(session.token, quotationId);
+        setPrintDetail(detail);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Saved, but could not open print preview.',
+        );
+        goToSavedQuote();
+      } finally {
+        setLoadingPrint(false);
+      }
+    },
+    [session?.token, goToSavedQuote],
+  );
+
   const handleSave = useCallback(async () => {
     if (!session?.token || !customer) return;
     setError('');
@@ -325,12 +371,8 @@ export default function AppNewQuotationScreen() {
         })),
       });
 
-      Alert.alert('Saved', `Quotation ${created.number} created.`, [
-        {
-          text: 'Open',
-          onPress: () => router.replace(`/(app)/quotations/${created.id}`),
-        },
-      ]);
+      savedQuoteIdRef.current = created.id;
+      setPrintPrompt({ id: created.id, number: created.number });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save quotation.');
     } finally {
@@ -345,11 +387,65 @@ export default function AppNewQuotationScreen() {
     preferredDeliveryDate,
     deliveryNote,
     cart,
-    router,
   ]);
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
+      <Portal>
+        <Dialog
+          visible={!!printPrompt}
+          dismissable={false}
+          onDismiss={() => undefined}>
+          <Dialog.Title>Print quotation?</Dialog.Title>
+          <Dialog.Content>
+            <Text>
+              Quotation {printPrompt?.number} was saved successfully. Do you want
+              to print this quotation on thermal paper?
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button
+              onPress={() => {
+                setPrintPrompt(null);
+                goToSavedQuote();
+              }}>
+              No
+            </Button>
+            <Button
+              mode="contained"
+              onPress={() => {
+                const id = printPrompt?.id;
+                setPrintPrompt(null);
+                if (id) {
+                  void openThermalPrintPreview(id);
+                }
+              }}>
+              Yes
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      {loadingPrint ? (
+        <View style={styles.printLoading}>
+          <ActivityIndicator size="large" />
+          <Text style={{ marginTop: 12, color: theme.colors.onSurfaceVariant }}>
+            Preparing thermal preview…
+          </Text>
+        </View>
+      ) : null}
+
+      {printDetail ? (
+        <QuotationPrintPreview
+          detail={printDetail}
+          format="thermal"
+          onClose={() => {
+            setPrintDetail(null);
+            goToSavedQuote();
+          }}
+        />
+      ) : null}
+
       {/* Compact progress — equal columns, no text wrapping */}
       <View style={styles.steps}>
         {STEPS.map((item, index) => {
@@ -417,12 +513,16 @@ export default function AppNewQuotationScreen() {
             },
           ]}>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={styles.contextName} numberOfLines={1}>
+            <CustomerNameText size="title" style={styles.contextName}>
               {customer.name}
-            </Text>
+            </CustomerNameText>
             <Text
-              style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}
-              numberOfLines={2}>
+              style={{
+                color: theme.colors.onSurfaceVariant,
+                fontSize: 12,
+                lineHeight: 20,
+                paddingBottom: 2,
+              }}>
               {selectedAddress
                 ? addressLines(selectedAddress) || selectedAddress.label
                 : 'Pick delivery location'}
@@ -447,16 +547,18 @@ export default function AppNewQuotationScreen() {
       {step === 'customer' ? (
         <View style={styles.flex}>
           <Text style={styles.hint}>Search and tap a customer</Text>
-          <View style={styles.searchWrap}>
+          <View style={appSearchWrapStyle}>
             <AppSearchBar
               placeholder="Name or phone"
               value={contactQuery}
               onChangeText={setContactQuery}
             />
-          </View>          {loadingContacts ? (
+          </View>
+          {loadingContacts ? (
             <ActivityIndicator style={{ marginTop: 24 }} />
           ) : (
             <FlatList
+              style={styles.flex}
               data={contacts}
               keyExtractor={item => item.id}
               contentContainerStyle={styles.list}
@@ -474,9 +576,16 @@ export default function AppNewQuotationScreen() {
                       borderColor: theme.colors.outline,
                     },
                   ]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.cardTitle}>{item.name}</Text>
-                    <Text style={{ color: theme.colors.onSurfaceVariant }}>
+                  <View style={{ flex: 1, minWidth: 0, paddingBottom: 2 }}>
+                    <CustomerNameText size="title" style={{ fontWeight: '700' }}>
+                      {item.name}
+                    </CustomerNameText>
+                    <Text
+                      style={{
+                        color: theme.colors.onSurfaceVariant,
+                        lineHeight: 22,
+                        paddingBottom: 2,
+                      }}>
                       {item.phone || 'No phone'}
                     </Text>
                     {item.township || item.city ? (
@@ -485,6 +594,8 @@ export default function AppNewQuotationScreen() {
                           color: theme.colors.onSurfaceVariant,
                           marginTop: 4,
                           fontSize: 12,
+                          lineHeight: 20,
+                          paddingBottom: 2,
                         }}>
                         {[item.township, item.city].filter(Boolean).join(', ')}
                       </Text>
@@ -506,9 +617,11 @@ export default function AppNewQuotationScreen() {
             <ActivityIndicator style={{ marginTop: 24 }} />
           ) : (
             <FlatList
+              style={styles.flex}
               data={addresses}
               keyExtractor={item => item.id}
               contentContainerStyle={styles.list}
+              keyboardShouldPersistTaps="handled"
               ListEmptyComponent={
                 <Text style={styles.empty}>No delivery locations for this customer.</Text>
               }
@@ -561,14 +674,23 @@ export default function AppNewQuotationScreen() {
               }}
             />
           )}
-          <Button
-            mode="contained"
-            disabled={!shippingPartnerId || loadingAddresses}
-            onPress={() => setStep('products')}
-            style={styles.footerBtn}
-            contentStyle={styles.footerBtnContent}>
-            Continue to products
-          </Button>
+          <View
+            style={[
+              styles.stickyFooter,
+              {
+                backgroundColor: theme.colors.surface,
+                borderTopColor: theme.colors.outline,
+                paddingBottom: Math.max(insets.bottom, 12),
+              },
+            ]}>
+            <Button
+              mode="contained"
+              disabled={!shippingPartnerId || loadingAddresses}
+              onPress={() => setStep('products')}
+              contentStyle={styles.footerBtnContent}>
+              Continue to products
+            </Button>
+          </View>
         </View>
       ) : null}
 
@@ -576,7 +698,7 @@ export default function AppNewQuotationScreen() {
       {step === 'products' ? (
         <View style={styles.flex}>
           <Text style={styles.hint}>Tap a product to add it</Text>
-          <View style={styles.searchWrap}>
+          <View style={appSearchWrapStyle}>
             <AppSearchBar
               placeholder="Search product or SKU"
               value={productQuery}
@@ -588,10 +710,12 @@ export default function AppNewQuotationScreen() {
                 />
               }
             />
-          </View>          {loadingProducts ? (
+          </View>
+          {loadingProducts ? (
             <ActivityIndicator style={{ marginTop: 24 }} />
           ) : (
             <FlatList
+              style={styles.flex}
               key={productView}
               data={products}
               keyExtractor={item => item.id}
@@ -599,7 +723,7 @@ export default function AppNewQuotationScreen() {
               columnWrapperStyle={
                 productView === 'grid' ? styles.gridRow : undefined
               }
-              contentContainerStyle={styles.list}
+              contentContainerStyle={styles.listWithSheet}
               keyboardShouldPersistTaps="handled"
               ListEmptyComponent={
                 <Text style={styles.empty}>No products found.</Text>
@@ -622,14 +746,18 @@ export default function AppNewQuotationScreen() {
                             : theme.colors.outline,
                         },
                       ]}>
-                      <Text style={styles.cardTitle} numberOfLines={3}>
+                      <CustomerNameText
+                        size="title"
+                        style={styles.cardTitle}
+                        numberOfLines={4}>
                         {item.name}
-                      </Text>
+                      </CustomerNameText>
                       <Text
                         style={{
                           color: theme.colors.onSurfaceVariant,
                           marginTop: 6,
                           fontSize: 12,
+                          lineHeight: 18,
                         }}
                         numberOfLines={1}>
                         {item.sku || '—'}
@@ -680,14 +808,18 @@ export default function AppNewQuotationScreen() {
                           : theme.colors.outline,
                       },
                     ]}>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={styles.cardTitle} numberOfLines={2}>
+                    <View style={{ flex: 1, minWidth: 0, paddingBottom: 2 }}>
+                      <CustomerNameText
+                        size="title"
+                        style={styles.cardTitle}
+                        numberOfLines={3}>
                         {item.name}
-                      </Text>
+                      </CustomerNameText>
                       <Text
                         style={{
                           color: theme.colors.onSurfaceVariant,
                           marginTop: 4,
+                          lineHeight: 20,
                         }}>
                         {formatMoney(item.price)} MMK
                         {item.sku ? ` · ${item.sku}` : ''}
@@ -847,9 +979,59 @@ export default function AppNewQuotationScreen() {
       {/* STEP 4 — Review & save */}
       {step === 'confirm' ? (
         <ScrollView
-          contentContainerStyle={styles.confirm}
+          contentContainerStyle={[
+            styles.confirm,
+            { paddingBottom: Math.max(insets.bottom, 24) + 16 },
+          ]}
           keyboardShouldPersistTaps="handled">
-          <Text style={styles.sectionTitle}>Products ordered</Text>
+          <Text style={styles.sectionTitle}>Sale & payment</Text>
+          <View style={styles.fieldBlock}>
+            <DropdownField
+              label="Sale person *"
+              value={salePersonName}
+              options={[...SALE_PERSON_OPTIONS]}
+              onChange={setSalePersonName}
+              placeholder="Select sale person"
+              showClearOption={false}
+              sortOptions={false}
+            />
+          </View>
+          <View style={styles.fieldBlock}>
+            <DropdownField
+              label="Payment method *"
+              value={
+                paymentMethods.find(method => method.id === paymentMethodLineId)
+                  ?.name ?? ''
+              }
+              options={paymentMethods.map(method => method.name)}
+              onChange={name => {
+                const match = paymentMethods.find(method => method.name === name);
+                setPaymentMethodLineId(match?.id ?? '');
+              }}
+              placeholder="Select payment method"
+              showClearOption={false}
+              sortOptions={false}
+            />
+          </View>
+
+          <Text style={[styles.sectionTitle, { marginTop: 8 }]}>Delivery *</Text>
+          <TextInput
+            mode="outlined"
+            label="Date (YYYY-MM-DD)"
+            value={preferredDeliveryDate}
+            onChangeText={setPreferredDeliveryDate}
+            style={styles.input}
+          />
+          <TextInput
+            mode="outlined"
+            label="Notes"
+            value={deliveryNote}
+            onChangeText={setDeliveryNote}
+            multiline
+            style={styles.input}
+          />
+
+          <Text style={[styles.sectionTitle, { marginTop: 8 }]}>Products ordered</Text>
           {cart.map(line => (
             <View
               key={line.product.id}
@@ -885,51 +1067,6 @@ export default function AppNewQuotationScreen() {
             Edit products
           </Button>
 
-          <DropdownField
-            label="Sale person *"
-            value={salePersonName}
-            options={[...SALE_PERSON_OPTIONS]}
-            onChange={setSalePersonName}
-            placeholder="Select sale person"
-            showClearOption={false}
-            sortOptions={false}
-          />
-
-          <View style={{ height: 12 }} />
-
-          <DropdownField
-            label="Payment *"
-            value={
-              paymentMethods.find(method => method.id === paymentMethodLineId)
-                ?.name ?? ''
-            }
-            options={paymentMethods.map(method => method.name)}
-            onChange={name => {
-              const match = paymentMethods.find(method => method.name === name);
-              setPaymentMethodLineId(match?.id ?? '');
-            }}
-            placeholder="Select payment method"
-            showClearOption={false}
-            sortOptions={false}
-          />
-
-          <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Delivery *</Text>
-          <TextInput
-            mode="outlined"
-            label="Date (YYYY-MM-DD)"
-            value={preferredDeliveryDate}
-            onChangeText={setPreferredDeliveryDate}
-            style={styles.input}
-          />
-          <TextInput
-            mode="outlined"
-            label="Notes"
-            value={deliveryNote}
-            onChangeText={setDeliveryNote}
-            multiline
-            style={styles.input}
-          />
-
           <Button
             mode="contained"
             loading={saving}
@@ -948,6 +1085,13 @@ export default function AppNewQuotationScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   flex: { flex: 1 },
+  printLoading: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 110,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
   steps: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -975,13 +1119,13 @@ const styles = StyleSheet.create({
   },
   contextBar: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 8,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  contextName: { fontWeight: '800', fontSize: 15 },
+  contextName: { fontWeight: '800' },
   hint: {
     marginHorizontal: 16,
     marginTop: 8,
@@ -989,8 +1133,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-  searchWrap: { paddingHorizontal: 12, marginTop: 6 },
-  list: { padding: 12, paddingBottom: 110 },
+  list: { padding: 12, paddingBottom: 24 },
+  listWithSheet: { padding: 12, paddingBottom: 16 },
+  stickyFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  fieldBlock: { marginBottom: 14 },
   gridRow: { gap: 10 },
   gridCard: {
     flex: 1,
@@ -998,7 +1148,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     marginBottom: 10,
-    minHeight: 140,
+    minHeight: 150,
+    overflow: 'visible',
   },
   bigCard: {
     borderWidth: 1,
@@ -1006,8 +1157,9 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 10,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 8,
+    overflow: 'visible',
   },
   locationCard: {
     borderWidth: 2,
@@ -1021,7 +1173,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  cardTitle: { fontWeight: '700', fontSize: 15 },
+  cardTitle: { fontWeight: '700' },
   qtyRow: { flexDirection: 'row', alignItems: 'center' },
   qtyValue: {
     minWidth: 28,

@@ -92,48 +92,53 @@ export function DropdownField({
         <Modal
           visible={open}
           onDismiss={() => setOpen(false)}
-          contentContainerStyle={[
-            styles.modal,
-            { backgroundColor: theme.colors.surface },
-          ]}>
-          <Text variant="titleMedium" style={styles.modalTitle}>
-            {label || placeholder}
-          </Text>
-          <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
-            {showClearOption ? (
-              <Pressable
-                onPress={() => pick('')}
-                style={({ pressed }) => [
-                  styles.option,
-                  pressed && { backgroundColor: theme.colors.surfaceVariant },
-                ]}>
-                <Text style={{ color: theme.colors.onSurfaceVariant }}>{clearLabel}</Text>
-              </Pressable>
-            ) : null}
-            {sortedOptions.map(option => (
-              <Pressable
-                key={option}
-                onPress={() => pick(option)}
-                style={({ pressed }) => [
-                  styles.option,
-                  value === option && {
-                    backgroundColor: theme.colors.primaryContainer,
-                  },
-                  pressed && { backgroundColor: theme.colors.surfaceVariant },
-                ]}>
-                <Text
-                  style={{
-                    color:
-                      value === option
-                        ? theme.colors.onPrimaryContainer
-                        : theme.colors.onSurface,
-                    fontWeight: value === option ? '600' : '400',
-                  }}>
-                  {option}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+          contentContainerStyle={styles.modalHost}>
+          <View
+            style={[
+              styles.modal,
+              { backgroundColor: theme.colors.surface },
+            ]}>
+            <Text variant="titleMedium" style={styles.modalTitle}>
+              {label || placeholder}
+            </Text>
+            <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
+              {showClearOption ? (
+                <Pressable
+                  onPress={() => pick('')}
+                  style={({ pressed }) => [
+                    styles.option,
+                    pressed && { backgroundColor: theme.colors.surfaceVariant },
+                  ]}>
+                  <Text style={{ color: theme.colors.onSurfaceVariant }}>
+                    {clearLabel}
+                  </Text>
+                </Pressable>
+              ) : null}
+              {sortedOptions.map(option => (
+                <Pressable
+                  key={option}
+                  onPress={() => pick(option)}
+                  style={({ pressed }) => [
+                    styles.option,
+                    value === option && {
+                      backgroundColor: theme.colors.primaryContainer,
+                    },
+                    pressed && { backgroundColor: theme.colors.surfaceVariant },
+                  ]}>
+                  <Text
+                    style={{
+                      color:
+                        value === option
+                          ? theme.colors.onPrimaryContainer
+                          : theme.colors.onSurface,
+                      fontWeight: value === option ? '600' : '400',
+                    }}>
+                    {option}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
         </Modal>
       </Portal>
     </View>
@@ -165,10 +170,16 @@ const styles = StyleSheet.create({
   headerField: {
     minWidth: 120,
   },
+  modalHost: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    backgroundColor: 'transparent',
+  },
   modal: {
-    alignSelf: 'center',
-    width: 320,
-    maxWidth: '92%',
+    width: '100%',
+    maxWidth: 360,
     maxHeight: '70%',
     borderRadius: 16,
     padding: 12,

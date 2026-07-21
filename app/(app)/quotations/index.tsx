@@ -14,7 +14,12 @@ import {
   useTheme,
 } from 'react-native-paper';
 
-import { AppSearchBar } from '@/components/app/AppSearchBar';
+import {
+  AppFloatingSearchHeader,
+  AppSearchBar,
+  APP_FLOATING_SEARCH_INSET,
+} from '@/components/app/AppSearchBar';
+import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { getQuotationStatusColors } from '@/constants/status-colors';
 import { useAuth } from '@/contexts/auth-context';
 import { useAppTheme } from '@/contexts/theme-context';
@@ -70,14 +75,6 @@ export default function AppQuotationsScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.searchWrap}>
-        <AppSearchBar
-          placeholder="Search number or customer"
-          value={query}
-          onChangeText={setQuery}
-        />
-      </View>
-
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator />
@@ -127,12 +124,9 @@ export default function AppQuotationsScreen() {
                     </Text>
                   </View>
                 </View>
-                <Text
-                  variant="bodyMedium"
-                  numberOfLines={1}
-                  style={{ color: theme.colors.onSurfaceVariant }}>
-                  {item.customer || '—'}
-                </Text>
+                <CustomerNameText muted>
+                  {item.customer?.trim() || '—'}
+                </CustomerNameText>
                 <Text variant="titleSmall" style={styles.total}>
                   {formatMoney(item.total)} MMK
                 </Text>
@@ -141,6 +135,14 @@ export default function AppQuotationsScreen() {
           }}
         />
       )}
+
+      <AppFloatingSearchHeader>
+        <AppSearchBar
+          placeholder="Search number or customer"
+          value={query}
+          onChangeText={setQuery}
+        />
+      </AppFloatingSearchHeader>
 
       <FAB
         icon="plus"
@@ -155,29 +157,36 @@ export default function AppQuotationsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  searchWrap: { paddingHorizontal: 12, paddingTop: 8 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  list: { padding: 12, paddingBottom: 96 },
+  list: {
+    paddingHorizontal: 12,
+    paddingTop: APP_FLOATING_SEARCH_INSET,
+    paddingBottom: 96,
+  },
   card: {
     borderWidth: 1,
     borderRadius: 12,
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 16,
     marginBottom: 10,
+    overflow: 'visible',
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 8,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   number: { fontWeight: '800', flex: 1 },
   badge: {
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    flexShrink: 0,
   },
-  total: { marginTop: 8, fontWeight: '700' },
+  total: { marginTop: 10, fontWeight: '700' },
   empty: { textAlign: 'center', marginTop: 40, opacity: 0.6 },
   fab: { position: 'absolute', right: 16, bottom: 20 },
 });

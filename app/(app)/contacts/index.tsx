@@ -16,7 +16,11 @@ import {
 } from 'react-native-paper';
 
 import { AppNewCustomerForm } from '@/components/app/AppNewCustomerForm';
-import { AppSearchBar } from '@/components/app/AppSearchBar';
+import {
+  AppFloatingSearchHeader,
+  AppSearchBar,
+  APP_FLOATING_SEARCH_INSET,
+} from '@/components/app/AppSearchBar';
 import { useAuth } from '@/contexts/auth-context';
 import { AppContact, fetchAppContacts } from '@/services/app/contacts';
 
@@ -111,14 +115,6 @@ export default function AppContactsScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.searchWrap}>
-        <AppSearchBar
-          placeholder="Search name or phone"
-          value={query}
-          onChangeText={setQuery}
-        />
-      </View>
-
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator />
@@ -149,45 +145,67 @@ export default function AppContactsScreen() {
               </Button>
             </View>
           }
-          renderItem={({ item }) => (
-            <View
-              style={[
-                styles.card,
-                {
-                  backgroundColor: theme.colors.surface,
-                  borderColor:
-                    theme.colors.outlineVariant ?? theme.colors.outline,
-                },
-              ]}>
-              <View style={styles.cardBody}>
-                <Text variant="titleMedium" style={styles.name}>
-                  {item.name}
-                </Text>
-                <Text
-                  variant="bodyMedium"
-                  style={{ color: theme.colors.onSurfaceVariant }}>
-                  {item.phone || 'No phone'}
-                </Text>
-                {[item.township, item.city].filter(Boolean).length ? (
-                  <Text
-                    variant="bodySmall"
-                    style={{ color: theme.colors.onSurfaceVariant }}>
-                    {[item.township, item.city].filter(Boolean).join(', ')}
+          renderItem={({ item }) => {
+            const location = [item.township, item.city]
+              .map(part => part?.trim())
+              .filter(Boolean)
+              .join(', ');
+
+            return (
+              <View
+                style={[
+                  styles.card,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor:
+                      theme.colors.outlineVariant ?? theme.colors.outline,
+                  },
+                ]}>
+                <View style={styles.cardBody}>
+                  <Text variant="titleMedium" style={styles.name}>
+                    {item.name}
                   </Text>
-                ) : null}
+                  <Text
+                    variant="bodyMedium"
+                    style={[
+                      styles.metaText,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}>
+                    {item.phone || 'No phone'}
+                  </Text>
+                  {location ? (
+                    <Text
+                      variant="bodySmall"
+                      style={[
+                        styles.locationText,
+                        { color: theme.colors.onSurfaceVariant },
+                      ]}>
+                      {location}
+                    </Text>
+                  ) : null}
+                </View>
+                <Button
+                  mode="contained"
+                  compact
+                  icon="file-document-plus-outline"
+                  onPress={() => openNewQuotation(router, item)}
+                  style={styles.quoteBtn}
+                  contentStyle={styles.quoteBtnContent}>
+                  Quote
+                </Button>
               </View>
-              <Button
-                mode="contained"
-                compact
-                icon="file-document-plus-outline"
-                onPress={() => openNewQuotation(router, item)}
-                style={styles.quoteBtn}>
-                Quote
-              </Button>
-            </View>
-          )}
+            );
+          }}
         />
       )}
+
+      <AppFloatingSearchHeader>
+        <AppSearchBar
+          placeholder="Search name or phone"
+          value={query}
+          onChangeText={setQuery}
+        />
+      </AppFloatingSearchHeader>
 
       <FAB
         icon="account-plus"
@@ -202,24 +220,48 @@ export default function AppContactsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  searchWrap: {
-    paddingHorizontal: 12,
-    paddingTop: 8,
-  },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  list: { padding: 12, paddingBottom: 100 },
+  list: {
+    paddingHorizontal: 12,
+    paddingTop: APP_FLOATING_SEARCH_INSET,
+    paddingBottom: 100,
+  },
   card: {
     borderWidth: 1,
     borderRadius: 12,
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 16,
     marginBottom: 10,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 10,
+    overflow: 'visible',
   },
-  cardBody: { flex: 1, minWidth: 0 },
-  name: { fontWeight: '700', marginBottom: 2 },
-  quoteBtn: { alignSelf: 'center' },
+  cardBody: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 4,
+  },
+  name: {
+    fontWeight: '700',
+    marginBottom: 4,
+    lineHeight: 24,
+  },
+  metaText: {
+    lineHeight: 22,
+  },
+  locationText: {
+    marginTop: 6,
+    lineHeight: 22,
+  },
+  quoteBtn: {
+    alignSelf: 'center',
+    marginTop: 2,
+  },
+  quoteBtnContent: {
+    height: 40,
+  },
   emptyWrap: {
     alignItems: 'center',
     marginTop: 48,

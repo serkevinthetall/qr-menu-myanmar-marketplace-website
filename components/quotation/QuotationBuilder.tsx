@@ -21,6 +21,7 @@ import {
 import { CreateContactView } from '@/components/contact/CreateContactView';
 import { ProductThumb } from '@/components/ui/ProductThumb';
 import { CalendarField } from '@/components/ui/CalendarField';
+import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { DropdownField } from '@/components/ui/DropdownField';
 import { ResizableDivider } from '@/components/ui/ResizableDivider';
 import { SearchableDropdownField } from '@/components/ui/SearchableDropdownField';
@@ -1282,16 +1283,9 @@ export function QuotationBuilder({
             size={20}
             color={theme.colors.onSurfaceVariant}
           />
-          <Text
-            style={{
-              flex: 1,
-              color: customer
-                ? theme.colors.onSurface
-                : theme.colors.onSurfaceVariant,
-            }}
-            numberOfLines={1}>
+          <CustomerNameText style={{ flex: 1 }}>
             {customer ? customer.name : 'Select a customer'}
-          </Text>
+          </CustomerNameText>
           <Icon
             source="chevron-down"
             size={22}

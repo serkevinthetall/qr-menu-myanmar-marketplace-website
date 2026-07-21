@@ -113,6 +113,13 @@ function buildA4Html(detail: QuotationDetail): string {
       gap: 20px;
       margin-bottom: 22px;
     }
+    .company-logo {
+      width: 96px;
+      height: 96px;
+      object-fit: contain;
+      display: block;
+      margin-bottom: 8px;
+    }
     .company-name { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
     .company-meta { color: #64748b; font-size: 10px; line-height: 1.5; }
     .doc-box {
@@ -216,7 +223,11 @@ function buildA4Html(detail: QuotationDetail): string {
   <div class="page">
     <div class="top">
       <div>
-        <div class="company-name">${escapeHtml(COMPANY.name)}</div>
+        <img
+          src="${QR_SHOP_LOGO_DATA_URI}"
+          alt="QR Shop Myanmar"
+          class="company-logo"
+        />
         <div class="company-meta">
           ${escapeHtml(COMPANY.address)}<br />
           ${escapeHtml(COMPANY.phone)}
@@ -399,18 +410,20 @@ function buildThermalHtml(detail: QuotationDetail): string {
     .center { text-align: center; }
     .brand-row {
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      margin-bottom: 4px;
+      gap: 2px;
+      margin-bottom: 6px;
     }
     .brand-logo {
-      width: 44px;
-      height: 44px;
+      width: 72px;
+      height: 72px;
       object-fit: contain;
       flex-shrink: 0;
     }
-    .brand { font-size: 18px; font-weight: 700; letter-spacing: 0.5px; }
+    .brand { display: none; }
+
     .meta { font-size: 11px; margin-top: 4px; color: #000; }
     .divider {
       border: none;
@@ -536,8 +549,7 @@ function buildThermalHtml(detail: QuotationDetail): string {
   <div class="receipt">
     <div class="center">
       <div class="brand-row">
-        <img src="${QR_SHOP_LOGO_DATA_URI}" alt="" class="brand-logo" />
-        <div class="brand">QR SHOP</div>
+        <img src="${QR_SHOP_LOGO_DATA_URI}" alt="QR Shop Myanmar" class="brand-logo" />
       </div>
       <div class="meta">QUOTE # ${escapeHtml(detail.number)} · ${formatDate(detail.orderDate)}</div>
     </div>
@@ -628,25 +640,39 @@ export function printHtmlDocument(html: string): boolean {
   const cleanup = () => {
     window.setTimeout(() => {
       if (iframe.parentNode) {
-        document.body.removeChild(iframe);
+        iframe.parentNode.removeChild(iframe);
       }
-    }, 500);
+    }, 1000);
   };
 
-  const triggerPrint = () => {
-    frameWindow?.focus();
-    frameWindow?.print();
-    cleanup();
+  const runPrint = () => {
+    try {
+      frameWindow?.focus();
+      frameWindow?.print();
+    } finally {
+      cleanup();
+    }
   };
 
-  if (frameDoc.readyState === 'complete') {
-    window.setTimeout(triggerPrint, 150);
-  } else {
-    iframe.onload = () => window.setTimeout(triggerPrint, 150);
-    window.setTimeout(triggerPrint, 500);
+  // Images (logo) need a tick to load before print.
+  window.setTimeout(runPrint, 250);
+  return true;
+}
+
+/** Print on web (iframe) or native (expo-print → system / POS dialog). */
+export async function printHtml(html: string): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    return printHtmlDocument(html);
   }
 
-  return true;
+  try {
+    const Print = await import('expo-print');
+    await Print.printAsync({ html });
+    return true;
+  } catch (error) {
+    console.error('[print] Failed to print:', error);
+    return false;
+  }
 }
 
 /** @deprecated Use buildPrintHtml + print preview modal instead. */

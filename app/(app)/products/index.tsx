@@ -15,9 +15,12 @@ import {
 } from 'react-native-paper';
 
 import {
+  AppFloatingSearchHeader,
   AppSearchBar,
   AppSearchViewToggle,
+  APP_FLOATING_SEARCH_WITH_CHIPS_INSET,
 } from '@/components/app/AppSearchBar';
+import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { useAuth } from '@/contexts/auth-context';
 import {
   AppProductCatalog,
@@ -87,46 +90,6 @@ export default function AppProductsScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.searchWrap}>
-        <AppSearchBar
-          placeholder="Search products or SKU"
-          value={query}
-          onChangeText={setQuery}
-          right={
-            <AppSearchViewToggle mode={viewMode} onChange={setViewMode} />
-          }
-        />
-      </View>
-
-      <View style={styles.chipsWrap}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.chipsScroll}
-          contentContainerStyle={styles.chips}
-          keyboardShouldPersistTaps="handled">
-          {categoryChips.map(cat => (
-            <Chip
-              key={cat || 'all'}
-              selected={category === cat}
-              showSelectedCheck={false}
-              compact
-              onPress={() => setCategory(cat)}
-              style={styles.chip}
-              textStyle={styles.chipText}>
-              {cat || 'All'}
-            </Chip>
-          ))}
-        </ScrollView>
-      </View>
-
-      {syncing ? (
-        <Text
-          style={[styles.syncHint, { color: theme.colors.onSurfaceVariant }]}>
-          Loading full catalog…
-        </Text>
-      ) : null}
-
       {loading && !catalog?.products.length ? (
         <View style={styles.center}>
           <ActivityIndicator />
@@ -153,6 +116,17 @@ export default function AppProductsScreen() {
             />
           }
           contentContainerStyle={styles.list}
+          ListHeaderComponent={
+            syncing ? (
+              <Text
+                style={[
+                  styles.syncHint,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}>
+                Loading full catalog…
+              </Text>
+            ) : null
+          }
           ListEmptyComponent={
             <Text style={styles.empty}>No products found.</Text>
           }
@@ -166,42 +140,95 @@ export default function AppProductsScreen() {
                     theme.colors.outlineVariant ?? theme.colors.outline,
                 },
               ]}>
-              <Text
-                variant="titleMedium"
+              <CustomerNameText
+                size="title"
                 style={styles.name}
-                numberOfLines={viewMode === 'grid' ? 3 : 2}>
+                numberOfLines={viewMode === 'grid' ? 4 : 3}>
                 {item.name}
-              </Text>
+              </CustomerNameText>
               <Text
-                variant="bodySmall"
-                style={{ color: theme.colors.onSurfaceVariant }}
+                style={[
+                  styles.sku,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
                 numberOfLines={1}>
                 {item.sku || '—'}
               </Text>
-              <Text variant="titleSmall" style={styles.price}>
+              <Text style={styles.price}>
                 {formatMoney(item.price)} MMK
               </Text>
             </Pressable>
           )}
         />
       )}
+
+      <AppFloatingSearchHeader
+        footer={
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.chipsScroll}
+            contentContainerStyle={styles.chips}
+            keyboardShouldPersistTaps="handled">
+            {categoryChips.map(cat => {
+              const selected = category === cat;
+              const label = cat || 'All';
+              return (
+                <Chip
+                  key={cat || 'all'}
+                  selected={selected}
+                  showSelectedCheck={false}
+                  compact
+                  mode="outlined"
+                  onPress={() => setCategory(cat)}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: selected
+                        ? theme.colors.primary
+                        : 'transparent',
+                      borderColor: selected
+                        ? theme.colors.primary
+                        : theme.colors.outline,
+                    },
+                  ]}
+                  textStyle={[
+                    styles.chipText,
+                    {
+                      color: selected
+                        ? theme.colors.onPrimary
+                        : theme.colors.onSurfaceVariant,
+                    },
+                  ]}>
+                  {label}
+                </Chip>
+              );
+            })}
+          </ScrollView>
+        }>
+        <AppSearchBar
+          placeholder="Search products or SKU"
+          value={query}
+          onChangeText={setQuery}
+          right={
+            <AppSearchViewToggle mode={viewMode} onChange={setViewMode} />
+          }
+        />
+      </AppFloatingSearchHeader>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  searchWrap: { paddingHorizontal: 12, paddingTop: 8 },
-  chipsWrap: {
-    marginTop: 4,
-  },
   chipsScroll: {
     flexGrow: 0,
   },
   chips: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    paddingRight: 20,
+    paddingLeft: 12,
+    paddingRight: 48,
+    paddingTop: 2,
+    paddingBottom: 8,
     alignItems: 'center',
     flexDirection: 'row',
   },
@@ -209,37 +236,61 @@ const styles = StyleSheet.create({
     marginRight: 8,
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
+    height: undefined,
+    minHeight: 36,
   },
   chipText: {
     textAlign: 'center',
-    textAlignVertical: 'center',
-    includeFontPadding: false,
-    lineHeight: 20,
-    marginVertical: 6,
+    lineHeight: 22,
+    marginVertical: 4,
+    paddingHorizontal: 2,
   },
   syncHint: {
-    paddingHorizontal: 16,
-    paddingBottom: 4,
+    paddingHorizontal: 4,
+    paddingBottom: 8,
     fontSize: 12,
   },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  list: { padding: 12, paddingBottom: 32 },
+  list: {
+    paddingHorizontal: 12,
+    paddingTop: APP_FLOATING_SEARCH_WITH_CHIPS_INSET,
+    paddingBottom: 32,
+  },
   gridRow: { gap: 10 },
   card: {
     borderWidth: 1,
     borderRadius: 12,
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 16,
     marginBottom: 10,
+    overflow: 'visible',
   },
   gridCard: {
     flex: 1,
     borderWidth: 1,
     borderRadius: 12,
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 16,
     marginBottom: 10,
-    minHeight: 120,
+    minHeight: 140,
+    overflow: 'visible',
   },
-  name: { fontWeight: '700' },
-  price: { marginTop: 8, fontWeight: '700' },
+  name: {
+    fontWeight: '700',
+  },
+  sku: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  price: {
+    marginTop: 10,
+    fontWeight: '700',
+    fontSize: 15,
+    lineHeight: 22,
+  },
   empty: { textAlign: 'center', marginTop: 40, opacity: 0.6 },
 });

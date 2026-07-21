@@ -100,11 +100,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   logo: {
-    width: 180,
-    height: 120,
+    width: 200,
+    height: 200,
   },
   tagline: {
-    marginTop: 4,
+    marginTop: 8,
     letterSpacing: 1,
     opacity: 0.75,
   },

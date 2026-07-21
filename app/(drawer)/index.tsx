@@ -26,6 +26,7 @@ import { QuotationPrintPreview } from '@/components/quotation/QuotationPrintPrev
 import { Pagination } from '@/components/ui/Pagination';
 import { useAuth } from '@/contexts/auth-context';
 import { useAppTheme } from '@/contexts/theme-context';
+import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { getQuotationStatusColors } from '@/constants/status-colors';
 import {
   HeaderAction,
@@ -189,19 +190,32 @@ function QuotationRow({
 
         const text = cellText(item, col.key);
         const isNumber = col.key === 'number';
+        const isCustomer = col.key === 'customer';
         return (
-          <View key={col.key} style={[styles.cell, { flex: col.flex }]}>
-            <Text
-              numberOfLines={1}
-              style={{
-                textAlign: col.align === 'right' ? 'right' : 'left',
-                fontWeight: isNumber ? '600' : '400',
-                color: text
-                  ? theme.colors.onSurface
-                  : theme.colors.onSurfaceVariant,
-              }}>
-              {text || '—'}
-            </Text>
+          <View
+            key={col.key}
+            style={[
+              styles.cell,
+              isCustomer && styles.customerCell,
+              { flex: col.flex },
+            ]}>
+            {isCustomer ? (
+              <CustomerNameText style={{ fontWeight: '400' }}>
+                {text || '—'}
+              </CustomerNameText>
+            ) : (
+              <Text
+                numberOfLines={1}
+                style={{
+                  textAlign: col.align === 'right' ? 'right' : 'left',
+                  fontWeight: isNumber ? '600' : '400',
+                  color: text
+                    ? theme.colors.onSurface
+                    : theme.colors.onSurfaceVariant,
+                }}>
+                {text || '—'}
+              </Text>
+            )}
           </View>
         );
       })}
@@ -278,9 +292,7 @@ function QuotationCard({
           <StatusBadge status={item.status} />
         </View>
 
-        <Text variant="bodyMedium" numberOfLines={1}>
-          {item.customer || '—'}
-        </Text>
+        <CustomerNameText>{item.customer?.trim() || '—'}</CustomerNameText>
 
         {item.paymentMethod ? (
           <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>
@@ -1082,24 +1094,33 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: 8,
+    paddingVertical: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    minHeight: 48,
+    minHeight: 52,
   },
   headerRow: {
     minHeight: 44,
+    alignItems: 'center',
+    paddingVertical: 0,
   },
   cell: {
     paddingHorizontal: 8,
     paddingVertical: 8,
     justifyContent: 'center',
     minWidth: 0,
+    overflow: 'visible',
+  },
+  customerCell: {
+    paddingVertical: 10,
+    justifyContent: 'flex-start',
   },
   checkCell: {
     width: 38,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 10,
     transform: [{ scale: 0.8 }],
   },
   statusBadge: {
@@ -1137,6 +1158,9 @@ const styles = StyleSheet.create({
   cardNumber: {
     fontWeight: '700',
     flex: 1,
+  },
+  cardCustomer: {
+    marginTop: 2,
   },
   cardFooter: {
     flexDirection: 'row',

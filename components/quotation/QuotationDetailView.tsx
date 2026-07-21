@@ -5,6 +5,7 @@ import { ActivityIndicator, Button, Checkbox, Icon, Text, useTheme } from 'react
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
 import { QuotationDetail, QuotationLine, QuotationReorderSeed } from '@/types/quotation';
+import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import {
   formatMyanmarDate,
   formatMyanmarDateTime,
@@ -51,11 +52,13 @@ function MetaField({
   value,
   link = false,
   showEmpty = false,
+  allowWrap = false,
 }: {
   label: string;
   value: string;
   link?: boolean;
   showEmpty?: boolean;
+  allowWrap?: boolean;
 }) {
   const theme = useTheme();
   const detail = useDetailTheme();
@@ -68,21 +71,35 @@ function MetaField({
   return (
     <View style={styles.metaField}>
       <Text style={[styles.metaLabel, { color: detail.label }]}>{label}</Text>
-      <Text
-        style={[
-          styles.metaValue,
-          {
+      {allowWrap ? (
+        <CustomerNameText
+          size="title"
+          style={{
             color: display
               ? link
                 ? theme.colors.primary
                 : detail.onSurface
               : detail.label,
-          },
-          link && display ? styles.metaLink : undefined,
-        ]}
-        numberOfLines={3}>
-        {display || '—'}
-      </Text>
+            fontWeight: link && display ? '700' : '600',
+          }}>
+          {display || '—'}
+        </CustomerNameText>
+      ) : (
+        <Text
+          style={[
+            styles.metaValue,
+            {
+              color: display
+                ? link
+                  ? theme.colors.primary
+                  : detail.onSurface
+                : detail.label,
+            },
+            link && display ? styles.metaLink : undefined,
+          ]}>
+          {display || '—'}
+        </Text>
+      )}
     </View>
   );
 }
@@ -170,14 +187,80 @@ function LinesTable({
   selectionMode = false,
   selectedIds,
   onToggleLine,
+  compact = false,
 }: {
   lines: QuotationLine[];
   selectionMode?: boolean;
   selectedIds?: Set<string>;
   onToggleLine?: (lineId: string) => void;
+  compact?: boolean;
 }) {
   const theme = useTheme();
   const detail = useDetailTheme();
+
+  if (compact) {
+    return (
+      <View style={styles.mobileLines}>
+        {lines.map(line => {
+          const selected = selectedIds?.has(line.id) ?? false;
+          const qty = line.quantity.toLocaleString('en-US', {
+            maximumFractionDigits: 2,
+          });
+          const disc =
+            line.discountPercent > 0
+              ? ` · −${line.discountPercent.toLocaleString('en-US', {
+                  maximumFractionDigits: 2,
+                })}%`
+              : '';
+
+          return (
+            <Pressable
+              key={line.id}
+              onPress={
+                selectionMode ? () => onToggleLine?.(line.id) : undefined
+              }
+              style={[
+                styles.mobileLineCard,
+                {
+                  backgroundColor: detail.surface,
+                  borderColor: detail.border,
+                },
+                selectionMode && !selected ? styles.lineRowUnselected : null,
+              ]}>
+              <View style={styles.mobileLineTop}>
+                {selectionMode ? (
+                  <Checkbox
+                    status={selected ? 'checked' : 'unchecked'}
+                    onPress={() => onToggleLine?.(line.id)}
+                  />
+                ) : null}
+                <CustomerNameText
+                  size="body"
+                  style={[
+                    styles.mobileLineProduct,
+                    { color: theme.colors.primary },
+                  ]}
+                  numberOfLines={4}>
+                  {line.product}
+                </CustomerNameText>
+              </View>
+              <Text
+                style={[styles.mobileLineMeta, { color: detail.label }]}
+                numberOfLines={2}>
+                {qty} {line.unit || 'Units'} × {formatMoney(line.unitPrice)}
+                {disc}
+              </Text>
+              <Text
+                style={[styles.mobileLineAmount, { color: theme.colors.primary }]}
+                numberOfLines={1}>
+                {formatMoney(line.amount)}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.linesTable, { borderColor: detail.border }]}>
@@ -195,7 +278,7 @@ function LinesTable({
         </View>
         <View style={styles.lineColQty}>
           <Text style={[styles.headerText, styles.cellTextRight, { color: detail.label }]}>
-            QUANTITY
+            QTY
           </Text>
         </View>
         <View style={styles.lineColUnit}>
@@ -228,77 +311,87 @@ function LinesTable({
       {lines.map(line => {
         const selected = selectedIds?.has(line.id) ?? false;
         return (
-        <View
-          key={line.id}
-          style={[
-            styles.lineRow,
-            {
-              backgroundColor: detail.surface,
-              borderBottomColor: detail.border,
-            },
-            selectionMode && !selected ? styles.lineRowUnselected : null,
-          ]}>
-          {selectionMode ? (
-            <View style={styles.lineColSelect}>
-              <Checkbox
-                status={selected ? 'checked' : 'unchecked'}
-                onPress={() => onToggleLine?.(line.id)}
-              />
+          <View
+            key={line.id}
+            style={[
+              styles.lineRow,
+              {
+                backgroundColor: detail.surface,
+                borderBottomColor: detail.border,
+              },
+              selectionMode && !selected ? styles.lineRowUnselected : null,
+            ]}>
+            {selectionMode ? (
+              <View style={styles.lineColSelect}>
+                <Checkbox
+                  status={selected ? 'checked' : 'unchecked'}
+                  onPress={() => onToggleLine?.(line.id)}
+                />
+              </View>
+            ) : null}
+            <View style={styles.lineColProduct}>
+              <Text
+                style={[styles.lineProductText, { color: theme.colors.primary }]}
+                numberOfLines={2}>
+                {line.product}
+              </Text>
             </View>
-          ) : null}
-          <View style={styles.lineColProduct}>
-            <Text
-              style={[styles.lineProductText, { color: theme.colors.primary }]}
-              numberOfLines={2}>
-              {line.product}
-            </Text>
+            <View style={styles.lineColQty}>
+              <Text
+                style={[styles.lineCellText, styles.cellTextRight, { color: detail.cellText }]}
+                numberOfLines={1}>
+                {line.quantity.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </Text>
+            </View>
+            <View style={styles.lineColUnit}>
+              <Text
+                style={[styles.lineCellText, styles.cellTextCenter, { color: detail.cellText }]}
+                numberOfLines={1}>
+                {line.unit || 'Units'}
+              </Text>
+            </View>
+            <View style={styles.lineColPrice}>
+              <Text
+                style={[styles.lineCellText, styles.cellTextRight, { color: detail.cellText }]}
+                numberOfLines={1}>
+                {formatMoney(line.unitPrice)}
+              </Text>
+            </View>
+            <View style={styles.lineColTaxes}>
+              <Text
+                style={[
+                  styles.lineCellText,
+                  styles.cellTextCenter,
+                  { color: detail.label },
+                ]}>
+                —
+              </Text>
+            </View>
+            <View style={styles.lineColDisc}>
+              <Text
+                style={[styles.lineCellText, styles.cellTextRight, { color: detail.cellText }]}
+                numberOfLines={1}>
+                {line.discountPercent.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </Text>
+            </View>
+            <View style={styles.lineColAmount}>
+              <Text
+                style={[
+                  styles.lineAmountText,
+                  styles.cellTextRight,
+                  { color: theme.colors.primary },
+                ]}
+                numberOfLines={1}>
+                {formatMoney(line.amount)}
+              </Text>
+            </View>
           </View>
-          <View style={styles.lineColQty}>
-            <Text style={[styles.lineCellText, styles.cellTextRight, { color: detail.cellText }]}>
-              {line.quantity.toLocaleString('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </Text>
-          </View>
-          <View style={styles.lineColUnit}>
-            <Text
-              style={[styles.lineCellText, styles.cellTextCenter, { color: detail.cellText }]}
-              numberOfLines={1}>
-              {line.unit || 'Units'}
-            </Text>
-          </View>
-          <View style={styles.lineColPrice}>
-            <Text
-              style={[styles.lineCellText, styles.cellTextRight, { color: detail.cellText }]}
-              numberOfLines={1}>
-              {formatMoney(line.unitPrice)}
-            </Text>
-          </View>
-          <View style={styles.lineColTaxes}>
-            <Text style={[styles.lineCellText, styles.cellTextCenter, { color: detail.label }]}>
-              —
-            </Text>
-          </View>
-          <View style={styles.lineColDisc}>
-            <Text style={[styles.lineCellText, styles.cellTextRight, { color: detail.cellText }]}>
-              {line.discountPercent.toLocaleString('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </Text>
-          </View>
-          <View style={styles.lineColAmount}>
-            <Text
-              style={[
-                styles.lineAmountText,
-                styles.cellTextRight,
-                { color: theme.colors.primary },
-              ]}>
-              {formatMoney(line.amount)}
-            </Text>
-          </View>
-        </View>
         );
       })}
     </View>
@@ -329,14 +422,18 @@ function TotalsCard({ untaxed, total }: { untaxed: number; total: number }) {
       <View style={styles.totalsBlock}>
         <View style={styles.totalLine}>
           <Text style={[styles.totalLabel, { color: detail.label }]}>Untaxed Amount</Text>
-          <Text style={[styles.totalLineValue, { color: detail.cellText }]}>
+          <Text
+            style={[styles.totalLineValue, { color: detail.cellText }]}
+            numberOfLines={1}>
             {formatMoney(untaxed)}
           </Text>
         </View>
         <View style={[styles.totalDivider, { backgroundColor: theme.colors.primary }]} />
         <View style={styles.totalLine}>
           <Text style={[styles.totalLabelBold, { color: detail.onSurface }]}>Total</Text>
-          <Text style={[styles.totalValue, { color: theme.colors.primary }]}>
+          <Text
+            style={[styles.totalValue, { color: theme.colors.primary }]}
+            numberOfLines={1}>
             {formatMoney(total)}
           </Text>
         </View>
@@ -351,6 +448,8 @@ type QuotationDetailViewProps = {
   error: string;
   onBack: () => void;
   onReorder?: (seed: QuotationReorderSeed) => void;
+  /** Extra scroll padding (e.g. floating Print FAB on phone app). */
+  contentBottomInset?: number;
 };
 
 export function QuotationDetailView({
@@ -358,6 +457,7 @@ export function QuotationDetailView({
   loading,
   error,
   onReorder,
+  contentBottomInset = 0,
 }: QuotationDetailViewProps) {
   const theme = useTheme();
   const detailTheme = useDetailTheme();
@@ -454,15 +554,26 @@ export function QuotationDetailView({
           contentContainerStyle={[
             styles.scrollContent,
             isMobile ? styles.scrollContentMobile : styles.scrollContentDesktop,
+            contentBottomInset > 0 ? { paddingBottom: 28 + contentBottomInset } : null,
           ]}
           showsVerticalScrollIndicator={false}>
           <View style={styles.page}>
             <SurfaceCard>
               <View style={[styles.infoLayout, isMobile && styles.infoLayoutStack]}>
                 <View style={styles.infoCol}>
-                  <MetaField label="CUSTOMER" value={detail.customer} link />
-                  <MetaField label="SALESPERSON" value={detail.salesperson} link />
-                  <MetaField label="DELIVERY ADDRESS" value={detail.deliveryAddress} />
+                  <MetaField label="CUSTOMER" value={detail.customer} link allowWrap />
+                  <MetaField
+                    label="SALE PERSON NAME"
+                    value={detail.salePersonName}
+                    showEmpty
+                    allowWrap
+                  />
+                  <MetaField
+                    label="LOCATION"
+                    value={detail.deliveryAddress}
+                    showEmpty
+                    allowWrap
+                  />
                 </View>
                 <View style={styles.infoCol}>
                   <MetaField
@@ -529,6 +640,7 @@ export function QuotationDetailView({
                   ) : (
                     <LinesTable
                       lines={detail.lines}
+                      compact={isMobile}
                       selectionMode={reorderMode}
                       selectedIds={selectedLineIds}
                       onToggleLine={handleToggleLine}
@@ -606,7 +718,7 @@ const styles = StyleSheet.create({
   surfaceCard: {
     borderRadius: 8,
     borderWidth: 1,
-    overflow: 'hidden',
+    overflow: 'visible',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 4,
@@ -617,6 +729,7 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     gap: 0,
     padding: 16,
+    overflow: 'visible',
   },
   infoLayoutStack: {
     flexDirection: 'column',
@@ -626,6 +739,7 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 14,
     paddingRight: 12,
+    overflow: 'visible',
   },
   datePanel: {
     flex: 0.95,
@@ -641,6 +755,8 @@ const styles = StyleSheet.create({
   },
   metaField: {
     gap: 4,
+    overflow: 'visible',
+    paddingBottom: 2,
   },
   metaLabel: {
     fontSize: 10,
@@ -650,7 +766,9 @@ const styles = StyleSheet.create({
   metaValue: {
     fontSize: 14,
     fontWeight: '600',
-    lineHeight: 20,
+    lineHeight: 28,
+    paddingTop: 2,
+    paddingBottom: 4,
   },
   metaLink: {
     fontWeight: '700',
@@ -721,6 +839,43 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     paddingVertical: 20,
     fontSize: 13,
+  },
+  mobileLines: {
+    gap: 8,
+  },
+  mobileLineCard: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 10,
+    gap: 4,
+    overflow: 'visible',
+  },
+  mobileLineTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 4,
+  },
+  mobileLineProduct: {
+    flex: 1,
+    minWidth: 0,
+    fontWeight: '600',
+    fontSize: 13,
+    lineHeight: 22,
+    paddingTop: 2,
+    paddingBottom: 3,
+  },
+  mobileLineMeta: {
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  mobileLineAmount: {
+    marginTop: 2,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
+    alignSelf: 'flex-end',
   },
   linesTable: {
     width: '100%',
@@ -819,13 +974,13 @@ const styles = StyleSheet.create({
   totalsBlock: {
     padding: 16,
     gap: 8,
-    minWidth: 260,
+    minWidth: 0,
   },
   totalLine: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'baseline',
-    gap: 24,
+    alignItems: 'center',
+    gap: 12,
   },
   totalDivider: {
     height: 2,
@@ -835,17 +990,23 @@ const styles = StyleSheet.create({
   totalLabel: {
     fontSize: 12,
     fontWeight: '500',
+    flexShrink: 0,
   },
   totalLabelBold: {
     fontSize: 14,
     fontWeight: '800',
+    flexShrink: 0,
   },
   totalLineValue: {
     fontSize: 12,
     fontWeight: '600',
+    flexShrink: 1,
+    textAlign: 'right',
   },
   totalValue: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
+    flexShrink: 1,
+    textAlign: 'right',
   },
 });

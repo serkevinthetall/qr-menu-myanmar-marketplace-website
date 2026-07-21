@@ -18,7 +18,7 @@ type AppSearchBarProps = {
 };
 
 /**
- * App search field without Paper Searchbar's empty clear IconButton
+ * Search field without Paper Searchbar's empty clear IconButton
  * (that shows as a solid black circle on dark theme).
  */
 export function AppSearchBar({
@@ -38,6 +38,8 @@ export function AppSearchBar({
         {
           backgroundColor: theme.colors.elevation.level3,
           borderRadius: theme.roundness * 7,
+          borderColor: theme.colors.outlineVariant ?? theme.colors.outline,
+          shadowColor: '#000',
         },
         style,
       ]}>
@@ -109,7 +111,62 @@ export function AppSearchViewToggle({ mode, onChange }: ViewToggleProps) {
   );
 }
 
+/** Height reserved so list content clears the floating search bar. */
+export const APP_FLOATING_SEARCH_INSET = 76;
+
+/** Extra height when category chips sit under the floating search. */
+export const APP_FLOATING_SEARCH_WITH_CHIPS_INSET = 128;
+
+type FloatingHeaderProps = {
+  children: ReactNode;
+  /** Optional row under search (e.g. category chips). */
+  footer?: ReactNode;
+  style?: ViewStyle;
+};
+
+/**
+ * Absolutely positioned floating search (and optional chips) so the list
+ * scrolls underneath.
+ */
+export function AppFloatingSearchHeader({
+  children,
+  footer,
+  style,
+}: FloatingHeaderProps) {
+  return (
+    <View pointerEvents="box-none" style={[styles.floatHost, style]}>
+      <View style={styles.floatSearchPad}>{children}</View>
+      {footer ? <View style={styles.floatFooter}>{footer}</View> : null}
+    </View>
+  );
+}
+
+/** @deprecated Use AppFloatingSearchHeader — kept for old call sites. */
+export const appSearchWrapStyle = StyleSheet.create({
+  wrap: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 14,
+  },
+}).wrap;
+
 const styles = StyleSheet.create({
+  floatHost: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
+    elevation: 12,
+  },
+  floatSearchPad: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
+  floatFooter: {
+    paddingBottom: 4,
+  },
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -117,6 +174,11 @@ const styles = StyleSheet.create({
     paddingRight: 8,
     minHeight: 52,
     gap: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
   },
   input: {
     flex: 1,
@@ -124,6 +186,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 8,
     minWidth: 0,
+    backgroundColor: 'transparent',
   },
   iconHit: {
     width: 36,

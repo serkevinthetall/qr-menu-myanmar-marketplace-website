@@ -46,18 +46,12 @@ export function AppShellSidebar(props: DrawerContentComponentProps) {
         {...props}
         contentContainerStyle={styles.scroll}
         style={{ backgroundColor: 'transparent' }}>
-        <View style={styles.brandRow}>
+        <View style={styles.brandBlock}>
           <Image
             source={require('@/assets/images/qr-shop-logo.png')}
             style={styles.logo}
             contentFit="contain"
           />
-          <View style={styles.brandText}>
-            <Text style={styles.brandTitle}>QR Shop</Text>
-            <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}>
-              Field sales
-            </Text>
-          </View>
         </View>
 
         <Text
@@ -158,16 +152,13 @@ export function AppShellSidebar(props: DrawerContentComponentProps) {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   scroll: { paddingBottom: 16 },
-  brandRow: {
-    flexDirection: 'row',
+  brandBlock: {
     alignItems: 'center',
-    gap: 12,
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
-  logo: { width: 44, height: 44 },
-  brandText: { flex: 1 },
-  brandTitle: { fontSize: 18, fontWeight: '800', letterSpacing: 0.2 },
+  logo: { width: 168, height: 168 },
   sectionLabel: {
     marginTop: 8,
     marginBottom: 6,
