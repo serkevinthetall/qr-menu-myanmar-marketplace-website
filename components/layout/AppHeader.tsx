@@ -201,6 +201,33 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
                   />
                 </Menu>
               ) : null}
+              {detailHeader.onCancel ? (
+                isMobile ? (
+                  <IconButton
+                    icon="cancel"
+                    iconColor={colors.onPrimary}
+                    containerColor="transparent"
+                    rippleColor={colors.headerRipple}
+                    size={22}
+                    disabled={detailHeader.cancelling}
+                    onPress={detailHeader.onCancel}
+                    accessibilityLabel="Cancel quotation"
+                  />
+                ) : (
+                  <Pressable
+                    onPress={detailHeader.onCancel}
+                    disabled={detailHeader.cancelling}
+                    style={[
+                      styles.detailActionGhost,
+                      detailHeader.cancelling ? { opacity: 0.5 } : null,
+                    ]}>
+                    <Icon source="cancel" size={16} color={colors.onPrimary} />
+                    <Text style={[styles.detailActionGhostText, { color: colors.onPrimary }]}>
+                      {detailHeader.cancelling ? 'CANCELLING…' : 'CANCEL'}
+                    </Text>
+                  </Pressable>
+                )
+              ) : null}
             </>
           ) : (
             actions.map(action =>

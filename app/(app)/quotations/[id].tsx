@@ -1,17 +1,30 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Button, Dialog, FAB, Portal, Text, useTheme } from 'react-native-paper';
+import {
+  Button,
+  Dialog,
+  FAB,
+  IconButton,
+  Portal,
+  Text,
+  useTheme,
+} from 'react-native-paper';
 
 import { QuotationDetailView } from '@/components/quotation/QuotationDetailView';
 import { QuotationPrintPreview } from '@/components/quotation/QuotationPrintPreview';
+import { canCancelQuotation } from '@/constants/status-colors';
 import { useAuth } from '@/contexts/auth-context';
-import { fetchAppQuotationDetail } from '@/services/app/quotations';
+import {
+  cancelAppQuotation,
+  fetchAppQuotationDetail,
+} from '@/services/app/quotations';
 import { QuotationDetail } from '@/types/quotation';
 
 export default function AppQuotationDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
+  const navigation = useNavigation();
   const { session } = useAuth();
   const router = useRouter();
   const [detail, setDetail] = useState<QuotationDetail | null>(null);
@@ -19,6 +32,8 @@ export default function AppQuotationDetailScreen() {
   const [error, setError] = useState('');
   const [printPromptVisible, setPrintPromptVisible] = useState(false);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelConfirmVisible, setCancelConfirmVisible] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.token || !id) return;
@@ -38,6 +53,37 @@ export default function AppQuotationDetailScreen() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const handleCancel = useCallback(async () => {
+    if (!session?.token || !id) return;
+    setCancelling(true);
+    try {
+      const updated = await cancelAppQuotation(session.token, id);
+      setDetail(updated);
+      setCancelConfirmVisible(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to cancel quotation.');
+    } finally {
+      setCancelling(false);
+    }
+  }, [session?.token, id]);
+
+  useLayoutEffect(() => {
+    const showCancel = detail ? canCancelQuotation(detail.status) : false;
+    navigation.setOptions({
+      headerRight: showCancel
+        ? () => (
+            <IconButton
+              icon="cancel"
+              iconColor={theme.colors.onPrimary}
+              disabled={cancelling}
+              onPress={() => setCancelConfirmVisible(true)}
+              accessibilityLabel="Cancel quotation"
+            />
+          )
+        : undefined,
+    });
+  }, [navigation, detail, cancelling, theme.colors.onPrimary]);
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
@@ -69,6 +115,36 @@ export default function AppQuotationDetailScreen() {
                 setShowPrintPreview(true);
               }}>
               Yes
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        <Dialog
+          visible={cancelConfirmVisible}
+          onDismiss={() => (cancelling ? undefined : setCancelConfirmVisible(false))}>
+          <Dialog.Title>Cancel quotation?</Dialog.Title>
+          <Dialog.Content>
+            <Text>
+              Cancel {detail?.number ?? 'this quotation'}? This cannot be undone
+              from here.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button
+              disabled={cancelling}
+              onPress={() => setCancelConfirmVisible(false)}>
+              Keep
+            </Button>
+            <Button
+              mode="contained"
+              buttonColor={theme.colors.error}
+              textColor={theme.colors.onError}
+              loading={cancelling}
+              disabled={cancelling}
+              onPress={() => {
+                void handleCancel();
+              }}>
+              Cancel quotation
             </Button>
           </Dialog.Actions>
         </Dialog>

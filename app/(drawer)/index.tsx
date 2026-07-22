@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import {
   ActivityIndicator,
+  Button,
   Card,
   Checkbox,
+  Dialog,
+  Portal,
   Snackbar,
   Text,
   useTheme,
@@ -27,7 +30,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { useAuth } from '@/contexts/auth-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
-import { getQuotationStatusColors } from '@/constants/status-colors';
+import { getQuotationStatusColors, canCancelQuotation } from '@/constants/status-colors';
 import {
   HeaderAction,
   useHeaderActions,
@@ -45,6 +48,7 @@ import {
   fetchQuotationDetail,
   fetchQuotationsPage,
   createQuotation,
+  cancelQuotation,
   fetchPaymentMethods,
 } from '@/services/quotations';
 import {
@@ -345,6 +349,8 @@ export default function QuotationScreen() {
   const [detail, setDetail] = useState<QuotationDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
+  const [detailCancelling, setDetailCancelling] = useState(false);
+  const [cancelConfirmVisible, setCancelConfirmVisible] = useState(false);
   const [printPreview, setPrintPreview] = useState<{
     format: PrintFormat;
     detail: QuotationDetail;
@@ -631,13 +637,44 @@ export default function QuotationScreen() {
     setDetailId(null);
     setDetail(null);
     setDetailError('');
+    setDetailCancelling(false);
+    setCancelConfirmVisible(false);
   }, []);
+
+  const handleCancelDetail = useCallback(async () => {
+    if (!session?.token || !detailId) {
+      return;
+    }
+    setDetailCancelling(true);
+    setDetailError('');
+    try {
+      const updated = await cancelQuotation(session.token, detailId);
+      setDetail(updated);
+      setQuotations(prev =>
+        prev.map(item =>
+          item.id === updated.id
+            ? { ...item, status: updated.status, total: updated.total }
+            : item,
+        ),
+      );
+      setCancelConfirmVisible(false);
+      setSnackbar(`Quotation ${updated.number} cancelled.`);
+    } catch (err) {
+      setDetailError(
+        err instanceof Error ? err.message : 'Failed to cancel quotation.',
+      );
+    } finally {
+      setDetailCancelling(false);
+    }
+  }, [session?.token, detailId]);
 
   useEffect(() => {
     if (!detailId) {
       setDetailHeader(null);
       return;
     }
+
+    const canCancel = detail ? canCancelQuotation(detail.status) : false;
 
     setDetailHeader({
       title: detail?.number ?? 'Quotation',
@@ -649,10 +686,19 @@ export default function QuotationScreen() {
       onPrint: detail
         ? format => setPrintPreview({ format, detail })
         : undefined,
+      onCancel: canCancel ? () => setCancelConfirmVisible(true) : undefined,
+      cancelling: detailCancelling,
     });
 
     return () => setDetailHeader(null);
-  }, [detailId, detail, closeDetail, setDetailHeader, mode]);
+  }, [
+    detailId,
+    detail,
+    closeDetail,
+    setDetailHeader,
+    mode,
+    detailCancelling,
+  ]);
 
   const exportExcel = useCallback(async () => {
     if (!session?.token) {
@@ -916,6 +962,39 @@ export default function QuotationScreen() {
           onBack={closeDetail}
           onReorder={handleReorderFromDetail}
         />
+        <Portal>
+          <Dialog
+            visible={cancelConfirmVisible}
+            onDismiss={() =>
+              detailCancelling ? undefined : setCancelConfirmVisible(false)
+            }>
+            <Dialog.Title>Cancel quotation?</Dialog.Title>
+            <Dialog.Content>
+              <Text>
+                Cancel {detail?.number ?? 'this quotation'}? This cannot be undone
+                from here.
+              </Text>
+            </Dialog.Content>
+            <Dialog.Actions>
+              <Button
+                disabled={detailCancelling}
+                onPress={() => setCancelConfirmVisible(false)}>
+                Keep
+              </Button>
+              <Button
+                mode="contained"
+                buttonColor={theme.colors.error}
+                textColor={theme.colors.onError}
+                loading={detailCancelling}
+                disabled={detailCancelling}
+                onPress={() => {
+                  void handleCancelDetail();
+                }}>
+                Cancel quotation
+              </Button>
+            </Dialog.Actions>
+          </Dialog>
+        </Portal>
         {printPreview ? (
           <QuotationPrintPreview
             detail={printPreview.detail}

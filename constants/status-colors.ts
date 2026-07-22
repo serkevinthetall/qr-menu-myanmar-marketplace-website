@@ -44,6 +44,11 @@ export function getQuotationStatusColors(
   }
 }
 
+/** Cancel is allowed only for Odoo draft → UI label "Quotation". */
+export function canCancelQuotation(status: string): boolean {
+  return status === 'draft';
+}
+
 export function getContactStatusColors(
   mode: ThemeMode,
   status: string,

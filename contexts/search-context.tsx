@@ -27,6 +27,9 @@ export type DetailHeader = {
   breadcrumbParent?: string;
   onPrint?: (format: PrintFormat) => void;
   onCreateQuotation?: () => void;
+  /** Cancel draft quotation — shown on the right of the detail navbar. */
+  onCancel?: () => void;
+  cancelling?: boolean;
 };
 
 type SearchContextValue = {

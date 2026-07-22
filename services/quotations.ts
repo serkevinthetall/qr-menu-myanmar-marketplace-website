@@ -84,6 +84,17 @@ export async function fetchQuotationDetail(
   return response.data;
 }
 
+export async function cancelQuotation(
+  token: string,
+  id: string,
+): Promise<QuotationDetail> {
+  const response = await webApiRequest<QuotationDetailResponse>(
+    `/quotations/${id}/cancel`,
+    { method: 'POST', token },
+  );
+  return response.data;
+}
+
 export async function fetchPaymentMethods(token: string): Promise<PaymentMethod[]> {
   const response = await webApiRequest<PaymentMethodsResponse>(
     '/quotations/payment-methods',

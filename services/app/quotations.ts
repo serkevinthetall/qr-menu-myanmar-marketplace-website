@@ -43,6 +43,17 @@ export async function fetchAppQuotationDetail(
   return response.data;
 }
 
+export async function cancelAppQuotation(
+  token: string,
+  id: string,
+): Promise<QuotationDetail> {
+  const response = await appApiRequest<DetailResponse>(`/quotations/${id}/cancel`, {
+    method: 'POST',
+    token,
+  });
+  return response.data;
+}
+
 export async function fetchAppPaymentMethods(
   token: string,
 ): Promise<{ id: string; name: string }[]> {
