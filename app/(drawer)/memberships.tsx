@@ -9,25 +9,275 @@ import {
 } from 'react-native';
 import {
   ActivityIndicator,
-  Button,
+  Card,
   Divider,
   Text,
   useTheme,
 } from 'react-native-paper';
 
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
+import { Pagination } from '@/components/ui/Pagination';
 import { useAuth } from '@/contexts/auth-context';
-import { useModuleSearch } from '@/contexts/search-context';
+import { useAppTheme } from '@/contexts/theme-context';
+import {
+  HeaderAction,
+  useHeaderActions,
+  useModuleSearch,
+  useSearch,
+} from '@/contexts/search-context';
 import { useResponsive } from '@/hooks/use-responsive';
 import { fetchMembershipDetail, fetchMemberships } from '@/services/memberships';
 import { Membership } from '@/types/membership';
 import { formatMyanmarDate } from '@/utils/myanmar-datetime';
+import { ThemeMode } from '@/constants/colors';
+
+const PAGE_SIZE = 50;
+
+type ViewMode = 'list' | 'card';
+
+type Column = {
+  key: string;
+  label: string;
+  flex: number;
+  align?: 'left' | 'right';
+};
+
+const COLUMNS: Column[] = [
+  { key: 'name', label: 'Name', flex: 1.6 },
+  { key: 'startDate', label: 'Start Date', flex: 1.3 },
+  { key: 'customer', label: 'Customer', flex: 2.2 },
+  { key: 'membershipLevel', label: 'Level', flex: 1.4 },
+  { key: 'remaining', label: 'Remaining', flex: 1.3, align: 'right' },
+  { key: 'status', label: 'Status', flex: 1.4 },
+];
 
 function formatMoney(value: number): string {
   return `${value.toLocaleString('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   })} MMK`;
+}
+
+function getMembershipStatusColors(
+  mode: ThemeMode,
+  status: string,
+): { label: string; bg: string; fg: string } {
+  const value = status.trim().toLowerCase();
+  const label = status.trim() || '—';
+
+  if (mode === 'dark') {
+    if (value.includes('active') || value.includes('running')) {
+      return { label, bg: 'rgba(16, 185, 129, 0.22)', fg: '#6EE7B7' };
+    }
+    if (value.includes('expire') || value.includes('cancel') || value.includes('inactive')) {
+      return { label, bg: 'rgba(239, 68, 68, 0.22)', fg: '#FCA5A5' };
+    }
+    if (value.includes('draft') || value.includes('pending')) {
+      return { label, bg: '#334155', fg: '#E2E8F0' };
+    }
+    return { label, bg: '#334155', fg: '#CBD5E1' };
+  }
+
+  if (value.includes('active') || value.includes('running')) {
+    return { label, bg: '#DCFCE7', fg: '#166534' };
+  }
+  if (value.includes('expire') || value.includes('cancel') || value.includes('inactive')) {
+    return { label, bg: '#FEE2E2', fg: '#991B1B' };
+  }
+  if (value.includes('draft') || value.includes('pending')) {
+    return { label, bg: '#E2E8F0', fg: '#475569' };
+  }
+  return { label, bg: '#E2E8F0', fg: '#475569' };
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const { mode } = useAppTheme();
+  const { label, bg, fg } = getMembershipStatusColors(mode, status);
+
+  if (!status) {
+    return <Text style={{ opacity: 0.5 }}>—</Text>;
+  }
+
+  return (
+    <View style={[styles.statusBadge, { backgroundColor: bg }]}>
+      <Text
+        variant="labelSmall"
+        numberOfLines={1}
+        style={{ color: fg, fontWeight: '600' }}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function cellText(item: Membership, key: string): string {
+  switch (key) {
+    case 'name':
+      return item.name;
+    case 'startDate':
+      return formatMyanmarDate(item.startDate) || item.startDate;
+    case 'customer':
+      return item.customer;
+    case 'membershipLevel':
+      return item.membershipLevel;
+    case 'remaining':
+      return `${item.remainingTickets}/${item.totalTickets}`;
+    default:
+      return '';
+  }
+}
+
+function MembershipRow({
+  item,
+  index,
+  onOpen,
+}: {
+  item: Membership;
+  index: number;
+  onOpen: (id: string) => void;
+}) {
+  const theme = useTheme();
+  const zebra = index % 2 === 1;
+
+  return (
+    <Pressable
+      onPress={() => onOpen(item.id)}
+      style={({ hovered, pressed }) => [
+        styles.row,
+        {
+          backgroundColor: hovered
+            ? theme.colors.primaryContainer
+            : zebra
+              ? theme.colors.surfaceVariant
+              : theme.colors.surface,
+          borderBottomColor: theme.colors.outlineVariant ?? theme.colors.outline,
+          opacity: pressed ? 0.9 : 1,
+        },
+      ]}>
+      {COLUMNS.map(col => {
+        if (col.key === 'status') {
+          return (
+            <View key={col.key} style={[styles.cell, { flex: col.flex }]}>
+              <StatusBadge status={item.status} />
+            </View>
+          );
+        }
+
+        const text = cellText(item, col.key);
+        const isName = col.key === 'name';
+        const isCustomer = col.key === 'customer';
+
+        return (
+          <View
+            key={col.key}
+            style={[
+              styles.cell,
+              isCustomer && styles.customerCell,
+              { flex: col.flex },
+            ]}>
+            {isCustomer ? (
+              <CustomerNameText style={{ fontWeight: '400' }}>
+                {text || '—'}
+              </CustomerNameText>
+            ) : (
+              <Text
+                numberOfLines={1}
+                style={{
+                  textAlign: col.align === 'right' ? 'right' : 'left',
+                  fontWeight: isName ? '600' : '400',
+                  color: text
+                    ? theme.colors.onSurface
+                    : theme.colors.onSurfaceVariant,
+                }}>
+                {text || '—'}
+              </Text>
+            )}
+          </View>
+        );
+      })}
+    </Pressable>
+  );
+}
+
+function TableHeader() {
+  const theme = useTheme();
+  return (
+    <View
+      style={[
+        styles.row,
+        styles.headerRow,
+        { backgroundColor: theme.colors.primary },
+      ]}>
+      {COLUMNS.map(col => (
+        <View key={col.key} style={[styles.cell, { flex: col.flex }]}>
+          <Text
+            variant="labelMedium"
+            numberOfLines={1}
+            style={{
+              color: theme.colors.onPrimary,
+              fontWeight: '700',
+              textAlign: col.align === 'right' ? 'right' : 'left',
+            }}>
+            {col.label}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function MembershipCard({
+  item,
+  onOpen,
+}: {
+  item: Membership;
+  onOpen: (id: string) => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <Card
+      mode="elevated"
+      onPress={() => onOpen(item.id)}
+      style={[
+        styles.membershipCard,
+        {
+          backgroundColor: theme.colors.surface,
+          borderColor: theme.colors.outline,
+        },
+      ]}>
+      <Card.Content style={styles.cardContent}>
+        <View style={styles.cardTop}>
+          <Text variant="titleMedium" style={styles.cardName} numberOfLines={1}>
+            {item.name || '—'}
+          </Text>
+          <StatusBadge status={item.status} />
+        </View>
+
+        <CustomerNameText>{item.customer?.trim() || '—'}</CustomerNameText>
+
+        {item.membershipLevel ? (
+          <Text
+            variant="bodySmall"
+            style={{ color: theme.colors.onSurfaceVariant }}
+            numberOfLines={1}>
+            {item.membershipLevel}
+          </Text>
+        ) : null}
+
+        <View style={styles.cardFooter}>
+          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+            {formatMyanmarDate(item.startDate) || item.startDate || '—'}
+          </Text>
+          <Text
+            variant="titleSmall"
+            style={{ color: theme.colors.primary, fontWeight: '700' }}>
+            {item.remainingTickets}/{item.totalTickets}
+          </Text>
+        </View>
+      </Card.Content>
+    </Card>
+  );
 }
 
 function MetaRow({ label, value }: { label: string; value: string }) {
@@ -46,17 +296,22 @@ function MetaRow({ label, value }: { label: string; value: string }) {
 
 export default function MembershipsScreen() {
   const theme = useTheme();
+  const { mode } = useAppTheme();
   const { session } = useAuth();
-  const { isMobile } = useResponsive();
-  const query = useModuleSearch('Search memberships');
+  const { width } = useResponsive();
   const [items, setItems] = useState<Membership[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<Membership | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
+
+  const query = useModuleSearch('Search memberships', !selectedId);
+  const { setDetailHeader } = useSearch();
 
   const load = useCallback(async () => {
     if (!session?.token) return;
@@ -104,25 +359,89 @@ export default function MembershipsScreen() {
     [session?.token],
   );
 
-  const closeDetail = () => {
+  const closeDetail = useCallback(() => {
     setSelectedId(null);
     setDetail(null);
     setDetailError('');
-  };
+  }, []);
 
-  const list = useMemo(() => items, [items]);
+  useEffect(() => {
+    if (!selectedId) {
+      setDetailHeader(null);
+      return;
+    }
+
+    setDetailHeader({
+      title: detail?.name ?? 'Membership',
+      onBack: closeDetail,
+      statusLabel: detail
+        ? getMembershipStatusColors(mode, detail.status).label
+        : undefined,
+      breadcrumbParent: 'Membership',
+    });
+
+    return () => setDetailHeader(null);
+  }, [selectedId, detail, closeDetail, setDetailHeader, mode]);
+
+  const toggleView = useCallback(() => {
+    setViewMode(prev => (prev === 'list' ? 'card' : 'list'));
+  }, []);
+
+  const headerActions = useMemo<HeaderAction[]>(() => {
+    if (selectedId) {
+      return [];
+    }
+    return [
+      {
+        key: 'view',
+        icon: viewMode === 'list' ? 'view-grid-outline' : 'format-list-bulleted',
+        onPress: toggleView,
+        accessibilityLabel: 'Toggle list or card view',
+      },
+    ];
+  }, [selectedId, viewMode, toggleView]);
+
+  useHeaderActions(headerActions);
+
+  const filtered = useMemo(() => items, [items]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, viewMode]);
+
+  const paged = useMemo(
+    () => filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filtered, safePage],
+  );
+
+  const numColumns = useMemo(() => {
+    if (width >= 1200) {
+      return 3;
+    }
+    if (width >= 768) {
+      return 2;
+    }
+    return 1;
+  }, [width]);
+
+  const cardWidth = useMemo(() => {
+    const horizontalPadding = 32;
+    const gap = 12;
+    const available = width - horizontalPadding - gap * (numColumns - 1);
+    return available / numColumns;
+  }, [width, numColumns]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    void load();
+  };
 
   if (selectedId) {
     return (
-      <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
-        <View style={styles.detailHeader}>
-          <Button icon="arrow-left" onPress={closeDetail}>
-            Back
-          </Button>
-          <Text variant="titleMedium" style={{ fontWeight: '700', flex: 1 }}>
-            {detail?.name || 'Membership'}
-          </Text>
-        </View>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         {detailLoading ? (
           <View style={styles.center}>
             <ActivityIndicator />
@@ -166,115 +485,199 @@ export default function MembershipsScreen() {
     );
   }
 
+  if (loading) {
+    return (
+      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator />
+        <Text style={{ marginTop: 12 }}>Loading memberships...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
+        <Text variant="titleMedium" style={styles.errorTitle}>
+          Could not load memberships
+        </Text>
+        <Text style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center' }}>
+          {error}
+        </Text>
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator />
-        </View>
-      ) : error ? (
-        <View style={styles.center}>
-          <Text style={{ color: theme.colors.error }}>{error}</Text>
-          <Button onPress={() => void load()}>Retry</Button>
-        </View>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {viewMode === 'list' ? (
+        filtered.length === 0 ? (
+          <ScrollView
+            style={styles.tableScroll}
+            contentContainerStyle={styles.tableEmptyContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }>
+            <Text style={styles.empty}>
+              {query.trim()
+                ? 'No memberships match your search.'
+                : 'No memberships found in Odoo.'}
+            </Text>
+          </ScrollView>
+        ) : (
+          <View style={styles.tableScroll}>
+            <TableHeader />
+            <ScrollView
+              style={styles.listBody}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              }>
+              {paged.map((item, index) => (
+                <MembershipRow
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  onOpen={openDetail}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        )
       ) : (
         <FlatList
-          data={list}
+          key={numColumns}
+          data={paged}
+          numColumns={numColumns}
           keyExtractor={item => item.id}
+          showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                void load();
-              }}
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
-          contentContainerStyle={[
-            styles.list,
-            isMobile ? styles.listMobile : styles.listDesktop,
-          ]}
-          ListEmptyComponent={
-            <Text style={styles.empty}>No memberships found.</Text>
-          }
+          contentContainerStyle={styles.listContent}
+          columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
           renderItem={({ item }) => (
-            <Pressable
-              onPress={() => void openDetail(item.id)}
-              style={({ pressed }) => [
-                styles.card,
-                {
-                  backgroundColor: theme.colors.surface,
-                  borderColor:
-                    theme.colors.outlineVariant ?? theme.colors.outline,
-                  opacity: pressed ? 0.92 : 1,
-                },
+            <View
+              style={[
+                styles.cardWrapper,
+                { width: numColumns > 1 ? cardWidth : '100%' },
               ]}>
-              <View style={styles.cardTop}>
-                <CustomerNameText size="title" style={{ flex: 1, fontWeight: '700' }}>
-                  {item.name || '—'}
-                </CustomerNameText>
-                <Text
-                  style={[
-                    styles.badge,
-                    { color: theme.colors.primary, backgroundColor: theme.colors.primaryContainer },
-                  ]}>
-                  {item.status || '—'}
-                </Text>
-              </View>
-              <Text style={{ color: theme.colors.onSurfaceVariant }}>
-                {item.customer || 'No customer'}
-              </Text>
-              <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
-                {item.membershipLevel || '—'} · Remaining {item.remainingTickets}/
-                {item.totalTickets}
-              </Text>
-            </Pressable>
+              <MembershipCard item={item} onOpen={openDetail} />
+            </View>
           )}
+          ListEmptyComponent={
+            <Text style={styles.empty}>
+              {query.trim()
+                ? 'No memberships match your search.'
+                : 'No memberships found in Odoo.'}
+            </Text>
+          }
         />
       )}
+
+      <Pagination
+        page={safePage}
+        pageCount={pageCount}
+        total={filtered.length}
+        pageSize={PAGE_SIZE}
+        onChange={setPage}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  container: {
+    flex: 1,
+  },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
     padding: 24,
   },
-  list: { paddingBottom: 32 },
-  listMobile: { padding: 12 },
-  listDesktop: { paddingHorizontal: 20, paddingTop: 16 },
-  card: {
-    borderWidth: 1,
+  tableScroll: {
+    flex: 1,
+  },
+  listBody: {
+    flex: 1,
+  },
+  tableEmptyContent: {
+    flexGrow: 1,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    minHeight: 52,
+  },
+  headerRow: {
+    minHeight: 44,
+    alignItems: 'center',
+    paddingVertical: 0,
+  },
+  cell: {
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    justifyContent: 'center',
+    minWidth: 0,
+    overflow: 'visible',
+  },
+  customerCell: {
+    paddingVertical: 10,
+    justifyContent: 'flex-start',
+  },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    maxWidth: '100%',
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  columnWrapper: {
+    gap: 12,
+    marginBottom: 12,
+  },
+  cardWrapper: {
+    marginBottom: 12,
+  },
+  membershipCard: {
     borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
+    borderWidth: 1,
+  },
+  cardContent: {
+    gap: 8,
   },
   cardTop: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginBottom: 4,
-  },
-  badge: {
-    fontSize: 11,
-    fontWeight: '700',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    overflow: 'hidden',
-  },
-  empty: { textAlign: 'center', marginTop: 40, opacity: 0.6 },
-  detailHeader: {
-    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+  },
+  cardName: {
+    fontWeight: '700',
+    flex: 1,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  empty: {
+    textAlign: 'center',
+    marginTop: 40,
+    opacity: 0.7,
+  },
+  errorTitle: {
+    marginBottom: 8,
+    fontWeight: '600',
   },
   detailContent: { padding: 16, paddingBottom: 40, gap: 4 },
   metaRow: { marginBottom: 12, gap: 2 },
