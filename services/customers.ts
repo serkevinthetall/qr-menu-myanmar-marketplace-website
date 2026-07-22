@@ -65,7 +65,7 @@ export type CustomersPage = {
 
 export async function fetchCustomers(
   token: string,
-  options?: { lite?: boolean; limit?: number; offset?: number },
+  options?: { lite?: boolean; limit?: number; offset?: number; q?: string },
 ): Promise<Customer[]> {
   const page = await fetchCustomersPage(token, options);
   return page.data;
@@ -73,7 +73,7 @@ export async function fetchCustomers(
 
 export async function fetchCustomersPage(
   token: string,
-  options?: { lite?: boolean; limit?: number; offset?: number },
+  options?: { lite?: boolean; limit?: number; offset?: number; q?: string },
 ): Promise<CustomersPage> {
   const params = new URLSearchParams();
   if (options?.lite) {
@@ -84,6 +84,9 @@ export async function fetchCustomersPage(
   }
   if (options?.offset !== undefined) {
     params.set('offset', String(options.offset));
+  }
+  if (options?.q?.trim()) {
+    params.set('q', options.q.trim());
   }
   const query = params.toString() ? `?${params.toString()}` : '';
   const response = await webApiRequest<CustomersResponse>(`/customers${query}`, {

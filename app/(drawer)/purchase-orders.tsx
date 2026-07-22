@@ -329,20 +329,8 @@ export default function PurchaseOrdersScreen() {
   const openDetail = useCallback(
     async (id: string) => {
       if (!session?.token) return;
-      const preview = items.find(item => item.id === id) ?? null;
       setSelectedId(id);
-      setDetail(
-        preview
-          ? {
-              ...preview,
-              untaxedAmount: 0,
-              currency: '',
-              scheduledDate: '',
-              origin: '',
-              lines: [],
-            }
-          : null,
-      );
+      setDetail(null);
       setDetailLoading(true);
       setDetailError('');
       try {
@@ -358,7 +346,7 @@ export default function PurchaseOrdersScreen() {
         setDetailLoading(false);
       }
     },
-    [session?.token, items],
+    [session?.token],
   );
 
   const closeDetail = useCallback(() => {
@@ -443,11 +431,13 @@ export default function PurchaseOrdersScreen() {
 
   if (selectedId) {
     return (
-      <PurchaseOrderDetailView
-        detail={detail}
-        loading={detailLoading}
-        error={detailError}
-      />
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <PurchaseOrderDetailView
+          detail={detail}
+          loading={detailLoading}
+          error={detailError}
+        />
+      </View>
     );
   }
 

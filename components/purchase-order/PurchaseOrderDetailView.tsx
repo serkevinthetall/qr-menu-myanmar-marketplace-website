@@ -290,11 +290,23 @@ export function PurchaseOrderDetailView({
       ? detail.untaxedAmount
       : detail?.lines.reduce((sum, line) => sum + line.amount, 0) ?? 0;
 
-  // Keep showing the preview header while lines/full detail finish loading.
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: detailTheme.background }]}>
+        <View style={styles.centerOverlay}>
+          <ActivityIndicator size="large" />
+          <Text style={{ marginTop: 12, color: theme.colors.onSurfaceVariant }}>
+            Loading purchase order from Odoo...
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   if (error && !detail) {
     return (
       <View style={[styles.container, { backgroundColor: detailTheme.background }]}>
-        <View style={styles.center}>
+        <View style={styles.centerOverlay}>
           <Text
             variant="titleMedium"
             style={{ fontWeight: '600', marginBottom: 8, color: theme.colors.onSurface }}>
@@ -308,23 +320,10 @@ export function PurchaseOrderDetailView({
     );
   }
 
-  if (loading && !detail) {
-    return (
-      <View style={[styles.container, { backgroundColor: detailTheme.background }]}>
-        <View style={styles.center}>
-          <ActivityIndicator />
-          <Text style={{ marginTop: 12, color: theme.colors.onSurfaceVariant }}>
-            Loading purchase order from Odoo...
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
   if (!detail) {
     return (
       <View style={[styles.container, { backgroundColor: detailTheme.background }]}>
-        <View style={styles.center}>
+        <View style={styles.centerOverlay}>
           <Text style={{ color: theme.colors.onSurfaceVariant }}>
             Purchase order not found.
           </Text>
@@ -343,14 +342,6 @@ export function PurchaseOrderDetailView({
         ]}
         showsVerticalScrollIndicator={false}>
         <View style={styles.page}>
-          {loading ? (
-            <View style={styles.inlineLoading}>
-              <ActivityIndicator size="small" />
-              <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 13 }}>
-                Refreshing details from Odoo...
-              </Text>
-            </View>
-          ) : null}
           {error ? (
             <Text style={{ color: theme.colors.error, paddingHorizontal: 4 }}>{error}</Text>
           ) : null}
@@ -442,14 +433,7 @@ export function PurchaseOrderDetailView({
             </View>
 
             <View style={styles.sectionBody}>
-              {loading && detail.lines.length === 0 ? (
-                <View style={styles.inlineLoading}>
-                  <ActivityIndicator size="small" />
-                  <Text style={{ color: detailTheme.label, fontSize: 13 }}>
-                    Loading order lines...
-                  </Text>
-                </View>
-              ) : detail.lines.length === 0 ? (
+              {detail.lines.length === 0 ? (
                 <Text style={{ textAlign: 'center', color: detailTheme.label, paddingVertical: 24 }}>
                   No order lines.
                 </Text>
@@ -498,18 +482,17 @@ export function PurchaseOrderDetailView({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  center: {
+  container: {
     flex: 1,
+    width: '100%',
+    alignSelf: 'stretch',
+    minHeight: '100%',
+  },
+  centerOverlay: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-  },
-  inlineLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 4,
   },
   scroll: { flex: 1 },
   scrollContent: {

@@ -34,13 +34,15 @@ import { useResponsive } from '@/hooks/use-responsive';
 import {
   createCustomerAddress,
   fetchCustomerAddresses,
+  fetchCustomersPage,
   fetchTownships,
   searchContactsByPhone,
 } from '@/services/customers';
 import { Customer, ContactSearchResult, CustomerAddress, Township } from '@/types/customer';
 import { Product } from '@/types/product';
 import { PaymentMethod, QuotationReorderSeed } from '@/types/quotation';
-import { validateMyanmarPhone } from '@/utils/myanmar-phone';
+import { normalizeMyanmarPhone, validateMyanmarPhone } from '@/utils/myanmar-phone';
+import { mergeById } from '@/utils/quotation-builder-cache';
 import { StoredQuotationDraft, clearQuotationDraft } from '@/utils/quotation-draft-storage';
 
 const ADD_NEW_ADDRESS_OPTION = '+ Add new address…';
@@ -506,6 +508,8 @@ export function QuotationBuilder({
   const [checkingPhone, setCheckingPhone] = useState(false);
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
+  const [serverCustomerMatches, setServerCustomerMatches] = useState<Customer[]>([]);
+  const [searchingCustomers, setSearchingCustomers] = useState(false);
   const [salePersonName, setSalePersonName] = useState('');
   const [deliveryNote, setDeliveryNote] = useState('');
   const [preferredDeliveryDate, setPreferredDeliveryDate] = useState('');
@@ -1014,18 +1018,111 @@ export function QuotationBuilder({
     setContactError('');
   }, [initialReorder, products, skipDraftRestore, draftRestored]);
 
+  useEffect(() => {
+    if (!customerPickerOpen) {
+      return;
+    }
+
+    const term = customerSearch.trim();
+    if (!term || !session?.token) {
+      setServerCustomerMatches([]);
+      setSearchingCustomers(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSearchingCustomers(true);
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const page = await fetchCustomersPage(session.token, {
+            lite: true,
+            q: term,
+            limit: 50,
+            offset: 0,
+          });
+          if (cancelled) {
+            return;
+          }
+
+          let matches = page.data;
+          const normalized = normalizeMyanmarPhone(term);
+          // Phone lookup only for Myanmar mobile format (09…)
+          if (normalized.startsWith('09') && normalized.length >= 8) {
+            try {
+              const phoneHits = await searchContactsByPhone(
+                session.token,
+                normalized,
+              );
+              const asCustomers: Customer[] = phoneHits.map(hit => ({
+                id: hit.parentId || hit.id,
+                name: hit.name,
+                email: '',
+                phone: hit.phone,
+                city: hit.city,
+                jobPosition: '',
+                company: '',
+                isCompany: Boolean(hit.isCompany),
+                activity: '',
+                township: hit.township,
+                status: '',
+                lastMonthSales: 0,
+                thisMonthSales: 0,
+                thisMonthPercent: 0,
+                lastInvoiceDate: '',
+                expoPushToken: '',
+                extra: {},
+              }));
+              matches = mergeById(matches, asCustomers);
+            } catch {
+              // Ignore invalid partial phone while typing.
+            }
+          }
+
+          if (!cancelled) {
+            setServerCustomerMatches(matches);
+          }
+        } catch {
+          if (!cancelled) {
+            setServerCustomerMatches([]);
+          }
+        } finally {
+          if (!cancelled) {
+            setSearchingCustomers(false);
+          }
+        }
+      })();
+    }, 280);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [customerPickerOpen, customerSearch, session?.token]);
+
   const filteredCustomers = useMemo(() => {
-    const term = customerSearch.trim().toLowerCase();
+    const term = customerSearch.trim();
     if (!term) {
       return customers;
     }
-    return customers.filter(
-      item =>
-        item.name.toLowerCase().includes(term) ||
-        item.phone.toLowerCase().includes(term) ||
-        item.township.toLowerCase().includes(term),
-    );
-  }, [customers, customerSearch]);
+
+    const lower = term.toLowerCase();
+    const phoneTerm = normalizeMyanmarPhone(term);
+    const local = customers.filter(item => {
+      const name = (item.name ?? '').toLowerCase();
+      const phone = normalizeMyanmarPhone(item.phone ?? '');
+      const township = (item.township ?? '').toLowerCase();
+      const rawPhone = (item.phone ?? '').toLowerCase();
+      return (
+        name.includes(lower) ||
+        township.includes(lower) ||
+        (phoneTerm.startsWith('09') && phone.includes(phoneTerm)) ||
+        rawPhone.includes(lower)
+      );
+    });
+
+    return mergeById(local, serverCustomerMatches);
+  }, [customers, customerSearch, serverCustomerMatches]);
 
   const categories = useMemo(() => {
     const unique = new Set<string>();
@@ -1902,7 +1999,12 @@ export function QuotationBuilder({
       <Portal>
         <Modal
           visible={customerPickerOpen}
-          onDismiss={() => setCustomerPickerOpen(false)}
+          onDismiss={() => {
+            setCustomerPickerOpen(false);
+            setCustomerSearch('');
+            setServerCustomerMatches([]);
+            setSearchingCustomers(false);
+          }}
           contentContainerStyle={[
             styles.pickerModal,
             { backgroundColor: theme.colors.surface },
@@ -1912,10 +2014,15 @@ export function QuotationBuilder({
           </Text>
           <TextInput
             mode="outlined"
-            placeholder="Search customers"
+            placeholder="Search by name or 09 phone"
             value={customerSearch}
             onChangeText={setCustomerSearch}
             left={<TextInput.Icon icon="magnify" />}
+            right={
+              searchingCustomers ? (
+                <TextInput.Icon icon={() => <ActivityIndicator size={18} />} />
+              ) : undefined
+            }
             dense
             autoFocus
           />
@@ -1924,7 +2031,13 @@ export function QuotationBuilder({
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled>
             {filteredCustomers.length === 0 ? (
-              <Text style={styles.emptyText}>No customers found.</Text>
+              <Text style={styles.emptyText}>
+                {searchingCustomers
+                  ? 'Searching customers...'
+                  : customerSearch.trim()
+                    ? 'No customers found.'
+                    : 'Type a name or phone number to search.'}
+              </Text>
             ) : (
               filteredCustomers.map(item => (
                 <Pressable
@@ -1934,6 +2047,7 @@ export function QuotationBuilder({
                     setCustomerPickerOpen(false);
                     void loadAddressesForPartner(item.id, item);
                     setCustomerSearch('');
+                    setServerCustomerMatches([]);
                   }}
                   style={[
                     styles.pickerRow,
@@ -1957,7 +2071,15 @@ export function QuotationBuilder({
               ))
             )}
           </ScrollView>
-          <Button onPress={() => setCustomerPickerOpen(false)}>Close</Button>
+          <Button
+            onPress={() => {
+              setCustomerPickerOpen(false);
+              setCustomerSearch('');
+              setServerCustomerMatches([]);
+              setSearchingCustomers(false);
+            }}>
+            Close
+          </Button>
         </Modal>
       </Portal>
 
