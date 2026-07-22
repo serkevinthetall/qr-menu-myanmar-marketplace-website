@@ -8,12 +8,10 @@ import { Drawer, Text, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NAV_ITEMS } from '@/constants/navigation';
-import { useAuth } from '@/contexts/auth-context';
 
 export function DrawerContent(props: DrawerContentComponentProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
   const activeRoute = props.state.routes[props.state.index]?.name;
 
   const navigateTo = (routeName: string) => {
@@ -62,23 +60,6 @@ export function DrawerContent(props: DrawerContentComponentProps) {
           />
         ))}
       </Drawer.Section>
-
-      {user ? (
-        <Drawer.Section
-          title="Account"
-          style={[styles.accountSection, { borderTopColor: theme.colors.outline }]}>
-          <View style={styles.userInfo}>
-            <Text variant="titleSmall" style={{ color: theme.colors.onSurface }}>
-              {user.name}
-            </Text>
-            <Text
-              variant="bodySmall"
-              style={{ color: theme.colors.onSurfaceVariant }}>
-              {user.email}
-            </Text>
-          </View>
-        </Drawer.Section>
-      ) : null}
     </DrawerContentScrollView>
   );
 }
@@ -104,14 +85,5 @@ const styles = StyleSheet.create({
   },
   section: {
     marginTop: 8,
-  },
-  accountSection: {
-    borderTopWidth: 1,
-    marginTop: 8,
-  },
-  userInfo: {
-    paddingHorizontal: 16,
-    paddingBottom: 4,
-    gap: 2,
   },
 });
