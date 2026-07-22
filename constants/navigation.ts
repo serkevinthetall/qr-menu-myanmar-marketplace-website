@@ -29,6 +29,13 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'Products synced from Odoo.',
   },
   {
+    name: 'purchase-orders',
+    label: 'Purchase Order',
+    icon: 'clipboard-list-outline',
+    title: 'Purchase Order',
+    description: 'Browse purchase orders from Odoo.',
+  },
+  {
     name: 'memberships',
     label: 'Membership',
     icon: 'card-account-details-outline',

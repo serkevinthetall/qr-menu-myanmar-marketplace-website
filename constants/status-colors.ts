@@ -49,6 +49,55 @@ export function canCancelQuotation(status: string): boolean {
   return status === 'draft';
 }
 
+const purchaseOrderStatusLight: Record<string, StatusPair> = {
+  draft: { bg: '#E2E8F0', fg: '#475569' },
+  sent: { bg: '#DBEAFE', fg: '#1E40AF' },
+  to_approve: { bg: '#FEF3C7', fg: '#92400E' },
+  purchase: { bg: '#DCFCE7', fg: '#166534' },
+  done: { bg: '#DCFCE7', fg: '#166534' },
+  cancel: { bg: '#FEE2E2', fg: '#991B1B' },
+  default: { bg: '#E2E8F0', fg: '#475569' },
+};
+
+const purchaseOrderStatusDark: Record<string, StatusPair> = {
+  draft: { bg: '#334155', fg: '#E2E8F0' },
+  sent: { bg: '#1E3A5F', fg: '#93C5FD' },
+  to_approve: { bg: 'rgba(245, 158, 11, 0.22)', fg: '#FCD34D' },
+  purchase: { bg: 'rgba(16, 185, 129, 0.22)', fg: '#6EE7B7' },
+  done: { bg: 'rgba(16, 185, 129, 0.22)', fg: '#6EE7B7' },
+  cancel: { bg: 'rgba(239, 68, 68, 0.22)', fg: '#FCA5A5' },
+  default: { bg: '#334155', fg: '#CBD5E1' },
+};
+
+export function getPurchaseOrderStatusColors(
+  mode: ThemeMode,
+  state: string,
+): StatusPair & { label: string } {
+  const palette =
+    mode === 'dark' ? purchaseOrderStatusDark : purchaseOrderStatusLight;
+  const key = state === 'to approve' ? 'to_approve' : state;
+
+  switch (state) {
+    case 'draft':
+      return { label: 'RFQ', ...palette.draft };
+    case 'sent':
+      return { label: 'RFQ Sent', ...palette.sent };
+    case 'to approve':
+      return { label: 'To Approve', ...palette.to_approve };
+    case 'purchase':
+      return { label: 'Purchase Order', ...palette.purchase };
+    case 'done':
+      return { label: 'Locked', ...palette.done };
+    case 'cancel':
+      return { label: 'Cancelled', ...palette.cancel };
+    default:
+      return {
+        label: state || '—',
+        ...(palette[key] ?? palette.default),
+      };
+  }
+}
+
 export function getContactStatusColors(
   mode: ThemeMode,
   status: string,

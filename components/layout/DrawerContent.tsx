@@ -13,7 +13,7 @@ import { useAuth } from '@/contexts/auth-context';
 export function DrawerContent(props: DrawerContentComponentProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const activeRoute = props.state.routes[props.state.index]?.name;
 
   const navigateTo = (routeName: string) => {
@@ -21,11 +21,6 @@ export function DrawerContent(props: DrawerContentComponentProps) {
     if (Platform.OS === 'web') {
       props.navigation.closeDrawer();
     }
-  };
-
-  const handleLogout = async () => {
-    props.navigation.closeDrawer();
-    await logout();
   };
 
   return (
@@ -68,10 +63,10 @@ export function DrawerContent(props: DrawerContentComponentProps) {
         ))}
       </Drawer.Section>
 
-      <Drawer.Section
-        title="Account"
-        style={[styles.accountSection, { borderTopColor: theme.colors.outline }]}>
-        {user ? (
+      {user ? (
+        <Drawer.Section
+          title="Account"
+          style={[styles.accountSection, { borderTopColor: theme.colors.outline }]}>
           <View style={styles.userInfo}>
             <Text variant="titleSmall" style={{ color: theme.colors.onSurface }}>
               {user.name}
@@ -82,9 +77,8 @@ export function DrawerContent(props: DrawerContentComponentProps) {
               {user.email}
             </Text>
           </View>
-        ) : null}
-        <Drawer.Item label="Logout" icon="logout" onPress={handleLogout} />
-      </Drawer.Section>
+        </Drawer.Section>
+      ) : null}
     </DrawerContentScrollView>
   );
 }
