@@ -24,6 +24,5 @@ export type PurchaseOrderDetail = PurchaseOrder & {
   currency: string;
   scheduledDate: string;
   origin: string;
-  notes: string;
   lines: PurchaseOrderLine[];
 };

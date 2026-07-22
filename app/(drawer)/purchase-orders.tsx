@@ -476,7 +476,6 @@ export default function PurchaseOrdersScreen() {
             <MetaRow label="CURRENCY" value={detail.currency} />
             <MetaRow label="UNTAXED" value={formatMoney(detail.untaxedAmount)} />
             <MetaRow label="TOTAL" value={formatMoney(detail.total)} />
-            {detail.notes ? <MetaRow label="NOTES" value={detail.notes} /> : null}
 
             <Divider style={styles.divider} />
             <Text variant="titleSmall" style={styles.linesTitle}>
