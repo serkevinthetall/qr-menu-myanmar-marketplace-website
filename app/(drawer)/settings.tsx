@@ -1,5 +1,6 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 import {
+  Button,
   List,
   SegmentedButtons,
   Text,
@@ -8,6 +9,7 @@ import {
 
 import { ThemeMode } from '@/constants/colors';
 import { NAV_ITEMS } from '@/constants/navigation';
+import { useAuth } from '@/contexts/auth-context';
 import { useAppTheme } from '@/contexts/theme-context';
 
 const screen = NAV_ITEMS.find(item => item.name === 'settings')!;
@@ -15,6 +17,7 @@ const screen = NAV_ITEMS.find(item => item.name === 'settings')!;
 export default function SettingsScreen() {
   const theme = useTheme();
   const { mode, setMode } = useAppTheme();
+  const { user, logout } = useAuth();
 
   return (
     <ScrollView
@@ -34,6 +37,27 @@ export default function SettingsScreen() {
         <Text variant="bodyLarge" style={styles.description}>
           {screen.description}
         </Text>
+
+        <List.Section>
+          <List.Subheader>Account</List.Subheader>
+          <List.Item
+            title={user?.name || 'Signed in'}
+            description={user?.email || 'No account details available'}
+            left={props => <List.Icon {...props} icon="account-circle-outline" />}
+          />
+          <View style={styles.accountActions}>
+            <Button
+              mode="outlined"
+              icon="logout"
+              textColor={theme.colors.error}
+              style={{ borderColor: theme.colors.error }}
+              onPress={() => {
+                void logout();
+              }}>
+              Logout
+            </Button>
+          </View>
+        </List.Section>
 
         <List.Section>
           <List.Subheader>Appearance</List.Subheader>
@@ -90,6 +114,11 @@ const styles = StyleSheet.create({
   description: {
     opacity: 0.75,
     marginBottom: 8,
+  },
+  accountActions: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    alignItems: 'flex-start',
   },
   segmented: {
     paddingHorizontal: 16,
