@@ -29,6 +29,20 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'Products synced from Odoo.',
   },
   {
+    name: 'memberships',
+    label: 'Membership',
+    icon: 'card-account-details-outline',
+    title: 'Membership',
+    description: 'Customer memberships from Odoo (x_membership).',
+  },
+  {
+    name: 'membership-coupons',
+    label: 'Membership Coupons',
+    icon: 'ticket-confirmation-outline',
+    title: 'Membership Coupons',
+    description: 'Membership coupon tickets (x_membership_coupon_ti).',
+  },
+  {
     name: 'settings',
     label: 'Settings',
     icon: 'cog-outline',
