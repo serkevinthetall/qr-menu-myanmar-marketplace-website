@@ -9,12 +9,12 @@ import {
 } from 'react-native';
 import {
   ActivityIndicator,
-  Card,
-  Divider,
+  Icon,
   Text,
   useTheme,
 } from 'react-native-paper';
 
+import { PurchaseOrderDetailView } from '@/components/purchase-order/PurchaseOrderDetailView';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { Pagination } from '@/components/ui/Pagination';
 import { getPurchaseOrderStatusColors } from '@/constants/status-colors';
@@ -26,17 +26,14 @@ import {
   useSearch,
 } from '@/contexts/search-context';
 import { useAppTheme } from '@/contexts/theme-context';
+import { useAppColors } from '@/hooks/use-app-colors';
 import { useResponsive } from '@/hooks/use-responsive';
 import {
   fetchPurchaseOrderDetail,
   fetchPurchaseOrders,
 } from '@/services/purchase-orders';
-import {
-  PurchaseOrder,
-  PurchaseOrderDetail,
-  PurchaseOrderLine,
-} from '@/types/purchase-order';
-import { formatMyanmarDate, formatMyanmarDateTime } from '@/utils/myanmar-datetime';
+import { PurchaseOrder, PurchaseOrderDetail } from '@/types/purchase-order';
+import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
 
 const PAGE_SIZE = 50;
 
@@ -135,37 +132,40 @@ function PurchaseOrderRow({
           );
         }
 
-        const text = cellText(item, col.key);
-        const isNumber = col.key === 'number';
-        const isVendor = col.key === 'vendor';
+                const text = cellText(item, col.key);
+                const isNumber = col.key === 'number';
+                const isVendor = col.key === 'vendor';
+                const isTotal = col.key === 'total';
 
-        return (
-          <View
-            key={col.key}
-            style={[
-              styles.cell,
-              isVendor && styles.vendorCell,
-              { flex: col.flex },
-            ]}>
-            {isVendor ? (
-              <CustomerNameText style={{ fontWeight: '400' }}>
-                {text || '—'}
-              </CustomerNameText>
-            ) : (
-              <Text
-                numberOfLines={1}
-                style={{
-                  textAlign: col.align === 'right' ? 'right' : 'left',
-                  fontWeight: isNumber ? '600' : '400',
-                  color: text
-                    ? theme.colors.onSurface
-                    : theme.colors.onSurfaceVariant,
-                }}>
-                {text || '—'}
-              </Text>
-            )}
-          </View>
-        );
+                return (
+                  <View
+                    key={col.key}
+                    style={[
+                      styles.cell,
+                      isVendor && styles.vendorCell,
+                      { flex: col.flex },
+                    ]}>
+                    {isVendor ? (
+                      <CustomerNameText style={{ fontWeight: '400' }}>
+                        {text || '—'}
+                      </CustomerNameText>
+                    ) : (
+                      <Text
+                        numberOfLines={1}
+                        style={{
+                          textAlign: col.align === 'right' ? 'right' : 'left',
+                          fontWeight: isNumber || isTotal ? '700' : '400',
+                          color: isTotal
+                            ? theme.colors.primary
+                            : text
+                              ? theme.colors.onSurface
+                              : theme.colors.onSurfaceVariant,
+                        }}>
+                        {text || '—'}
+                      </Text>
+                    )}
+                  </View>
+                );
       })}
     </Pressable>
   );
@@ -206,88 +206,77 @@ function PurchaseOrderCard({
   onOpen: (id: string) => void;
 }) {
   const theme = useTheme();
+  const { mode } = useAppTheme();
+  const colors = useAppColors();
+  const statusColors = getPurchaseOrderStatusColors(mode, item.status);
 
   return (
-    <Card
-      mode="elevated"
+    <Pressable
       onPress={() => onOpen(item.id)}
-      style={[
-        styles.orderCard,
-        {
-          backgroundColor: theme.colors.surface,
-          borderColor: theme.colors.outline,
-        },
-      ]}>
-      <Card.Content style={styles.cardContent}>
-        <View style={styles.cardTop}>
-          <Text variant="titleMedium" style={styles.cardNumber} numberOfLines={1}>
-            {item.number || '—'}
-          </Text>
-          <StatusBadge status={item.status} />
+      style={({ pressed }) => [{ opacity: pressed ? 0.94 : 1 }]}>
+      <View
+        style={[
+          styles.orderCard,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.outline,
+            shadowColor: colors.detailShadow,
+          },
+        ]}>
+        <View style={[styles.cardAccent, { backgroundColor: statusColors.bg }]} />
+        <View style={styles.cardBody}>
+          <View style={styles.cardTop}>
+            <Text variant="titleMedium" style={styles.cardNumber} numberOfLines={1}>
+              {item.number || '—'}
+            </Text>
+            <StatusBadge status={item.status} />
+          </View>
+
+          <CustomerNameText style={{ fontWeight: '600' }}>
+            {item.vendor?.trim() || '—'}
+          </CustomerNameText>
+
+          {item.buyer ? (
+            <View style={styles.cardMetaRow}>
+              <Icon
+                source="account-outline"
+                size={14}
+                color={theme.colors.onSurfaceVariant}
+              />
+              <Text
+                variant="bodySmall"
+                style={{ color: theme.colors.onSurfaceVariant, flex: 1 }}
+                numberOfLines={1}>
+                {item.buyer}
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={styles.cardFooter}>
+            <View style={styles.cardMetaRow}>
+              <Icon source="calendar" size={14} color={theme.colors.onSurfaceVariant} />
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                {formatMyanmarDateTime(item.orderDate) || item.orderDate || '—'}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.totalChip,
+                { backgroundColor: theme.colors.primaryContainer },
+              ]}>
+              <Text
+                style={{
+                  color: theme.colors.primary,
+                  fontWeight: '800',
+                  fontSize: 13,
+                }}>
+                {formatMoney(item.total)}
+              </Text>
+            </View>
+          </View>
         </View>
-
-        <CustomerNameText>{item.vendor?.trim() || '—'}</CustomerNameText>
-
-        {item.buyer ? (
-          <Text
-            variant="bodySmall"
-            style={{ color: theme.colors.onSurfaceVariant }}
-            numberOfLines={1}>
-            {item.buyer}
-          </Text>
-        ) : null}
-
-        <View style={styles.cardFooter}>
-          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            {formatMyanmarDateTime(item.orderDate) || item.orderDate || '—'}
-          </Text>
-          <Text
-            variant="titleSmall"
-            style={{ color: theme.colors.primary, fontWeight: '700' }}>
-            {formatMoney(item.total)}
-          </Text>
-        </View>
-      </Card.Content>
-    </Card>
-  );
-}
-
-function MetaRow({ label, value }: { label: string; value: string }) {
-  const theme = useTheme();
-  return (
-    <View style={styles.metaRow}>
-      <Text style={[styles.metaLabel, { color: theme.colors.onSurfaceVariant }]}>
-        {label}
-      </Text>
-      <CustomerNameText size="body" style={{ fontWeight: '600' }}>
-        {value.trim() || '—'}
-      </CustomerNameText>
-    </View>
-  );
-}
-
-function OrderLineRow({ line }: { line: PurchaseOrderLine }) {
-  const theme = useTheme();
-  const qty = Number(line.quantity) || 0;
-
-  return (
-    <View
-      style={[
-        styles.lineRow,
-        { borderBottomColor: theme.colors.outlineVariant ?? theme.colors.outline },
-      ]}>
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={{ fontWeight: '600' }} numberOfLines={2}>
-          {line.product || '—'}
-        </Text>
-        <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-          {qty} {line.unit || 'Units'} × {formatMoney(line.unitPrice)}
-        </Text>
       </View>
-      <Text style={{ fontWeight: '700', color: theme.colors.primary }}>
-        {formatMoney(line.amount)}
-      </Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -340,10 +329,22 @@ export default function PurchaseOrdersScreen() {
   const openDetail = useCallback(
     async (id: string) => {
       if (!session?.token) return;
+      const preview = items.find(item => item.id === id) ?? null;
       setSelectedId(id);
+      setDetail(
+        preview
+          ? {
+              ...preview,
+              untaxedAmount: 0,
+              currency: '',
+              scheduledDate: '',
+              origin: '',
+              lines: [],
+            }
+          : null,
+      );
       setDetailLoading(true);
       setDetailError('');
-      setDetail(null);
       try {
         const data = await fetchPurchaseOrderDetail(session.token, id);
         setDetail(data);
@@ -357,7 +358,7 @@ export default function PurchaseOrdersScreen() {
         setDetailLoading(false);
       }
     },
-    [session?.token],
+    [session?.token, items],
   );
 
   const closeDetail = useCallback(() => {
@@ -442,53 +443,11 @@ export default function PurchaseOrdersScreen() {
 
   if (selectedId) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        {detailLoading ? (
-          <View style={styles.center}>
-            <ActivityIndicator />
-          </View>
-        ) : detailError ? (
-          <View style={styles.center}>
-            <Text style={{ color: theme.colors.error }}>{detailError}</Text>
-          </View>
-        ) : detail ? (
-          <ScrollView contentContainerStyle={styles.detailContent}>
-            <MetaRow label="NUMBER" value={detail.number} />
-            <MetaRow label="VENDOR" value={detail.vendor} />
-            <MetaRow label="BUYER" value={detail.buyer} />
-            <MetaRow
-              label="ORDER DATE"
-              value={
-                formatMyanmarDateTime(detail.orderDate) || detail.orderDate
-              }
-            />
-            <MetaRow
-              label="SCHEDULED DATE"
-              value={
-                formatMyanmarDate(detail.scheduledDate) || detail.scheduledDate
-              }
-            />
-            <MetaRow
-              label="STATUS"
-              value={getPurchaseOrderStatusColors(mode, detail.status).label}
-            />
-            <MetaRow label="ORIGIN" value={detail.origin} />
-            <MetaRow label="CURRENCY" value={detail.currency} />
-            <MetaRow label="UNTAXED" value={formatMoney(detail.untaxedAmount)} />
-            <MetaRow label="TOTAL" value={formatMoney(detail.total)} />
-
-            <Divider style={styles.divider} />
-            <Text variant="titleSmall" style={styles.linesTitle}>
-              Order lines
-            </Text>
-            {detail.lines.length === 0 ? (
-              <Text style={{ opacity: 0.6, marginTop: 8 }}>No order lines.</Text>
-            ) : (
-              detail.lines.map(line => <OrderLineRow key={line.id} line={line} />)
-            )}
-          </ScrollView>
-        ) : null}
-      </View>
+      <PurchaseOrderDetailView
+        detail={detail}
+        loading={detailLoading}
+        error={detailError}
+      />
     );
   }
 
@@ -587,6 +546,7 @@ export default function PurchaseOrdersScreen() {
         total={filtered.length}
         pageSize={PAGE_SIZE}
         onChange={setPage}
+        centerLabel={`${items.length} from Odoo`}
       />
     </View>
   );
@@ -657,8 +617,19 @@ const styles = StyleSheet.create({
   orderCard: {
     borderRadius: 12,
     borderWidth: 1,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  cardContent: {
+  cardAccent: {
+    width: 5,
+  },
+  cardBody: {
+    flex: 1,
+    padding: 14,
     gap: 8,
   },
   cardTop: {
@@ -668,7 +639,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cardNumber: {
-    fontWeight: '700',
+    fontWeight: '800',
     flex: 1,
   },
   cardFooter: {
@@ -676,6 +647,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 4,
+  },
+  cardMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  totalChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
   empty: {
     textAlign: 'center',
@@ -685,24 +666,5 @@ const styles = StyleSheet.create({
   errorTitle: {
     marginBottom: 8,
     fontWeight: '600',
-  },
-  detailContent: { padding: 16, paddingBottom: 40, gap: 4 },
-  metaRow: { marginBottom: 12, gap: 2 },
-  metaLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  divider: { marginVertical: 10 },
-  linesTitle: {
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  lineRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
 });
