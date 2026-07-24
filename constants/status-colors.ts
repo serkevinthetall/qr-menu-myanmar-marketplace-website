@@ -98,6 +98,14 @@ export function getPurchaseOrderStatusColors(
   }
 }
 
+/** Confirmed sale.order states shown in the Sale Order module. */
+export function getSaleOrderStatusColors(
+  mode: ThemeMode,
+  state: string,
+): StatusPair & { label: string } {
+  return getQuotationStatusColors(mode, state);
+}
+
 export function getContactStatusColors(
   mode: ThemeMode,
   status: string,

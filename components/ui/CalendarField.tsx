@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Icon, IconButton, Modal, Portal, Text, useTheme } from 'react-native-paper';
+import { Icon, IconButton, Text, useTheme } from 'react-native-paper';
 
+import { DismissibleModal } from '@/components/ui/DismissibleModal';
 import { useAppColors } from '@/hooks/use-app-colors';
 
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
@@ -151,79 +152,82 @@ export function CalendarField({
         ) : null}
       </Pressable>
 
-      <Portal>
-        <Modal
-          visible={open}
-          onDismiss={() => setOpen(false)}
-          contentContainerStyle={[
-            styles.modal,
-            { backgroundColor: theme.colors.surface },
-          ]}>
-          <View style={styles.header}>
-            <IconButton icon="chevron-left" size={22} onPress={() => goMonth(-1)} />
-            <Text variant="titleMedium" style={styles.headerLabel}>
-              {MONTHS[viewDate.getMonth()]} {viewDate.getFullYear()}
-            </Text>
-            <IconButton icon="chevron-right" size={22} onPress={() => goMonth(1)} />
-          </View>
-
-          <View style={styles.weekRow}>
-            {WEEKDAYS.map(day => (
-              <View key={day} style={styles.weekCell}>
-                <Text
-                  variant="labelSmall"
-                  style={{ color: theme.colors.onSurfaceVariant, fontWeight: '700' }}>
-                  {day}
-                </Text>
-              </View>
-            ))}
-          </View>
-
-          {weeks.map((week, wi) => (
-            <View key={wi} style={styles.weekRow}>
-              {week.map((date, di) => {
-                if (!date) {
-                  return <View key={di} style={styles.dayCell} />;
-                }
-                const isSelected = selected ? isSameDay(date, selected) : false;
-                const isToday = isSameDay(date, today);
-                return (
-                  <Pressable
-                    key={di}
-                    onPress={() => pickDay(date)}
-                    style={[
-                      styles.dayCell,
-                      isSelected && { backgroundColor: theme.colors.primary },
-                      !isSelected &&
-                        isToday && {
-                          borderWidth: 1,
-                          borderColor: theme.colors.primary,
-                        },
-                    ]}>
-                    <Text
-                      style={{
-                        color: isSelected
-                          ? theme.colors.onPrimary
-                          : theme.colors.onSurface,
-                        fontWeight: isSelected || isToday ? '700' : '400',
-                      }}>
-                      {date.getDate()}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ))}
-
+      <DismissibleModal
+        visible={open}
+        onDismiss={() => setOpen(false)}
+        title={label || placeholder}
+        contentContainerStyle={styles.modal}
+        showCloseButton={false}
+        footer={
           <View style={styles.footer}>
             <Pressable onPress={() => pickDay(new Date())} hitSlop={8}>
               <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>
                 Today
               </Text>
             </Pressable>
+            <Pressable onPress={() => setOpen(false)} hitSlop={8}>
+              <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600' }}>
+                Close
+              </Text>
+            </Pressable>
           </View>
-        </Modal>
-      </Portal>
+        }>
+        <View style={styles.header}>
+          <IconButton icon="chevron-left" size={22} onPress={() => goMonth(-1)} />
+          <Text variant="titleMedium" style={styles.headerLabel}>
+            {MONTHS[viewDate.getMonth()]} {viewDate.getFullYear()}
+          </Text>
+          <IconButton icon="chevron-right" size={22} onPress={() => goMonth(1)} />
+        </View>
+
+        <View style={styles.weekRow}>
+          {WEEKDAYS.map(day => (
+            <View key={day} style={styles.weekCell}>
+              <Text
+                variant="labelSmall"
+                style={{ color: theme.colors.onSurfaceVariant, fontWeight: '700' }}>
+                {day}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {weeks.map((week, wi) => (
+          <View key={wi} style={styles.weekRow}>
+            {week.map((date, di) => {
+              if (!date) {
+                return <View key={di} style={styles.dayCell} />;
+              }
+              const isSelected = selected ? isSameDay(date, selected) : false;
+              const isToday = isSameDay(date, today);
+              return (
+                <Pressable
+                  key={di}
+                  onPress={() => pickDay(date)}
+                  style={[
+                    styles.dayCell,
+                    isSelected && { backgroundColor: theme.colors.primary },
+                    !isSelected &&
+                      isToday && {
+                        borderWidth: 1,
+                        borderColor: theme.colors.primary,
+                      },
+                  ]}>
+                  <Text
+                    style={{
+                      color: isSelected
+                        ? theme.colors.onPrimary
+                        : theme.colors.onSurface,
+                      fontWeight: isSelected || isToday ? '700' : '400',
+                    }}>
+                    {date.getDate()}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
+      </DismissibleModal>
     </View>
   );
 }
@@ -286,7 +290,9 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginTop: 8,
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 4,
   },
 });

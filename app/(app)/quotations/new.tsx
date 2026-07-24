@@ -683,13 +683,23 @@ export default function AppNewQuotationScreen() {
                 paddingBottom: Math.max(insets.bottom, 12),
               },
             ]}>
-            <Button
-              mode="contained"
-              disabled={!shippingPartnerId || loadingAddresses}
-              onPress={() => setStep('products')}
-              contentStyle={styles.footerBtnContent}>
-              Continue to products
-            </Button>
+            <View style={styles.footerRow}>
+              <Button
+                mode="outlined"
+                onPress={() => setStep('customer')}
+                style={styles.footerHalf}
+                contentStyle={styles.footerBtnContent}>
+                Back
+              </Button>
+              <Button
+                mode="contained"
+                disabled={!shippingPartnerId || loadingAddresses}
+                onPress={() => setStep('products')}
+                style={styles.footerHalf}
+                contentStyle={styles.footerBtnContent}>
+                Continue
+              </Button>
+            </View>
           </View>
         </View>
       ) : null}
@@ -964,13 +974,21 @@ export default function AppNewQuotationScreen() {
                 </Text>
                 <Text style={styles.totalValue}>{formatMoney(cartTotal)} MMK</Text>
               </View>
-              <Button
-                mode="contained"
-                disabled={cart.length === 0}
-                onPress={() => setStep('confirm')}
-                contentStyle={{ paddingHorizontal: 12 }}>
-                Next
-              </Button>
+              <View style={styles.footerRow}>
+                <Button
+                  mode="outlined"
+                  onPress={() => setStep('location')}
+                  contentStyle={{ paddingHorizontal: 8 }}>
+                  Back
+                </Button>
+                <Button
+                  mode="contained"
+                  disabled={cart.length === 0}
+                  onPress={() => setStep('confirm')}
+                  contentStyle={{ paddingHorizontal: 12 }}>
+                  Next
+                </Button>
+              </View>
             </View>
           </View>
         </View>
@@ -1063,19 +1081,28 @@ export default function AppNewQuotationScreen() {
             mode="outlined"
             icon="pencil"
             onPress={() => setStep('products')}
-            style={{ marginBottom: 16 }}>
+            style={{ marginBottom: 12 }}>
             Edit products
           </Button>
 
-          <Button
-            mode="contained"
-            loading={saving}
-            disabled={saving}
-            onPress={() => void handleSave()}
-            style={styles.footerBtn}
-            contentStyle={styles.footerBtnContent}>
-            Save quotation
-          </Button>
+          <View style={styles.footerRow}>
+            <Button
+              mode="outlined"
+              onPress={() => setStep('products')}
+              style={styles.footerHalf}
+              contentStyle={styles.footerBtnContent}>
+              Back
+            </Button>
+            <Button
+              mode="contained"
+              loading={saving}
+              disabled={saving}
+              onPress={() => void handleSave()}
+              style={styles.footerHalf}
+              contentStyle={styles.footerBtnContent}>
+              Save quotation
+            </Button>
+          </View>
         </ScrollView>
       ) : null}
     </View>
@@ -1139,6 +1166,13 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 16,
     paddingTop: 12,
+  },
+  footerRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  footerHalf: {
+    flex: 1,
   },
   fieldBlock: { marginBottom: 14 },
   gridRow: { gap: 10 },

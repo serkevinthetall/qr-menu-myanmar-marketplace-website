@@ -10,7 +10,6 @@ import {
   HelperText,
   Icon,
   IconButton,
-  Modal,
   Portal,
   SegmentedButtons,
   Text,
@@ -23,6 +22,7 @@ import { ProductThumb } from '@/components/ui/ProductThumb';
 import { CalendarField } from '@/components/ui/CalendarField';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { DropdownField } from '@/components/ui/DropdownField';
+import { DismissibleModal } from '@/components/ui/DismissibleModal';
 import { ResizableDivider } from '@/components/ui/ResizableDivider';
 import { SearchableDropdownField } from '@/components/ui/SearchableDropdownField';
 import { VoiceInputButton } from '@/components/ui/VoiceInputButton';
@@ -1420,7 +1420,10 @@ export function QuotationBuilder({
             showClearOption={false}
             onChange={label => {
               if (label === ADD_NEW_ADDRESS_OPTION) {
-                void openAddAddressModal();
+                // Open add-address after the dropdown finishes closing.
+                requestAnimationFrame(() => {
+                  void openAddAddressModal();
+                });
                 return;
               }
               const match = addresses.find(address => address.label === label);
@@ -1996,81 +1999,18 @@ export function QuotationBuilder({
         </View>
       )}
 
-      <Portal>
-        <Modal
-          visible={customerPickerOpen}
-          onDismiss={() => {
-            setCustomerPickerOpen(false);
-            setCustomerSearch('');
-            setServerCustomerMatches([]);
-            setSearchingCustomers(false);
-          }}
-          contentContainerStyle={[
-            styles.pickerModal,
-            { backgroundColor: theme.colors.surface },
-          ]}>
-          <Text variant="titleMedium" style={styles.pickerTitle}>
-            Select Customer
-          </Text>
-          <TextInput
-            mode="outlined"
-            placeholder="Search by name or 09 phone"
-            value={customerSearch}
-            onChangeText={setCustomerSearch}
-            left={<TextInput.Icon icon="magnify" />}
-            right={
-              searchingCustomers ? (
-                <TextInput.Icon icon={() => <ActivityIndicator size={18} />} />
-              ) : undefined
-            }
-            dense
-            autoFocus
-          />
-          <ScrollView
-            style={styles.pickerList}
-            showsVerticalScrollIndicator={false}
-            nestedScrollEnabled>
-            {filteredCustomers.length === 0 ? (
-              <Text style={styles.emptyText}>
-                {searchingCustomers
-                  ? 'Searching customers...'
-                  : customerSearch.trim()
-                    ? 'No customers found.'
-                    : 'Type a name or phone number to search.'}
-              </Text>
-            ) : (
-              filteredCustomers.map(item => (
-                <Pressable
-                  key={item.id}
-                  onPress={() => {
-                    selectCustomer(item);
-                    setCustomerPickerOpen(false);
-                    void loadAddressesForPartner(item.id, item);
-                    setCustomerSearch('');
-                    setServerCustomerMatches([]);
-                  }}
-                  style={[
-                    styles.pickerRow,
-                    {
-                      borderBottomColor:
-                        theme.colors.outlineVariant ?? theme.colors.outline,
-                    },
-                  ]}>
-                  <Text style={{ fontWeight: '600' }} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  <Text
-                    variant="bodySmall"
-                    style={{ color: theme.colors.onSurfaceVariant }}
-                    numberOfLines={1}>
-                    {[item.phone, customerAddress(item)]
-                      .filter(Boolean)
-                      .join(' · ') || '—'}
-                  </Text>
-                </Pressable>
-              ))
-            )}
-          </ScrollView>
+      <DismissibleModal
+        visible={customerPickerOpen}
+        onDismiss={() => {
+          setCustomerPickerOpen(false);
+          setCustomerSearch('');
+          setServerCustomerMatches([]);
+          setSearchingCustomers(false);
+        }}
+        title="Select Customer"
+        contentContainerStyle={styles.pickerModal}
+        showCloseButton={false}
+        footer={
           <Button
             onPress={() => {
               setCustomerPickerOpen(false);
@@ -2080,8 +2020,67 @@ export function QuotationBuilder({
             }}>
             Close
           </Button>
-        </Modal>
-      </Portal>
+        }>
+        <TextInput
+          mode="outlined"
+          placeholder="Search by name or 09 phone"
+          value={customerSearch}
+          onChangeText={setCustomerSearch}
+          left={<TextInput.Icon icon="magnify" />}
+          right={
+            searchingCustomers ? (
+              <TextInput.Icon icon={() => <ActivityIndicator size={18} />} />
+            ) : undefined
+          }
+          dense
+          autoFocus
+        />
+        <ScrollView
+          style={styles.pickerList}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled>
+          {filteredCustomers.length === 0 ? (
+            <Text style={styles.emptyText}>
+              {searchingCustomers
+                ? 'Searching customers...'
+                : customerSearch.trim()
+                  ? 'No customers found.'
+                  : 'Type a name or phone number to search.'}
+            </Text>
+          ) : (
+            filteredCustomers.map(item => (
+              <Pressable
+                key={item.id}
+                onPress={() => {
+                  selectCustomer(item);
+                  setCustomerPickerOpen(false);
+                  void loadAddressesForPartner(item.id, item);
+                  setCustomerSearch('');
+                  setServerCustomerMatches([]);
+                }}
+                style={[
+                  styles.pickerRow,
+                  {
+                    borderBottomColor:
+                      theme.colors.outlineVariant ?? theme.colors.outline,
+                  },
+                ]}>
+                <Text style={{ fontWeight: '600' }} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                <Text
+                  variant="bodySmall"
+                  style={{ color: theme.colors.onSurfaceVariant }}
+                  numberOfLines={1}>
+                  {[item.phone, customerAddress(item)]
+                    .filter(Boolean)
+                    .join(' · ') || '—'}
+                </Text>
+              </Pressable>
+            ))
+          )}
+        </ScrollView>
+      </DismissibleModal>
 
       <Portal>
         <Dialog
@@ -2107,43 +2106,60 @@ export function QuotationBuilder({
         </Dialog>
       </Portal>
 
-      <Portal>
-        <Modal
-          visible={createContactOpen}
-          onDismiss={() => setCreateContactOpen(false)}
-          contentContainerStyle={[
-            styles.createContactModal,
-            { backgroundColor: theme.colors.surface },
-          ]}>
-          <CreateContactView
-            embedded
-            initialPhone={phone}
-            onCancel={() => setCreateContactOpen(false)}
-            onCreated={created => {
-              setCreateContactOpen(false);
-              selectCustomer(created);
-              void loadAddressesForPartner(created.id, created);
-            }}
-          />
-        </Modal>
-      </Portal>
+      <DismissibleModal
+        visible={createContactOpen}
+        onDismiss={() => setCreateContactOpen(false)}
+        title="Create contact"
+        contentContainerStyle={styles.createContactModal}
+        showCloseButton={false}>
+        <CreateContactView
+          embedded
+          initialPhone={phone}
+          onCancel={() => setCreateContactOpen(false)}
+          onCreated={created => {
+            setCreateContactOpen(false);
+            selectCustomer(created);
+            void loadAddressesForPartner(created.id, created);
+          }}
+        />
+      </DismissibleModal>
 
-      <Portal>
-        <Modal
-          visible={addAddressOpen}
-          onDismiss={() => setAddAddressOpen(false)}
-          contentContainerStyle={[
-            styles.addAddressModal,
-            { backgroundColor: theme.colors.surface },
-          ]}>
-          <Text variant="titleMedium" style={{ fontWeight: '700', marginBottom: 12 }}>
-            Add delivery address
-          </Text>
-          <Text
-            variant="bodySmall"
-            style={{ color: theme.colors.onSurfaceVariant, marginBottom: 12 }}>
-            Creates a new address under {customer?.name || 'this customer'}.
-          </Text>
+      <DismissibleModal
+        visible={addAddressOpen}
+        onDismiss={() => {
+          if (!savingAddress) {
+            setAddAddressOpen(false);
+          }
+        }}
+        dismissable={!savingAddress}
+        title="Add delivery address"
+        contentContainerStyle={styles.addAddressModal}
+        showCloseButton={false}
+        footer={
+          <View style={styles.addAddressActions}>
+            <Button disabled={savingAddress} onPress={() => setAddAddressOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              mode="contained"
+              loading={savingAddress}
+              disabled={savingAddress}
+              onPress={() => {
+                void handleSaveNewAddress();
+              }}>
+              Save address
+            </Button>
+          </View>
+        }>
+        <Text
+          variant="bodySmall"
+          style={{ color: theme.colors.onSurfaceVariant, marginBottom: 12 }}>
+          Creates a new address under {customer?.name || 'this customer'}.
+        </Text>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
+          style={styles.addAddressScroll}>
           <TextInput
             mode="outlined"
             label="Address name *"
@@ -2187,22 +2203,8 @@ export function QuotationBuilder({
           {newAddressError ? (
             <HelperText type="error">{newAddressError}</HelperText>
           ) : null}
-          <View style={styles.addAddressActions}>
-            <Button disabled={savingAddress} onPress={() => setAddAddressOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              mode="contained"
-              loading={savingAddress}
-              disabled={savingAddress}
-              onPress={() => {
-                void handleSaveNewAddress();
-              }}>
-              Save address
-            </Button>
-          </View>
-        </Modal>
-      </Portal>
+        </ScrollView>
+      </DismissibleModal>
     </View>
   );
 }
@@ -2254,21 +2256,25 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 720,
     alignSelf: 'center',
-    flex: 1,
   },
   addAddressModal: {
     marginHorizontal: 16,
-    padding: 20,
+    paddingHorizontal: 8,
+    paddingBottom: 8,
     borderRadius: 12,
     maxWidth: 480,
     width: '100%',
+    maxHeight: '90%',
     alignSelf: 'center',
+  },
+  addAddressScroll: {
+    maxHeight: 420,
   },
   addAddressActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: 8,
-    marginTop: 16,
+    marginTop: 8,
   },
   loading: {
     flex: 1,

@@ -4,14 +4,13 @@ import {
   ActivityIndicator,
   Button,
   HelperText,
-  Modal,
-  Portal,
   Searchbar,
   Text,
   TextInput,
   useTheme,
 } from 'react-native-paper';
 
+import { DismissibleModal } from '@/components/ui/DismissibleModal';
 import { useAuth } from '@/contexts/auth-context';
 import {
   AppContact,
@@ -173,56 +172,52 @@ export function AppNewCustomerForm({
         </View>
       </ScrollView>
 
-      <Portal>
-        <Modal
-          visible={pickerOpen}
-          onDismiss={() => setPickerOpen(false)}
-          contentContainerStyle={[
-            styles.modal,
-            { backgroundColor: theme.colors.surface },
-          ]}>
-          <Text variant="titleMedium" style={styles.modalTitle}>
-            Select township
-          </Text>
-          <Searchbar
-            placeholder="Search township"
-            value={pickerQuery}
-            onChangeText={setPickerQuery}
-            style={styles.modalSearch}
+      <DismissibleModal
+        visible={pickerOpen}
+        onDismiss={() => {
+          setPickerOpen(false);
+          setPickerQuery('');
+        }}
+        title="Select township"
+        contentContainerStyle={styles.modal}>
+        <Searchbar
+          placeholder="Search township"
+          value={pickerQuery}
+          onChangeText={setPickerQuery}
+          style={styles.modalSearch}
+        />
+        {loadingMeta ? (
+          <ActivityIndicator style={{ marginVertical: 24 }} />
+        ) : (
+          <FlatList
+            data={filteredTownships}
+            keyExtractor={item => item.id}
+            style={styles.modalList}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item }) => (
+              <Pressable
+                onPress={() => {
+                  setTownshipId(item.id);
+                  setTownshipName(item.name);
+                  setPickerOpen(false);
+                  setPickerQuery('');
+                }}
+                style={[
+                  styles.townshipRow,
+                  {
+                    borderBottomColor:
+                      theme.colors.outlineVariant ?? theme.colors.outline,
+                  },
+                ]}>
+                <Text>{item.name}</Text>
+              </Pressable>
+            )}
+            ListEmptyComponent={
+              <Text style={styles.modalEmpty}>No townships found.</Text>
+            }
           />
-          {loadingMeta ? (
-            <ActivityIndicator style={{ marginVertical: 24 }} />
-          ) : (
-            <FlatList
-              data={filteredTownships}
-              keyExtractor={item => item.id}
-              style={styles.modalList}
-              keyboardShouldPersistTaps="handled"
-              renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => {
-                    setTownshipId(item.id);
-                    setTownshipName(item.name);
-                    setPickerOpen(false);
-                    setPickerQuery('');
-                  }}
-                  style={[
-                    styles.townshipRow,
-                    {
-                      borderBottomColor:
-                        theme.colors.outlineVariant ?? theme.colors.outline,
-                    },
-                  ]}>
-                  <Text>{item.name}</Text>
-                </Pressable>
-              )}
-              ListEmptyComponent={
-                <Text style={styles.modalEmpty}>No townships found.</Text>
-              }
-            />
-          )}
-        </Modal>
-      </Portal>
+        )}
+      </DismissibleModal>
     </View>
   );
 }
@@ -243,14 +238,10 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: 10, marginTop: 8 },
   actionBtn: { flex: 1 },
   modal: {
-    marginHorizontal: 20,
-    borderRadius: 12,
-    padding: 16,
     maxHeight: '80%',
   },
-  modalTitle: { fontWeight: '700', marginBottom: 10 },
   modalSearch: { marginBottom: 10 },
-  modalList: { flexGrow: 0 },
+  modalList: { flexGrow: 0, maxHeight: 360 },
   townshipRow: {
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,

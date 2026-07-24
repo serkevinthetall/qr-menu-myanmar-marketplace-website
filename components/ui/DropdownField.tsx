@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { Icon, Modal, Portal, Text, useTheme } from 'react-native-paper';
+import { Icon, Text, useTheme } from 'react-native-paper';
 
+import { DismissibleModal } from '@/components/ui/DismissibleModal';
 import { useAppColors } from '@/hooks/use-app-colors';
 
 type DropdownFieldProps = {
@@ -40,9 +41,11 @@ export function DropdownField({
     [options, sortOptions],
   );
 
+  const close = () => setOpen(false);
+
   const pick = (option: string) => {
     onChange(option);
-    setOpen(false);
+    close();
   };
 
   return (
@@ -88,59 +91,52 @@ export function DropdownField({
         />
       </Pressable>
 
-      <Portal>
-        <Modal
-          visible={open}
-          onDismiss={() => setOpen(false)}
-          contentContainerStyle={styles.modalHost}>
-          <View
-            style={[
-              styles.modal,
-              { backgroundColor: theme.colors.surface },
-            ]}>
-            <Text variant="titleMedium" style={styles.modalTitle}>
-              {label || placeholder}
-            </Text>
-            <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
-              {showClearOption ? (
-                <Pressable
-                  onPress={() => pick('')}
-                  style={({ pressed }) => [
-                    styles.option,
-                    pressed && { backgroundColor: theme.colors.surfaceVariant },
-                  ]}>
-                  <Text style={{ color: theme.colors.onSurfaceVariant }}>
-                    {clearLabel}
-                  </Text>
-                </Pressable>
-              ) : null}
-              {sortedOptions.map(option => (
-                <Pressable
-                  key={option}
-                  onPress={() => pick(option)}
-                  style={({ pressed }) => [
-                    styles.option,
-                    value === option && {
-                      backgroundColor: theme.colors.primaryContainer,
-                    },
-                    pressed && { backgroundColor: theme.colors.surfaceVariant },
-                  ]}>
-                  <Text
-                    style={{
-                      color:
-                        value === option
-                          ? theme.colors.onPrimaryContainer
-                          : theme.colors.onSurface,
-                      fontWeight: value === option ? '600' : '400',
-                    }}>
-                    {option}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
-        </Modal>
-      </Portal>
+      <DismissibleModal
+        visible={open}
+        onDismiss={close}
+        title={label || placeholder}
+        contentContainerStyle={styles.modal}>
+        <ScrollView
+          style={styles.list}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled>
+          {showClearOption ? (
+            <Pressable
+              onPress={() => pick('')}
+              style={({ pressed }) => [
+                styles.option,
+                pressed && { backgroundColor: theme.colors.surfaceVariant },
+              ]}>
+              <Text style={{ color: theme.colors.onSurfaceVariant }}>
+                {clearLabel}
+              </Text>
+            </Pressable>
+          ) : null}
+          {sortedOptions.map(option => (
+            <Pressable
+              key={option}
+              onPress={() => pick(option)}
+              style={({ pressed }) => [
+                styles.option,
+                value === option && {
+                  backgroundColor: theme.colors.primaryContainer,
+                },
+                pressed && { backgroundColor: theme.colors.surfaceVariant },
+              ]}>
+              <Text
+                style={{
+                  color:
+                    value === option
+                      ? theme.colors.onPrimaryContainer
+                      : theme.colors.onSurface,
+                  fontWeight: value === option ? '600' : '400',
+                }}>
+                {option}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </DismissibleModal>
     </View>
   );
 }
@@ -170,27 +166,11 @@ const styles = StyleSheet.create({
   headerField: {
     minWidth: 120,
   },
-  modalHost: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    backgroundColor: 'transparent',
-  },
   modal: {
-    width: '100%',
     maxWidth: 360,
-    maxHeight: '70%',
-    borderRadius: 16,
-    padding: 12,
-  },
-  modalTitle: {
-    fontWeight: '700',
-    marginBottom: 8,
-    paddingHorizontal: 4,
   },
   list: {
-    maxHeight: 360,
+    maxHeight: 320,
   },
   option: {
     paddingVertical: 12,
