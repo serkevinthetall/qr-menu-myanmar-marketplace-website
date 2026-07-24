@@ -35,6 +35,39 @@ function initials(name: string): string {
   return parts.map(part => part[0]?.toUpperCase() ?? '').join('') || '?';
 }
 
+function membershipTierLabel(membership: string): string {
+  const match = membership.match(
+    /((?:Premium|Gold|Silver|Basic|Standard|VIP)\s+Membership)/i,
+  );
+  if (match?.[1]) {
+    return match[1];
+  }
+  if (membership.toLowerCase().includes('premium')) {
+    return 'Premium Membership';
+  }
+  return 'membership';
+}
+
+function displayDateOrDash(value: string): string {
+  const raw = value?.trim() || '';
+  if (!raw || raw === 'false') {
+    return '—';
+  }
+  return formatMyanmarDate(raw) || raw;
+}
+
+function displayTicketMonth(value: string): string {
+  const raw = value?.trim() || '';
+  if (!raw || raw === 'false') {
+    return '—';
+  }
+  // Prefer the Odoo date string when already YYYY-MM-DD (matches mockup).
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+    return raw.slice(0, 10);
+  }
+  return formatMyanmarDate(raw) || raw;
+}
+
 function isAvailableStatus(status: string): boolean {
   const value = status.trim().toLowerCase();
   return (
@@ -56,7 +89,7 @@ function getCouponStatusColors(
     return {
       label,
       bg: mode === 'dark' ? 'rgba(16, 185, 129, 0.22)' : '#DCFCE7',
-      fg: mode === 'dark' ? '#6EE7B7' : '#166534',
+      fg: mode === 'dark' ? '#6EE7B7' : '#16A34A',
       dot: '#22C55E',
     };
   }
@@ -197,15 +230,15 @@ export function MembershipCouponDetailView({
   const [copied, setCopied] = useState(false);
 
   const onCopyCode = useCallback(async () => {
-    if (!detail?.couponCode) {
+    if (!detail?.couponCode && !detail?.name) {
       return;
     }
-    const ok = await copyText(detail.couponCode);
+    const ok = await copyText(detail.couponCode || detail.name);
     if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     }
-  }, [detail?.couponCode]);
+  }, [detail?.couponCode, detail?.name]);
 
   if (loading) {
     return (
@@ -250,14 +283,238 @@ export function MembershipCouponDetailView({
   }
 
   const status = getCouponStatusColors(mode, detail.status);
-  const usedDate = formatMyanmarDate(detail.usedDate) || detail.usedDate;
-  const ticketMonth =
-    formatMyanmarDate(detail.ticketMonth) || detail.ticketMonth || '—';
+  const usedDate = displayDateOrDash(detail.usedDate);
+  const ticketMonth = displayTicketMonth(detail.ticketMonth);
   const couponCode = detail.couponCode?.trim() || detail.name?.trim() || '—';
   const currency = detail.currency?.trim() || 'MMK';
-  const benefitsBlurb = detail.membership?.trim()
-    ? `View exclusive deals available only to ${detail.membership} holders for this month.`
-    : 'View exclusive deals available to membership holders for this month.';
+  const tier = membershipTierLabel(detail.membership || '');
+  const benefitsBlurb = `View exclusive deals available only to ${tier} holders for this month.`;
+
+  const coreCard = (
+    <SurfaceCard style={styles.coreCard}>
+      <View
+        style={[
+          styles.cardHeader,
+          {
+            backgroundColor: detailTheme.panelBg,
+            borderBottomColor: detailTheme.border,
+          },
+        ]}>
+        <Text style={[styles.cardHeaderTitle, { color: detailTheme.onSurface }]}>
+          Coupon Core Information
+        </Text>
+        <Icon
+          source="information-outline"
+          size={18}
+          color={theme.colors.onSurfaceVariant}
+        />
+      </View>
+
+      <View style={styles.coreBody}>
+        <View style={[styles.coreTop, isMobile && styles.stack]}>
+          <View style={styles.coreField}>
+            <Text style={[styles.fieldLabel, { color: detailTheme.label }]}>
+              COUPON ORDER
+            </Text>
+            <Text
+              style={[styles.orderValue, { color: theme.colors.primary }]}
+              numberOfLines={2}>
+              {detail.name?.trim() || '—'}
+            </Text>
+          </View>
+
+          <View style={styles.coreField}>
+            <Text style={[styles.fieldLabel, { color: detailTheme.label }]}>
+              COUPON CODE
+            </Text>
+            <View style={styles.codeRow}>
+              <View
+                style={[
+                  styles.codeBox,
+                  {
+                    backgroundColor: detailTheme.panelBg,
+                    borderColor: detailTheme.border,
+                  },
+                ]}>
+                <Text
+                  style={[styles.codeText, { color: detailTheme.onSurface }]}
+                  numberOfLines={1}>
+                  {couponCode}
+                </Text>
+              </View>
+              <Pressable
+                onPress={onCopyCode}
+                accessibilityLabel="Copy coupon code"
+                style={styles.copyBtnBare}>
+                <Icon
+                  source={copied ? 'check' : 'content-copy'}
+                  size={18}
+                  color={theme.colors.primary}
+                />
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
+        <View
+          style={[styles.dashedDivider, { borderBottomColor: detailTheme.border }]}
+        />
+
+        <View style={styles.membershipBlock}>
+          <Text style={[styles.fieldLabel, { color: detailTheme.label }]}>
+            MEMBERSHIP
+          </Text>
+          <Text
+            style={[styles.membershipValue, { color: detailTheme.onSurface }]}
+            numberOfLines={3}>
+            {detail.membership?.trim() || '—'}
+          </Text>
+        </View>
+
+        <View style={[styles.peopleRow, isMobile && styles.stack]}>
+          <View style={styles.personCol}>
+            <Text style={[styles.fieldLabel, { color: detailTheme.label }]}>
+              CUSTOMER
+            </Text>
+            <View style={styles.personRow}>
+              <Avatar.Text
+                size={34}
+                label={initials(detail.customer)}
+                style={{ backgroundColor: theme.colors.primaryContainer }}
+                labelStyle={{
+                  color: theme.colors.primary,
+                  fontWeight: '700',
+                  fontSize: 12,
+                }}
+              />
+              <CustomerNameText
+                size="body"
+                style={{ fontWeight: '700', flex: 1 }}
+                numberOfLines={2}>
+                {detail.customer?.trim() || '—'}
+              </CustomerNameText>
+            </View>
+          </View>
+
+          <View style={styles.personCol}>
+            <Text style={[styles.fieldLabel, { color: detailTheme.label }]}>
+              CONTACT
+            </Text>
+            <CustomerNameText
+              size="body"
+              style={{ fontWeight: '700' }}
+              numberOfLines={2}>
+              {detail.contact?.trim() || '—'}
+            </CustomerNameText>
+          </View>
+        </View>
+      </View>
+    </SurfaceCard>
+  );
+
+  const validityCard = (
+    <SurfaceCard style={styles.timelineCard}>
+      <View style={styles.timelineHeader}>
+        <Text style={[styles.cardHeaderTitle, { color: detailTheme.onSurface }]}>
+          Validity & Timeline
+        </Text>
+      </View>
+
+      <View style={styles.timelineBody}>
+        <TimelineRow
+          icon="calendar-month-outline"
+          label="TICKET MONTH"
+          value={ticketMonth}
+        />
+        <TimelineRow
+          icon="calendar-remove-outline"
+          label="USED DATE"
+          value={usedDate}
+        />
+        <TimelineRow
+          icon="receipt-text-outline"
+          label="USED SALE ORDER"
+          value={detail.usedSaleOrder}
+        />
+      </View>
+
+      <View
+        style={[
+          styles.statusFooter,
+          {
+            backgroundColor: detailTheme.panelBg,
+            borderTopColor: detailTheme.border,
+          },
+        ]}>
+        <Text style={[styles.statusFooterLabel, { color: detailTheme.label }]}>
+          Current Status
+        </Text>
+        <View style={styles.statusRight}>
+          <View style={[styles.statusDot, { backgroundColor: status.dot }]} />
+          <Text style={[styles.statusText, { color: status.fg }]}>{status.label}</Text>
+        </View>
+      </View>
+    </SurfaceCard>
+  );
+
+  const programCard = (
+    <SurfaceCard style={styles.bottomCard}>
+      <Text style={[styles.bottomTitle, { color: detailTheme.onSurface }]}>
+        Coupon Program
+      </Text>
+      <View style={styles.programRow}>
+        <View
+          style={[
+            styles.programIcon,
+            { backgroundColor: theme.colors.primaryContainer },
+          ]}>
+          <Icon source="tag" size={20} color={theme.colors.primary} />
+        </View>
+        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+          <Text
+            style={[styles.programName, { color: detailTheme.onSurface }]}
+            numberOfLines={3}>
+            {detail.couponProgram?.trim() || '—'}
+          </Text>
+          <Text style={[styles.programSub, { color: detailTheme.label }]}>
+            Active Campaign
+          </Text>
+        </View>
+      </View>
+    </SurfaceCard>
+  );
+
+  const financialCard = (
+    <SurfaceCard style={styles.bottomCard}>
+      <Text style={[styles.bottomTitle, { color: detailTheme.onSurface }]}>
+        Financial Value
+      </Text>
+      <Text style={[styles.moneyValue, { color: theme.colors.primary }]}>
+        {formatAmount(detail.couponAmount)} {currency}
+      </Text>
+      <Text style={[styles.moneySub, { color: detailTheme.label }]}>
+        Currency: {currency}
+      </Text>
+    </SurfaceCard>
+  );
+
+  const benefitsCard = (
+    <View style={[styles.benefitsCard, { backgroundColor: theme.colors.primary }]}>
+      <View style={styles.benefitsPattern} pointerEvents="none">
+        <View style={[styles.hex, { top: 10, right: 16 }]} />
+        <View style={[styles.hex, { top: 44, right: 52, opacity: 0.35 }]} />
+        <View style={[styles.hex, { bottom: 14, right: 26, opacity: 0.22 }]} />
+        <View
+          style={[
+            styles.hex,
+            { top: 28, right: 88, width: 36, height: 36, opacity: 0.18 },
+          ]}
+        />
+      </View>
+      <Text style={styles.benefitsTitle}>Member Benefits</Text>
+      <Text style={styles.benefitsBody}>{benefitsBlurb}</Text>
+    </View>
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: detailTheme.background }]}>
@@ -273,228 +530,29 @@ export function MembershipCouponDetailView({
             <Text style={{ color: theme.colors.error, paddingHorizontal: 4 }}>{error}</Text>
           ) : null}
 
-          <View style={[styles.topRow, isMobile && styles.stack]}>
-            <SurfaceCard style={styles.coreCard}>
-              <View
-                style={[
-                  styles.cardHeader,
-                  {
-                    backgroundColor: detailTheme.panelBg,
-                    borderBottomColor: detailTheme.border,
-                  },
-                ]}>
-                <Text style={[styles.cardHeaderTitle, { color: detailTheme.onSurface }]}>
-                  Coupon details
-                </Text>
-                <Icon
-                  source="information-outline"
-                  size={18}
-                  color={theme.colors.onSurfaceVariant}
-                />
-              </View>
-
-              <View style={styles.coreBody}>
-                <View style={[styles.coreTop, isMobile && styles.stack]}>
-                  <View style={styles.coreField}>
-                    <Text style={[styles.fieldLabel, { color: detailTheme.label }]}>
-                      COUPON ORDER
-                    </Text>
-                    <Text
-                      style={[styles.orderValue, { color: theme.colors.primary }]}
-                      numberOfLines={2}>
-                      {detail.name?.trim() || '—'}
-                    </Text>
-                  </View>
-
-                  <View style={styles.coreField}>
-                    <Text style={[styles.fieldLabel, { color: detailTheme.label }]}>
-                      COUPON CODE
-                    </Text>
-                    <View style={styles.codeRow}>
-                      <View
-                        style={[
-                          styles.codeBox,
-                          {
-                            backgroundColor: detailTheme.panelBg,
-                            borderColor: detailTheme.border,
-                          },
-                        ]}>
-                        <Text
-                          style={[styles.codeText, { color: detailTheme.onSurface }]}
-                          numberOfLines={1}>
-                          {couponCode}
-                        </Text>
-                      </View>
-                      <Pressable
-                        onPress={onCopyCode}
-                        accessibilityLabel="Copy coupon code"
-                        style={[
-                          styles.copyBtn,
-                          {
-                            backgroundColor: detailTheme.panelBg,
-                            borderColor: detailTheme.border,
-                          },
-                        ]}>
-                        <Icon
-                          source={copied ? 'check' : 'content-copy'}
-                          size={16}
-                          color={
-                            copied ? theme.colors.primary : theme.colors.onSurfaceVariant
-                          }
-                        />
-                      </Pressable>
-                    </View>
-                  </View>
-                </View>
-
-                <View
-                  style={[styles.dashedDivider, { borderBottomColor: detailTheme.border }]}
-                />
-
-                <View style={styles.membershipBlock}>
-                  <Text style={[styles.fieldLabel, { color: detailTheme.label }]}>
-                    MEMBERSHIP
-                  </Text>
-                  <Text
-                    style={[styles.membershipValue, { color: detailTheme.onSurface }]}
-                    numberOfLines={3}>
-                    {detail.membership?.trim() || '—'}
-                  </Text>
-                </View>
-
-                <View style={[styles.peopleRow, isMobile && styles.stack]}>
-                  <View style={styles.personCol}>
-                    <Text style={[styles.fieldLabel, { color: detailTheme.label }]}>
-                      CUSTOMER
-                    </Text>
-                    <View style={styles.personRow}>
-                      <Avatar.Text
-                        size={34}
-                        label={initials(detail.customer)}
-                        style={{ backgroundColor: theme.colors.primary }}
-                        labelStyle={{ color: '#fff', fontWeight: '700', fontSize: 12 }}
-                      />
-                      <CustomerNameText
-                        size="body"
-                        style={{ fontWeight: '700', flex: 1 }}
-                        numberOfLines={2}>
-                        {detail.customer?.trim() || '—'}
-                      </CustomerNameText>
-                    </View>
-                  </View>
-
-                  <View style={styles.personCol}>
-                    <Text style={[styles.fieldLabel, { color: detailTheme.label }]}>
-                      CONTACT
-                    </Text>
-                    <CustomerNameText
-                      size="body"
-                      style={{ fontWeight: '700' }}
-                      numberOfLines={2}>
-                      {detail.contact?.trim() || '—'}
-                    </CustomerNameText>
-                  </View>
-                </View>
-              </View>
-            </SurfaceCard>
-
-            <SurfaceCard style={styles.timelineCard}>
-              <View style={styles.timelineBody}>
-                <TimelineRow
-                  icon="calendar-month-outline"
-                  label="TICKET MONTH"
-                  value={ticketMonth}
-                />
-                <TimelineRow
-                  icon="calendar-remove-outline"
-                  label="USED DATE"
-                  value={usedDate}
-                />
-                <TimelineRow
-                  icon="receipt-text-outline"
-                  label="USED SALE ORDER"
-                  value={detail.usedSaleOrder}
-                />
-              </View>
-
-              <View
-                style={[
-                  styles.statusFooter,
-                  {
-                    backgroundColor: detailTheme.panelBg,
-                    borderTopColor: detailTheme.border,
-                  },
-                ]}>
-                <Text style={[styles.fieldLabel, { color: detailTheme.label }]}>
-                  CURRENT STATUS
-                </Text>
-                <View style={styles.statusRight}>
-                  <View style={[styles.statusDot, { backgroundColor: status.dot }]} />
-                  <Text style={[styles.statusText, { color: detailTheme.onSurface }]}>
-                    {status.label}
-                  </Text>
-                </View>
-              </View>
-            </SurfaceCard>
-          </View>
-
-          <View style={[styles.bottomRow, isMobile && styles.stack]}>
-            <SurfaceCard style={styles.bottomCard}>
-              <Text style={[styles.bottomTitle, { color: detailTheme.onSurface }]}>
-                Coupon Program
-              </Text>
-              <View style={styles.programRow}>
-                <View
-                  style={[
-                    styles.programIcon,
-                    { backgroundColor: theme.colors.primaryContainer },
-                  ]}>
-                  <Icon source="tag-outline" size={20} color={theme.colors.primary} />
-                </View>
-                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                  <Text
-                    style={[styles.programName, { color: detailTheme.onSurface }]}
-                    numberOfLines={3}>
-                    {detail.couponProgram?.trim() || '—'}
-                  </Text>
-                  <Text style={[styles.programSub, { color: detailTheme.label }]}>
-                    Active Campaign
-                  </Text>
-                </View>
-              </View>
-            </SurfaceCard>
-
-            <SurfaceCard style={styles.bottomCard}>
-              <Text style={[styles.bottomTitle, { color: detailTheme.onSurface }]}>
-                Financial Value
-              </Text>
-              <View style={styles.moneyRow}>
-                <Text style={[styles.moneyValue, { color: theme.colors.primary }]}>
-                  {formatAmount(detail.couponAmount)}
-                </Text>
-                <Text style={[styles.moneyCurrency, { color: theme.colors.primary }]}>
-                  {currency}
-                </Text>
-              </View>
-              <Text style={[styles.moneySub, { color: detailTheme.label }]}>
-                Currency: {currency}
-              </Text>
-            </SurfaceCard>
-
-            <View
-              style={[
-                styles.benefitsCard,
-                { backgroundColor: theme.colors.primary },
-              ]}>
-              <View style={styles.benefitsPattern} pointerEvents="none">
-                <View style={[styles.hex, { top: 12, right: 18 }]} />
-                <View style={[styles.hex, { top: 48, right: 56, opacity: 0.35 }]} />
-                <View style={[styles.hex, { bottom: 18, right: 28, opacity: 0.25 }]} />
-              </View>
-              <Text style={styles.benefitsTitle}>Member Benefits</Text>
-              <Text style={styles.benefitsBody}>{benefitsBlurb}</Text>
+          {isMobile ? (
+            <View style={styles.stackGap}>
+              {coreCard}
+              {validityCard}
+              {programCard}
+              {financialCard}
+              {benefitsCard}
             </View>
-          </View>
+          ) : (
+            <View style={styles.desktopGrid}>
+              <View style={styles.leftCol}>
+                {coreCard}
+                <View style={styles.bottomPair}>
+                  {programCard}
+                  {financialCard}
+                </View>
+              </View>
+              <View style={styles.rightCol}>
+                {validityCard}
+                {benefitsCard}
+              </View>
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -522,19 +580,30 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 1100,
     alignSelf: 'center',
+  },
+  stackGap: {
     gap: 14,
   },
   stack: {
     flexDirection: 'column',
   },
-  topRow: {
+  desktopGrid: {
     flexDirection: 'row',
     alignItems: 'stretch',
     gap: 14,
   },
-  bottomRow: {
+  leftCol: {
+    flex: 1.75,
+    minWidth: 0,
+    gap: 14,
+  },
+  rightCol: {
+    flex: 1,
+    minWidth: 280,
+    gap: 14,
+  },
+  bottomPair: {
     flexDirection: 'row',
-    alignItems: 'stretch',
     gap: 14,
   },
   surfaceCard: {
@@ -547,12 +616,10 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   coreCard: {
-    flex: 1.7,
-    minWidth: 0,
+    width: '100%',
   },
   timelineCard: {
     flex: 1,
-    minWidth: 260,
     justifyContent: 'space-between',
   },
   bottomCard: {
@@ -571,7 +638,7 @@ const styles = StyleSheet.create({
   },
   cardHeaderTitle: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   coreBody: {
     padding: 16,
@@ -613,11 +680,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  copyBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    borderWidth: 1,
+  copyBtnBare: {
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -647,9 +712,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
+  timelineHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 4,
+  },
   timelineBody: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     gap: 16,
+    flex: 1,
   },
   timelineRow: {
     flexDirection: 'row',
@@ -678,6 +750,10 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     gap: 12,
   },
+  statusFooterLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   statusRight: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -694,7 +770,7 @@ const styles = StyleSheet.create({
   },
   bottomTitle: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   programRow: {
     flexDirection: 'row',
@@ -717,20 +793,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  moneyRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 6,
-  },
   moneyValue: {
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: '800',
-    lineHeight: 40,
-  },
-  moneyCurrency: {
-    fontSize: 14,
-    fontWeight: '800',
-    marginBottom: 6,
+    lineHeight: 38,
   },
   moneySub: {
     fontSize: 12,
@@ -744,7 +810,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'center',
     gap: 8,
-    minHeight: 140,
+    minHeight: 150,
   },
   benefitsPattern: {
     ...StyleSheet.absoluteFillObject,
@@ -764,10 +830,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   benefitsBody: {
-    color: 'rgba(255,255,255,0.9)',
+    color: 'rgba(255,255,255,0.92)',
     fontSize: 13,
     lineHeight: 19,
     fontWeight: '500',
-    maxWidth: 280,
+    maxWidth: 260,
   },
 });
