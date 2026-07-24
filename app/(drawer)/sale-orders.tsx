@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import {
   ActivityIndicator,
+  Checkbox,
   Icon,
   Text,
   useTheme,
@@ -99,10 +100,14 @@ function cellText(item: SaleOrder, key: string): string {
 function SaleOrderRow({
   item,
   index,
+  selected,
+  onToggle,
   onOpen,
 }: {
   item: SaleOrder;
   index: number;
+  selected: boolean;
+  onToggle: (id: string) => void;
   onOpen: (id: string) => void;
 }) {
   const theme = useTheme();
@@ -114,15 +119,23 @@ function SaleOrderRow({
       style={({ hovered, pressed }) => [
         styles.row,
         {
-          backgroundColor: hovered
+          backgroundColor: selected
             ? theme.colors.primaryContainer
-            : zebra
-              ? theme.colors.surfaceVariant
-              : theme.colors.surface,
+            : hovered
+              ? theme.colors.primaryContainer
+              : zebra
+                ? theme.colors.surfaceVariant
+                : theme.colors.surface,
           borderBottomColor: theme.colors.outlineVariant ?? theme.colors.outline,
           opacity: pressed ? 0.9 : 1,
         },
       ]}>
+      <View style={styles.checkCell}>
+        <Checkbox
+          status={selected ? 'checked' : 'unchecked'}
+          onPress={() => onToggle(item.id)}
+        />
+      </View>
       {COLUMNS.map(col => {
         if (col.key === 'status') {
           return (
@@ -132,46 +145,52 @@ function SaleOrderRow({
           );
         }
 
-                const text = cellText(item, col.key);
-                const isNumber = col.key === 'number';
-                const isCustomer = col.key === 'customer';
-                const isTotal = col.key === 'total';
+        const text = cellText(item, col.key);
+        const isNumber = col.key === 'number';
+        const isCustomer = col.key === 'customer';
+        const isTotal = col.key === 'total';
 
-                return (
-                  <View
-                    key={col.key}
-                    style={[
-                      styles.cell,
-                      isCustomer && styles.customerCell,
-                      { flex: col.flex },
-                    ]}>
-                    {isCustomer ? (
-                      <CustomerNameText style={{ fontWeight: '400' }}>
-                        {text || '—'}
-                      </CustomerNameText>
-                    ) : (
-                      <Text
-                        numberOfLines={1}
-                        style={{
-                          textAlign: col.align === 'right' ? 'right' : 'left',
-                          fontWeight: isNumber || isTotal ? '700' : '400',
-                          color: isTotal
-                            ? theme.colors.primary
-                            : text
-                              ? theme.colors.onSurface
-                              : theme.colors.onSurfaceVariant,
-                        }}>
-                        {text || '—'}
-                      </Text>
-                    )}
-                  </View>
-                );
+        return (
+          <View
+            key={col.key}
+            style={[
+              styles.cell,
+              isCustomer && styles.customerCell,
+              { flex: col.flex },
+            ]}>
+            {isCustomer ? (
+              <CustomerNameText style={{ fontWeight: '400' }}>
+                {text || '—'}
+              </CustomerNameText>
+            ) : (
+              <Text
+                numberOfLines={1}
+                style={{
+                  textAlign: col.align === 'right' ? 'right' : 'left',
+                  fontWeight: isNumber || isTotal ? '700' : '400',
+                  color: isTotal
+                    ? theme.colors.primary
+                    : text
+                      ? theme.colors.onSurface
+                      : theme.colors.onSurfaceVariant,
+                }}>
+                {text || '—'}
+              </Text>
+            )}
+          </View>
+        );
       })}
     </Pressable>
   );
 }
 
-function TableHeader() {
+function TableHeader({
+  status,
+  onToggleAll,
+}: {
+  status: 'checked' | 'unchecked' | 'indeterminate';
+  onToggleAll: () => void;
+}) {
   const theme = useTheme();
   return (
     <View
@@ -180,6 +199,14 @@ function TableHeader() {
         styles.headerRow,
         { backgroundColor: theme.colors.primary },
       ]}>
+      <View style={styles.checkCell}>
+        <Checkbox
+          status={status}
+          onPress={onToggleAll}
+          color={theme.colors.onPrimary}
+          uncheckedColor={theme.colors.onPrimary}
+        />
+      </View>
       {COLUMNS.map(col => (
         <View key={col.key} style={[styles.cell, { flex: col.flex }]}>
           <Text
@@ -200,9 +227,13 @@ function TableHeader() {
 
 function SaleOrderCard({
   item,
+  selected,
+  onToggle,
   onOpen,
 }: {
   item: SaleOrder;
+  selected: boolean;
+  onToggle: (id: string) => void;
   onOpen: (id: string) => void;
 }) {
   const theme = useTheme();
@@ -218,14 +249,22 @@ function SaleOrderCard({
         style={[
           styles.orderCard,
           {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.outline,
+            backgroundColor: selected
+              ? theme.colors.primaryContainer
+              : theme.colors.surface,
+            borderColor: selected ? theme.colors.primary : theme.colors.outline,
             shadowColor: colors.detailShadow,
           },
         ]}>
         <View style={[styles.cardAccent, { backgroundColor: statusColors.bg }]} />
         <View style={styles.cardBody}>
           <View style={styles.cardTop}>
+            <View style={styles.cardCheck}>
+              <Checkbox
+                status={selected ? 'checked' : 'unchecked'}
+                onPress={() => onToggle(item.id)}
+              />
+            </View>
             <Text variant="titleMedium" style={styles.cardNumber} numberOfLines={1}>
               {item.number || '—'}
             </Text>
@@ -292,6 +331,7 @@ export default function SaleOrdersScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [detail, setDetail] = useState<SaleOrderDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
@@ -407,6 +447,43 @@ export default function SaleOrdersScreen() {
     [filtered, safePage],
   );
 
+  const selectedOnPage = paged.reduce(
+    (count, order) => count + (selectedIds.has(order.id) ? 1 : 0),
+    0,
+  );
+  const headerStatus: 'checked' | 'unchecked' | 'indeterminate' =
+    selectedOnPage === 0
+      ? 'unchecked'
+      : selectedOnPage === paged.length
+        ? 'checked'
+        : 'indeterminate';
+
+  const toggleOne = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleAllOnPage = useCallback(() => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      const ids = paged.map(order => order.id);
+      const allSelected = ids.length > 0 && ids.every(id => next.has(id));
+      ids.forEach(id => (allSelected ? next.delete(id) : next.add(id)));
+      return next;
+    });
+  }, [paged]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [query]);
+
   const numColumns = useMemo(() => {
     if (width >= 1200) {
       return 3;
@@ -481,7 +558,7 @@ export default function SaleOrdersScreen() {
           </ScrollView>
         ) : (
           <View style={styles.tableScroll}>
-            <TableHeader />
+            <TableHeader status={headerStatus} onToggleAll={toggleAllOnPage} />
             <ScrollView
               style={styles.listBody}
               showsVerticalScrollIndicator={false}
@@ -493,6 +570,8 @@ export default function SaleOrdersScreen() {
                   key={item.id}
                   item={item}
                   index={index}
+                  selected={selectedIds.has(item.id)}
+                  onToggle={toggleOne}
                   onOpen={openDetail}
                 />
               ))}
@@ -517,7 +596,12 @@ export default function SaleOrdersScreen() {
                 styles.cardWrapper,
                 { width: numColumns > 1 ? cardWidth : '100%' },
               ]}>
-              <SaleOrderCard item={item} onOpen={openDetail} />
+              <SaleOrderCard
+                item={item}
+                selected={selectedIds.has(item.id)}
+                onToggle={toggleOne}
+                onOpen={openDetail}
+              />
             </View>
           )}
           ListEmptyComponent={
@@ -585,6 +669,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     justifyContent: 'flex-start',
   },
+  checkCell: {
+    width: 38,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 10,
+    transform: [{ scale: 0.8 }],
+  },
   statusBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
@@ -627,6 +718,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 8,
+  },
+  cardCheck: {
+    marginLeft: -8,
+    transform: [{ scale: 0.85 }],
   },
   cardNumber: {
     fontWeight: '800',
