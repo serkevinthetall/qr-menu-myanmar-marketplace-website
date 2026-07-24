@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  FlatList,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import {
   ActivityIndicator,
   Card,
@@ -9,6 +16,7 @@ import {
   useTheme,
 } from 'react-native-paper';
 
+import { ProductDetailView } from '@/components/product/ProductDetailView';
 import { Pagination } from '@/components/ui/Pagination';
 import { ProductThumb } from '@/components/ui/ProductThumb';
 import { useAuth } from '@/contexts/auth-context';
@@ -16,15 +24,17 @@ import {
   HeaderAction,
   useHeaderActions,
   useModuleSearch,
+  useSearch,
 } from '@/contexts/search-context';
 import { useResponsive } from '@/hooks/use-responsive';
+import { fetchProductDetail } from '@/services/products';
 import {
   ensureWebProductCatalog,
   filterWebProducts,
   subscribeWebProductCatalog,
   WebProductCatalog,
 } from '@/services/web/product-catalog-cache';
-import { Product } from '@/types/product';
+import { Product, ProductDetail } from '@/types/product';
 
 const PAGE_SIZE = 50;
 
@@ -89,26 +99,32 @@ function ProductRow({
   index,
   selected,
   onToggle,
+  onOpen,
 }: {
   item: Product;
   index: number;
   selected: boolean;
   onToggle: (id: string) => void;
+  onOpen: (id: string) => void;
 }) {
   const theme = useTheme();
   const zebra = index % 2 === 1;
 
   return (
-    <View
-      style={[
+    <Pressable
+      onPress={() => onOpen(item.id)}
+      style={({ hovered, pressed }) => [
         styles.row,
         {
           backgroundColor: selected
             ? theme.colors.primaryContainer
-            : zebra
-              ? theme.colors.surfaceVariant
-              : theme.colors.surface,
+            : hovered
+              ? theme.colors.primaryContainer
+              : zebra
+                ? theme.colors.surfaceVariant
+                : theme.colors.surface,
           borderBottomColor: theme.colors.outlineVariant ?? theme.colors.outline,
+          opacity: pressed ? 0.9 : 1,
         },
       ]}>
       <View style={styles.checkCell}>
@@ -157,7 +173,7 @@ function ProductRow({
           </View>
         );
       })}
-    </View>
+    </Pressable>
   );
 }
 
@@ -202,64 +218,72 @@ function TableHeader({
   );
 }
 
-function ProductCard({ item }: { item: Product }) {
+function ProductCard({
+  item,
+  onOpen,
+}: {
+  item: Product;
+  onOpen: (id: string) => void;
+}) {
   const theme = useTheme();
 
   return (
-    <Card
-      mode="elevated"
-      style={[
-        styles.productCard,
-        {
-          backgroundColor: theme.colors.surface,
-          borderColor: theme.colors.outline,
-        },
-      ]}>
-      <Card.Content style={styles.cardContent}>
-        <ProductThumb uri={item.image} size={120} style={styles.cardImage} />
-        <View style={styles.cardTop}>
-          <Text variant="titleMedium" style={styles.productName} numberOfLines={2}>
-            {item.name}
-          </Text>
-          {item.active ? (
-            <Chip
-              compact
-              style={{ backgroundColor: theme.colors.secondaryContainer }}>
-              Active
-            </Chip>
-          ) : (
-            <Chip compact style={styles.inactiveChip}>
-              Inactive
-            </Chip>
-          )}
-        </View>
-
-        {item.sku ? (
-          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            SKU: {item.sku}
-          </Text>
-        ) : null}
-
-        <View style={styles.cardFooter}>
-          <View>
-            <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
-              Price
+    <Pressable onPress={() => onOpen(item.id)}>
+      <Card
+        mode="elevated"
+        style={[
+          styles.productCard,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.outline,
+          },
+        ]}>
+        <Card.Content style={styles.cardContent}>
+          <ProductThumb uri={item.image} size={120} style={styles.cardImage} />
+          <View style={styles.cardTop}>
+            <Text variant="titleMedium" style={styles.productName} numberOfLines={2}>
+              {item.name}
             </Text>
-            <Text variant="titleLarge" style={{ color: theme.colors.primary, fontWeight: '700' }}>
-              {formatPrice(item.price)} MMK
-            </Text>
+            {item.active ? (
+              <Chip
+                compact
+                style={{ backgroundColor: theme.colors.secondaryContainer }}>
+                Active
+              </Chip>
+            ) : (
+              <Chip compact style={styles.inactiveChip}>
+                Inactive
+              </Chip>
+            )}
           </View>
-          <View style={styles.stockBox}>
-            <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
-              Stock
+
+          {item.sku ? (
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              SKU: {item.sku}
             </Text>
-            <Text variant="titleMedium" style={{ color: theme.colors.secondary, fontWeight: '600' }}>
-              {item.stock}
-            </Text>
+          ) : null}
+
+          <View style={styles.cardFooter}>
+            <View>
+              <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                Price
+              </Text>
+              <Text variant="titleLarge" style={{ color: theme.colors.primary, fontWeight: '700' }}>
+                {formatPrice(item.price)} MMK
+              </Text>
+            </View>
+            <View style={styles.stockBox}>
+              <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                Stock
+              </Text>
+              <Text variant="titleMedium" style={{ color: theme.colors.secondary, fontWeight: '600' }}>
+                {item.stock}
+              </Text>
+            </View>
           </View>
-        </View>
-      </Card.Content>
-    </Card>
+        </Card.Content>
+      </Card>
+    </Pressable>
   );
 }
 
@@ -275,8 +299,13 @@ export default function ProductsScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<ProductDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
 
-  const query = useModuleSearch('Search products by name or SKU');
+  const query = useModuleSearch('Search products by name or SKU', !detailId);
+  const { setDetailHeader } = useSearch();
 
   const toggleOne = useCallback((id: string) => {
     setSelectedIds(prev => {
@@ -290,21 +319,70 @@ export default function ProductsScreen() {
     });
   }, []);
 
+  const openDetail = useCallback(
+    async (id: string) => {
+      if (!session?.token) return;
+      setDetailId(id);
+      setDetail(null);
+      setDetailLoading(true);
+      setDetailError('');
+      try {
+        const data = await fetchProductDetail(session.token, id);
+        setDetail(data);
+      } catch (err) {
+        setDetailError(
+          err instanceof Error ? err.message : 'Failed to load product.',
+        );
+      } finally {
+        setDetailLoading(false);
+      }
+    },
+    [session?.token],
+  );
+
+  const closeDetail = useCallback(() => {
+    setDetailId(null);
+    setDetail(null);
+    setDetailError('');
+  }, []);
+
+  useEffect(() => {
+    if (!detailId) {
+      setDetailHeader(null);
+      return;
+    }
+
+    setDetailHeader({
+      title: detail?.name ?? 'Product',
+      onBack: closeDetail,
+      statusLabel: detail
+        ? detail.active
+          ? 'Active'
+          : 'Inactive'
+        : undefined,
+      breadcrumbParent: 'Product',
+    });
+
+    return () => setDetailHeader(null);
+  }, [detailId, detail, closeDetail, setDetailHeader]);
+
   const toggleView = useCallback(() => {
     setViewMode(prev => (prev === 'list' ? 'card' : 'list'));
   }, []);
 
-  const headerActions = useMemo<HeaderAction[]>(
-    () => [
+  const headerActions = useMemo<HeaderAction[]>(() => {
+    if (detailId) {
+      return [];
+    }
+    return [
       {
         key: 'view',
         icon: viewMode === 'list' ? 'view-grid-outline' : 'format-list-bulleted',
         onPress: toggleView,
         accessibilityLabel: 'Toggle list or card view',
       },
-    ],
-    [viewMode, toggleView],
-  );
+    ];
+  }, [detailId, viewMode, toggleView]);
 
   useHeaderActions(headerActions);
 
@@ -400,6 +478,18 @@ export default function ProductsScreen() {
     setRefreshing(false);
   };
 
+  if (detailId) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <ProductDetailView
+          detail={detail}
+          loading={detailLoading}
+          error={detailError}
+        />
+      </View>
+    );
+  }
+
   if (loading) {
     return (
       <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
@@ -465,6 +555,7 @@ export default function ProductsScreen() {
                   index={index}
                   selected={selectedIds.has(item.id)}
                   onToggle={toggleOne}
+                  onOpen={openDetail}
                 />
               ))}
             </ScrollView>
@@ -484,7 +575,7 @@ export default function ProductsScreen() {
           columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
           renderItem={({ item }) => (
             <View style={[styles.cardWrapper, { width: numColumns > 1 ? cardWidth : '100%' }]}>
-              <ProductCard item={item} />
+              <ProductCard item={item} onOpen={openDetail} />
             </View>
           )}
           ListEmptyComponent={

@@ -9,3 +9,10 @@ export type Product = {
   image: string;
   unit: string;
 };
+
+export type ProductDetail = Product & {
+  cost: number;
+  barcode: string;
+  description: string;
+  type: string;
+};

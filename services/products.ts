@@ -1,5 +1,5 @@
 import { webApiRequest } from '@/services/web/client';
-import { Product } from '@/types/product';
+import { Product, ProductDetail } from '@/types/product';
 
 type ProductsResponse = {
   data: Product[];
@@ -10,6 +10,8 @@ type ProductsResponse = {
     hasMore: boolean;
   };
 };
+
+type ProductDetailResponse = { data: ProductDetail };
 
 export type ProductsPage = {
   data: Product[];
@@ -49,4 +51,14 @@ export async function fetchProductsPage(
     offset,
     limit,
   };
+}
+
+export async function fetchProductDetail(
+  token: string,
+  id: string,
+): Promise<ProductDetail> {
+  const response = await webApiRequest<ProductDetailResponse>(`/products/${id}`, {
+    token,
+  });
+  return response.data;
 }
