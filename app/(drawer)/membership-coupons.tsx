@@ -10,11 +10,11 @@ import {
 import {
   ActivityIndicator,
   Card,
-  Divider,
   Text,
   useTheme,
 } from 'react-native-paper';
 
+import { MembershipCouponDetailView } from '@/components/membership/MembershipCouponDetailView';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { Pagination } from '@/components/ui/Pagination';
 import { ThemeMode } from '@/constants/colors';
@@ -293,20 +293,6 @@ function CouponCard({
   );
 }
 
-function MetaRow({ label, value }: { label: string; value: string }) {
-  const theme = useTheme();
-  return (
-    <View style={styles.metaRow}>
-      <Text style={[styles.metaLabel, { color: theme.colors.onSurfaceVariant }]}>
-        {label}
-      </Text>
-      <CustomerNameText size="body" style={{ fontWeight: '600' }}>
-        {value.trim() || '—'}
-      </CustomerNameText>
-    </View>
-  );
-}
-
 export default function MembershipCouponsScreen() {
   const theme = useTheme();
   const { mode } = useAppTheme();
@@ -461,37 +447,11 @@ export default function MembershipCouponsScreen() {
   if (selectedId) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        {detailLoading ? (
-          <View style={styles.center}>
-            <ActivityIndicator />
-          </View>
-        ) : detailError ? (
-          <View style={styles.center}>
-            <Text style={{ color: theme.colors.error }}>{detailError}</Text>
-          </View>
-        ) : detail ? (
-          <ScrollView contentContainerStyle={styles.detailContent}>
-            <MetaRow label="COUPON ORDER" value={detail.name} />
-            <MetaRow label="COUPON CODE" value={detail.couponCode} />
-            <MetaRow label="MEMBERSHIP" value={detail.membership} />
-            <MetaRow label="CUSTOMER" value={detail.customer} />
-            <MetaRow label="CONTACT" value={detail.contact} />
-            <MetaRow
-              label="USED DATE"
-              value={formatMyanmarDate(detail.usedDate) || detail.usedDate}
-            />
-            <MetaRow label="STATUS" value={detail.status} />
-            <Divider style={styles.divider} />
-            <MetaRow label="COUPON PROGRAM" value={detail.couponProgram} />
-            <MetaRow
-              label="COUPON AMOUNT"
-              value={formatMoney(detail.couponAmount)}
-            />
-            <MetaRow label="CURRENCY" value={detail.currency} />
-            <MetaRow label="TICKET MONTH" value={detail.ticketMonth} />
-            <MetaRow label="USED SALE ORDER" value={detail.usedSaleOrder} />
-          </ScrollView>
-        ) : null}
+        <MembershipCouponDetailView
+          detail={detail}
+          loading={detailLoading}
+          error={detailError}
+        />
       </View>
     );
   }
@@ -690,12 +650,4 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: '600',
   },
-  detailContent: { padding: 16, paddingBottom: 40, gap: 4 },
-  metaRow: { marginBottom: 12, gap: 2 },
-  metaLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  divider: { marginVertical: 10 },
 });
