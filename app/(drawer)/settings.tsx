@@ -39,27 +39,6 @@ export default function SettingsScreen() {
         </Text>
 
         <List.Section>
-          <List.Subheader>Account</List.Subheader>
-          <List.Item
-            title={user?.name || 'Signed in'}
-            description={user?.email || 'No account details available'}
-            left={props => <List.Icon {...props} icon="account-circle-outline" />}
-          />
-          <View style={styles.accountActions}>
-            <Button
-              mode="outlined"
-              icon="logout"
-              textColor={theme.colors.error}
-              style={{ borderColor: theme.colors.error }}
-              onPress={() => {
-                void logout();
-              }}>
-              Logout
-            </Button>
-          </View>
-        </List.Section>
-
-        <List.Section>
           <List.Subheader>Appearance</List.Subheader>
           <List.Item
             title="Theme"
@@ -87,6 +66,27 @@ export default function SettingsScreen() {
                 },
               ]}
             />
+          </View>
+        </List.Section>
+
+        <List.Section>
+          <List.Subheader>Account</List.Subheader>
+          <List.Item
+            title={user?.name || 'Signed in'}
+            description={user?.email || 'No account details available'}
+            left={props => <List.Icon {...props} icon="account-circle-outline" />}
+          />
+          <View style={styles.accountActions}>
+            <Button
+              mode="outlined"
+              icon="logout"
+              textColor={theme.colors.error}
+              style={{ borderColor: theme.colors.error }}
+              onPress={() => {
+                void logout();
+              }}>
+              Logout
+            </Button>
           </View>
         </List.Section>
       </View>
