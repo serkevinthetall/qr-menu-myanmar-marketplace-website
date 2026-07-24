@@ -10,11 +10,11 @@ import {
 import {
   ActivityIndicator,
   Card,
-  Divider,
   Text,
   useTheme,
 } from 'react-native-paper';
 
+import { MembershipDetailView } from '@/components/membership/MembershipDetailView';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { Pagination } from '@/components/ui/Pagination';
 import { useAuth } from '@/contexts/auth-context';
@@ -50,13 +50,6 @@ const COLUMNS: Column[] = [
   { key: 'remaining', label: 'Remaining', flex: 1.3, align: 'right' },
   { key: 'status', label: 'Status', flex: 1.4 },
 ];
-
-function formatMoney(value: number): string {
-  return `${value.toLocaleString('en-US', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  })} MMK`;
-}
 
 function getMembershipStatusColors(
   mode: ThemeMode,
@@ -280,20 +273,6 @@ function MembershipCard({
   );
 }
 
-function MetaRow({ label, value }: { label: string; value: string }) {
-  const theme = useTheme();
-  return (
-    <View style={styles.metaRow}>
-      <Text style={[styles.metaLabel, { color: theme.colors.onSurfaceVariant }]}>
-        {label}
-      </Text>
-      <CustomerNameText size="body" style={{ fontWeight: '600' }}>
-        {value.trim() || '—'}
-      </CustomerNameText>
-    </View>
-  );
-}
-
 export default function MembershipsScreen() {
   const theme = useTheme();
   const { mode } = useAppTheme();
@@ -442,45 +421,11 @@ export default function MembershipsScreen() {
   if (selectedId) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        {detailLoading ? (
-          <View style={styles.center}>
-            <ActivityIndicator />
-          </View>
-        ) : detailError ? (
-          <View style={styles.center}>
-            <Text style={{ color: theme.colors.error }}>{detailError}</Text>
-          </View>
-        ) : detail ? (
-          <ScrollView contentContainerStyle={styles.detailContent}>
-            <MetaRow label="MEMBERSHIP NAME" value={detail.name} />
-            <MetaRow label="CUSTOMER" value={detail.customer} />
-            <MetaRow label="MEMBERSHIP LEVEL" value={detail.membershipLevel} />
-            <MetaRow label="PRICELIST" value={detail.pricelist} />
-            <MetaRow
-              label="START DATE"
-              value={formatMyanmarDate(detail.startDate) || detail.startDate}
-            />
-            <MetaRow
-              label="END DATE"
-              value={formatMyanmarDate(detail.endDate) || detail.endDate}
-            />
-            <MetaRow label="STATUS" value={detail.status} />
-            <MetaRow
-              label="MONTHLY COUPON AMOUNT"
-              value={formatMoney(detail.monthlyCouponAmount)}
-            />
-            <Divider style={styles.divider} />
-            <MetaRow label="TOTAL TICKETS" value={String(detail.totalTickets)} />
-            <MetaRow label="USED TICKETS" value={String(detail.usedTickets)} />
-            <MetaRow label="MISSED TICKETS" value={String(detail.missedTickets)} />
-            <MetaRow
-              label="REMAINING TICKETS"
-              value={String(detail.remainingTickets)}
-            />
-            <Divider style={styles.divider} />
-            <MetaRow label="BENEFITS SUMMARY" value={detail.benefitsSummary} />
-          </ScrollView>
-        ) : null}
+        <MembershipDetailView
+          detail={detail}
+          loading={detailLoading}
+          error={detailError}
+        />
       </View>
     );
   }
@@ -679,12 +624,4 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: '600',
   },
-  detailContent: { padding: 16, paddingBottom: 40, gap: 4 },
-  metaRow: { marginBottom: 12, gap: 2 },
-  metaLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  divider: { marginVertical: 10 },
 });
