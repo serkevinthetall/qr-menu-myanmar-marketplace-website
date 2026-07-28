@@ -17,7 +17,7 @@ import { ActivityIndicator, Icon, Text, useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 
 import { AiSuggestionsCard } from '@/components/overview/AiSuggestionsCard';
-import { AreaLineChart } from '@/components/overview/AreaLineChart';
+import { HorizontalBarChart } from '@/components/overview/HorizontalBarChart';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { useAuth } from '@/contexts/auth-context';
 import { useModuleSearch } from '@/contexts/search-context';
@@ -32,7 +32,6 @@ import {
   AiSuggestionsStatus,
   OverviewPeriod,
   OverviewProductRank,
-  OverviewSpendingCustomer,
   OverviewSummary,
 } from '@/types/overview';
 import { formatMyanmarDate } from '@/utils/myanmar-datetime';
@@ -208,55 +207,6 @@ function ProductRankList({
   );
 }
 
-function SpendingCustomerList({
-  items,
-}: {
-  items: OverviewSpendingCustomer[];
-}) {
-  const detail = useDetailTheme();
-  const theme = useTheme();
-
-  if (items.length === 0) {
-    return (
-      <Text style={{ color: detail.label, paddingVertical: 8 }}>
-        No customer purchases in this period.
-      </Text>
-    );
-  }
-
-  return (
-    <View style={{ gap: 10 }}>
-      {items.map((item, index) => (
-        <View key={item.id} style={styles.productRow}>
-          <View
-            style={[
-              styles.rankBadge,
-              { backgroundColor: theme.colors.primaryContainer },
-            ]}>
-            <Text style={{ color: theme.colors.primary, fontWeight: '800' }}>
-              {index + 1}
-            </Text>
-          </View>
-          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-            <CustomerNameText
-              size="body"
-              style={[styles.productName, { color: detail.onSurface }]}
-              numberOfLines={2}>
-              {item.name}
-            </CustomerNameText>
-            <Text style={{ color: detail.label, fontSize: 12 }}>
-              {item.orders} order{item.orders === 1 ? '' : 's'}
-            </Text>
-          </View>
-          <Text style={[styles.productRevenue, { color: theme.colors.primary }]}>
-            {formatFullMoney(item.total)}
-          </Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
 const PERIODS: { key: OverviewPeriod; label: string }[] = [
   { key: 'day', label: 'Today' },
   { key: 'week', label: 'This week' },
@@ -387,6 +337,26 @@ export default function OverviewScreen() {
   };
 
   const selectedPeriodLabel = periodLabel(period);
+
+  const customerBarItems = useMemo(
+    () =>
+      (data?.topSpendingCustomers ?? []).map(item => ({
+        id: item.id,
+        label: item.name || 'Customer',
+        value: item.total,
+      })),
+    [data?.topSpendingCustomers],
+  );
+
+  const areaBarItems = useMemo(
+    () =>
+      (data?.areaChart.series ?? []).map((item, index) => ({
+        id: `${item.name}-${index}`,
+        label: item.name || 'Area',
+        value: item.total,
+      })),
+    [data?.areaChart.series],
+  );
 
   const kpiItems = useMemo(() => {
     if (!data) {
@@ -602,13 +572,14 @@ export default function OverviewScreen() {
             ]}
             pointerEvents={loading ? 'none' : 'auto'}>
             <View style={styles.mainCol}>
-              <SurfaceCard title="Top buying areas">
+              <SurfaceCard title="Most spending customers">
                 <Text style={[styles.cardHint, { color: detail.label }]}>
-                  Top 5 areas by sale amount · {selectedPeriodLabel}
+                  Top customers by purchase total · {selectedPeriodLabel}
                 </Text>
-                <AreaLineChart
-                  buckets={data?.areaChart.buckets ?? []}
-                  series={data?.areaChart.series ?? []}
+                <HorizontalBarChart
+                  items={customerBarItems}
+                  emptyLabel="No customer purchases in this period."
+                  formatValue={formatMoney}
                 />
               </SurfaceCard>
 
@@ -730,12 +701,14 @@ export default function OverviewScreen() {
             </View>
 
             <View style={styles.sideCol}>
-              <SurfaceCard title="Most spending customers">
+              <SurfaceCard title="Top buying areas">
                 <Text style={[styles.cardHint, { color: detail.label }]}>
-                  Top 5 by purchase total · {selectedPeriodLabel}
+                  Top 5 areas by sale amount · {selectedPeriodLabel}
                 </Text>
-                <SpendingCustomerList
-                  items={data?.topSpendingCustomers ?? []}
+                <HorizontalBarChart
+                  items={areaBarItems}
+                  emptyLabel="No area sales in this period."
+                  formatValue={formatMoney}
                 />
               </SurfaceCard>
               <SurfaceCard title="Top products">
@@ -771,7 +744,7 @@ const styles = StyleSheet.create({
   padDesktop: { padding: 20, paddingBottom: 40 },
   page: {
     width: '100%',
-    maxWidth: 1200,
+    maxWidth: 1480,
     alignSelf: 'center',
     gap: 16,
   },
@@ -827,19 +800,22 @@ const styles = StyleSheet.create({
   kpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    // Even 4-column rows; avoid flexGrow so the last row doesn't stretch.
     gap: 12,
   },
   kpiGridMobile: {
     gap: 10,
   },
   kpiWrap: {
-    width: '15.8%',
-    minWidth: 150,
-    flexGrow: 1,
+    // ~4 equal columns (room for row gaps so the last row never stretches)
+    width: '23.5%',
+    flexGrow: 0,
+    flexShrink: 0,
   },
   kpiWrapMobile: {
-    width: '47%',
-    minWidth: 140,
+    width: '47.5%',
+    flexGrow: 0,
+    flexShrink: 0,
   },
   kpiCard: {
     borderWidth: 1,
@@ -859,9 +835,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   kpiValue: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '800',
-    lineHeight: 32,
+    lineHeight: 28,
     flexShrink: 1,
   },
   kpiSuffix: {
