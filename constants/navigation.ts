@@ -8,6 +8,13 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
   {
+    name: 'overview',
+    label: 'Overview',
+    icon: 'view-dashboard-outline',
+    title: 'Overview',
+    description: 'Sales and customer business snapshot.',
+  },
+  {
     name: 'index',
     label: 'Quotation',
     icon: 'file-document-outline',

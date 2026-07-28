@@ -11,6 +11,10 @@ import { SearchProvider } from '@/contexts/search-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useResponsive } from '@/hooks/use-responsive';
 
+export const unstable_settings = {
+  initialRouteName: 'overview',
+};
+
 export default function DrawerLayout() {
   const { sidebarWidth } = useResponsive();
   const { width } = useWindowDimensions();
