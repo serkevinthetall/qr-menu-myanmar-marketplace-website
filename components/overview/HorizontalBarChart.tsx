@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Rect, Text as SvgText } from 'react-native-svg';
 import { Text, useTheme } from 'react-native-paper';
 
 import { useDetailTheme } from '@/hooks/use-detail-theme';
@@ -11,7 +10,6 @@ export type HorizontalBarItem = {
   id: string;
   label: string;
   value: number;
-  meta?: string;
 };
 
 type HorizontalBarChartProps = {
@@ -65,53 +63,44 @@ export function HorizontalBarChart({
     );
   }
 
-  const width = 640;
-  const rowH = 44;
-  const padding = { top: 8, right: 72, bottom: 8, left: 128 };
-  const chartH = padding.top + padding.bottom + rows.length * rowH;
-  const plotW = width - padding.left - padding.right;
-
   return (
-    <Svg width="100%" height={chartH} viewBox={`0 0 ${width} ${chartH}`}>
+    <View style={styles.list}>
       {rows.map((row, index) => {
-        const y = padding.top + index * rowH;
-        const barW = Math.max(4, (row.value / maxValue) * plotW);
+        const ratio = Math.max(0.02, row.value / maxValue);
         const color = BAR_COLORS[index % BAR_COLORS.length];
-        const label =
-          row.label.length > 18 ? `${row.label.slice(0, 17)}…` : row.label;
 
         return (
-          <Svg key={row.id}>
-            <SvgText
-              x={padding.left - 10}
-              y={y + 24}
-              fill={detail.onSurface}
-              fontSize={12}
-              fontWeight="700"
-              textAnchor="end">
-              {label}
-            </SvgText>
-            <Rect
-              x={padding.left}
-              y={y + 12}
-              width={barW}
-              height={18}
-              rx={6}
-              fill={color}
-              opacity={0.92}
-            />
-            <SvgText
-              x={padding.left + barW + 8}
-              y={y + 25}
-              fill={theme.colors.primary}
-              fontSize={12}
-              fontWeight="800">
+          <View key={row.id} style={styles.row}>
+            <Text
+              style={[styles.label, { color: detail.onSurface }]}
+              numberOfLines={1}
+              ellipsizeMode="tail">
+              {row.label}
+            </Text>
+            <View
+              style={[
+                styles.track,
+                { backgroundColor: detail.panelBg ?? detail.border },
+              ]}>
+              <View
+                style={[
+                  styles.bar,
+                  {
+                    backgroundColor: color,
+                    width: `${Math.round(ratio * 100)}%`,
+                  },
+                ]}
+              />
+            </View>
+            <Text
+              style={[styles.value, { color: theme.colors.primary }]}
+              numberOfLines={1}>
               {formatValue(row.value)}
-            </SvgText>
-          </Svg>
+            </Text>
+          </View>
         );
       })}
-    </Svg>
+    </View>
   );
 }
 
@@ -121,5 +110,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
+  },
+  list: {
+    gap: 12,
+    paddingVertical: 4,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  label: {
+    width: 120,
+    fontSize: 13,
+    fontWeight: '700',
+    flexShrink: 0,
+  },
+  track: {
+    flex: 1,
+    height: 14,
+    borderRadius: 7,
+    overflow: 'hidden',
+    minWidth: 48,
+  },
+  bar: {
+    height: '100%',
+    borderRadius: 7,
+  },
+  value: {
+    width: 56,
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'right',
+    flexShrink: 0,
   },
 });
