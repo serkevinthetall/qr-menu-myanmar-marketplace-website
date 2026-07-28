@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import {
   Pressable,
   RefreshControl,
@@ -9,14 +16,20 @@ import {
 import { ActivityIndicator, Icon, Text, useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 
+import { AiSuggestionsCard } from '@/components/overview/AiSuggestionsCard';
 import { AreaLineChart } from '@/components/overview/AreaLineChart';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { useAuth } from '@/contexts/auth-context';
 import { useModuleSearch } from '@/contexts/search-context';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
-import { fetchOverviewSummary } from '@/services/insights';
 import {
+  fetchAiSuggestions,
+  fetchOverviewSummary,
+  generateAiSuggestions,
+} from '@/services/insights';
+import {
+  AiSuggestionsStatus,
   OverviewPeriod,
   OverviewProductRank,
   OverviewSpendingCustomer,
@@ -265,6 +278,61 @@ export default function OverviewScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [aiStatus, setAiStatus] = useState<AiSuggestionsStatus | null>(null);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const autoGenerateTried = useRef(false);
+
+  const loadAiSuggestions = useCallback(async () => {
+    if (!session?.token) {
+      return null;
+    }
+    try {
+      const status = await fetchAiSuggestions(session.token);
+      setAiStatus(status);
+      setAiError('');
+      return status;
+    } catch {
+      // Optional feature — don't block Overview if AI endpoint fails.
+      return null;
+    }
+  }, [session?.token]);
+
+  const runGenerateSuggestions = useCallback(
+    async (slot?: AiSuggestionsStatus['suggestedSlot']) => {
+      if (!session?.token || aiGenerating) {
+        return;
+      }
+      setAiGenerating(true);
+      setAiError('');
+      try {
+        const nextSlot = slot ?? aiStatus?.suggestedSlot ?? 'manual';
+        const pack = await generateAiSuggestions(session.token, nextSlot);
+        setAiStatus(prev =>
+          prev
+            ? {
+                ...prev,
+                latest: pack,
+                shouldGenerate: false,
+              }
+            : {
+                enabled: true,
+                configured: true,
+                latest: pack,
+                shouldGenerate: false,
+                suggestedSlot: nextSlot,
+              },
+        );
+      } catch (err) {
+        setAiError(
+          err instanceof Error ? err.message : 'Failed to generate suggestions.',
+        );
+      } finally {
+        setAiGenerating(false);
+      }
+    },
+    [session?.token, aiGenerating, aiStatus?.suggestedSlot],
+  );
 
   const load = useCallback(async () => {
     if (!session?.token) {
@@ -273,7 +341,10 @@ export default function OverviewScreen() {
     setError('');
     setLoading(true);
     try {
-      const summary = await fetchOverviewSummary(session.token, period);
+      const [summary] = await Promise.all([
+        fetchOverviewSummary(session.token, period),
+        loadAiSuggestions(),
+      ]);
       setData(summary);
     } catch (err) {
       setError(
@@ -283,11 +354,25 @@ export default function OverviewScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [session?.token, period]);
+  }, [session?.token, period, loadAiSuggestions]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (
+      !aiStatus?.enabled ||
+      !aiStatus.configured ||
+      !aiStatus.shouldGenerate ||
+      aiGenerating ||
+      autoGenerateTried.current
+    ) {
+      return;
+    }
+    autoGenerateTried.current = true;
+    void runGenerateSuggestions(aiStatus.suggestedSlot);
+  }, [aiStatus, aiGenerating, runGenerateSuggestions]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -478,6 +563,15 @@ export default function OverviewScreen() {
           {error ? (
             <Text style={{ color: theme.colors.error }}>{error}</Text>
           ) : null}
+
+          <AiSuggestionsCard
+            status={aiStatus}
+            generating={aiGenerating}
+            error={aiError}
+            onGenerate={() =>
+              void runGenerateSuggestions(aiStatus?.suggestedSlot ?? 'manual')
+            }
+          />
 
           <View
             style={[styles.kpiGrid, isMobile && styles.kpiGridMobile]}

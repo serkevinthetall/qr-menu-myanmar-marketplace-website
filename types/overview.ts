@@ -48,6 +48,31 @@ export type OverviewRecentPurchaseOrder = {
   status: string;
 };
 
+export type AiSuggestionPriority = 'high' | 'medium' | 'low';
+
+export type AiSuggestionSlot = 'monday' | 'friday' | 'monthly' | 'manual';
+
+export type AiSuggestionItem = {
+  title: string;
+  detail: string;
+  priority: AiSuggestionPriority;
+};
+
+export type AiSuggestionPack = {
+  generatedAt: string;
+  slot: AiSuggestionSlot;
+  model: string;
+  suggestions: AiSuggestionItem[];
+};
+
+export type AiSuggestionsStatus = {
+  enabled: boolean;
+  configured: boolean;
+  latest: AiSuggestionPack | null;
+  shouldGenerate: boolean;
+  suggestedSlot: AiSuggestionSlot;
+};
+
 export type OverviewSummary = {
   period: OverviewPeriod;
   range: {
