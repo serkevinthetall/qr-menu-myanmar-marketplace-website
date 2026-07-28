@@ -23,6 +23,13 @@ export type OverviewProductRank = {
   qty: number;
 };
 
+export type OverviewSpendingCustomer = {
+  id: string;
+  name: string;
+  total: number;
+  orders: number;
+};
+
 export type OverviewRecentOrder = {
   id: string;
   number: string;
@@ -52,5 +59,6 @@ export type OverviewSummary = {
   };
   topProducts: OverviewProductRank[];
   bottomProducts: OverviewProductRank[];
+  topSpendingCustomers: OverviewSpendingCustomer[];
   recentOrders: OverviewRecentOrder[];
 };

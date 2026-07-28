@@ -19,6 +19,7 @@ import { fetchOverviewSummary } from '@/services/insights';
 import {
   OverviewPeriod,
   OverviewProductRank,
+  OverviewSpendingCustomer,
   OverviewSummary,
 } from '@/types/overview';
 import { formatMyanmarDate } from '@/utils/myanmar-datetime';
@@ -41,6 +42,19 @@ function formatFullMoney(value: number): string {
   return `${safe.toLocaleString('en-US', {
     maximumFractionDigits: 0,
   })} MMK`;
+}
+
+function periodLabel(period: OverviewPeriod): string {
+  switch (period) {
+    case 'day':
+      return 'Today';
+    case 'week':
+      return 'This week';
+    case 'month':
+      return 'This month';
+    default:
+      return 'This month';
+  }
 }
 
 function TrendBadge({ trend }: { trend: number }) {
@@ -181,6 +195,55 @@ function ProductRankList({
   );
 }
 
+function SpendingCustomerList({
+  items,
+}: {
+  items: OverviewSpendingCustomer[];
+}) {
+  const detail = useDetailTheme();
+  const theme = useTheme();
+
+  if (items.length === 0) {
+    return (
+      <Text style={{ color: detail.label, paddingVertical: 8 }}>
+        No customer purchases in this period.
+      </Text>
+    );
+  }
+
+  return (
+    <View style={{ gap: 10 }}>
+      {items.map((item, index) => (
+        <View key={item.id} style={styles.productRow}>
+          <View
+            style={[
+              styles.rankBadge,
+              { backgroundColor: theme.colors.primaryContainer },
+            ]}>
+            <Text style={{ color: theme.colors.primary, fontWeight: '800' }}>
+              {index + 1}
+            </Text>
+          </View>
+          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+            <CustomerNameText
+              size="body"
+              style={[styles.productName, { color: detail.onSurface }]}
+              numberOfLines={2}>
+              {item.name}
+            </CustomerNameText>
+            <Text style={{ color: detail.label, fontSize: 12 }}>
+              {item.orders} order{item.orders === 1 ? '' : 's'}
+            </Text>
+          </View>
+          <Text style={[styles.productRevenue, { color: theme.colors.primary }]}>
+            {formatFullMoney(item.total)}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const PERIODS: { key: OverviewPeriod; label: string }[] = [
   { key: 'day', label: 'Today' },
   { key: 'week', label: 'This week' },
@@ -208,6 +271,7 @@ export default function OverviewScreen() {
       return;
     }
     setError('');
+    setLoading(true);
     try {
       const summary = await fetchOverviewSummary(session.token, period);
       setData(summary);
@@ -222,7 +286,6 @@ export default function OverviewScreen() {
   }, [session?.token, period]);
 
   useEffect(() => {
-    setLoading(true);
     void load();
   }, [load]);
 
@@ -230,6 +293,15 @@ export default function OverviewScreen() {
     setRefreshing(true);
     void load();
   };
+
+  const selectPeriod = (next: OverviewPeriod) => {
+    if (next === period || loading) {
+      return;
+    }
+    setPeriod(next);
+  };
+
+  const selectedPeriodLabel = periodLabel(period);
 
   const kpiItems = useMemo(() => {
     if (!data) {
@@ -283,7 +355,7 @@ export default function OverviewScreen() {
       <View style={[styles.center, { backgroundColor: detail.background }]}>
         <ActivityIndicator size="large" />
         <Text style={{ marginTop: 12, color: detail.label }}>
-          Loading overview...
+          Loading {selectedPeriodLabel.toLowerCase()} overview...
         </Text>
       </View>
     );
@@ -315,54 +387,94 @@ export default function OverviewScreen() {
         showsVerticalScrollIndicator={false}>
         <View style={styles.page}>
           <View style={styles.headerRow}>
-            <View>
+            <View style={{ flex: 1, minWidth: 180 }}>
               <Text style={[styles.pageTitle, { color: detail.onSurface }]}>
                 Overview
               </Text>
-              <Text style={{ color: detail.label }}>
-                Business snapshot for the selected period
+              <Text style={{ color: detail.label, marginTop: 2 }}>
+                Showing data for{' '}
+                <Text style={{ color: theme.colors.primary, fontWeight: '800' }}>
+                  {selectedPeriodLabel}
+                </Text>
               </Text>
             </View>
-            <View
-              style={[
-                styles.periodTabs,
-                { backgroundColor: detail.panelBg, borderColor: detail.border },
-              ]}>
-              {PERIODS.map(item => {
-                const active = item.key === period;
-                return (
-                  <Pressable
-                    key={item.key}
-                    onPress={() => setPeriod(item.key)}
-                    style={[
-                      styles.periodTab,
-                      active && {
-                        backgroundColor: theme.colors.primary,
-                      },
-                    ]}>
-                    <Text
-                      style={{
-                        color: active ? '#fff' : detail.onSurface,
-                        fontWeight: '700',
-                        fontSize: 13,
-                      }}>
-                      {item.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+            <View style={styles.periodBlock}>
+              <Text style={[styles.periodCaption, { color: detail.label }]}>
+                PERIOD
+              </Text>
+              <View
+                style={[
+                  styles.periodTabs,
+                  { backgroundColor: detail.panelBg, borderColor: detail.border },
+                ]}>
+                {PERIODS.map(item => {
+                  const active = item.key === period;
+                  return (
+                    <Pressable
+                      key={item.key}
+                      disabled={loading}
+                      onPress={() => selectPeriod(item.key)}
+                      accessibilityState={{ selected: active, disabled: loading }}
+                      style={[
+                        styles.periodTab,
+                        active && {
+                          backgroundColor: theme.colors.primary,
+                          borderColor: theme.colors.primary,
+                        },
+                        !active && {
+                          borderColor: 'transparent',
+                        },
+                        loading && !active && { opacity: 0.55 },
+                      ]}>
+                      {active ? (
+                        <Icon source="check" size={14} color="#fff" />
+                      ) : null}
+                      <Text
+                        style={{
+                          color: active ? '#fff' : detail.onSurface,
+                          fontWeight: '800',
+                          fontSize: 13,
+                        }}>
+                        {item.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
           </View>
+
+          {loading ? (
+            <View
+              style={[
+                styles.loadingBanner,
+                {
+                  backgroundColor: theme.colors.primaryContainer,
+                  borderColor: theme.colors.primary,
+                },
+              ]}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={{ color: theme.colors.primary, fontWeight: '700' }}>
+                Loading {selectedPeriodLabel.toLowerCase()}…
+              </Text>
+            </View>
+          ) : null}
 
           {error ? (
             <Text style={{ color: theme.colors.error }}>{error}</Text>
           ) : null}
 
-          <View style={[styles.kpiGrid, isMobile && styles.kpiGridMobile]}>
+          <View
+            style={[styles.kpiGrid, isMobile && styles.kpiGridMobile]}
+            pointerEvents={loading ? 'none' : 'auto'}>
             {kpiItems.map(item => (
               <View
                 key={item.key}
-                style={[styles.kpiWrap, isMobile && styles.kpiWrapMobile]}>
+                style={[
+                  styles.kpiWrap,
+                  isMobile && styles.kpiWrapMobile,
+                  loading && styles.dimmed,
+                ]}>
                 <KpiCard
                   label={item.label}
                   value={item.value}
@@ -373,11 +485,17 @@ export default function OverviewScreen() {
             ))}
           </View>
 
-          <View style={[styles.mainGrid, isMobile && styles.stack]}>
+          <View
+            style={[
+              styles.mainGrid,
+              isMobile && styles.stack,
+              loading && styles.dimmed,
+            ]}
+            pointerEvents={loading ? 'none' : 'auto'}>
             <View style={styles.mainCol}>
               <SurfaceCard title="Top buying areas">
                 <Text style={[styles.cardHint, { color: detail.label }]}>
-                  Top 5 areas by sale amount
+                  Top 5 areas by sale amount · {selectedPeriodLabel}
                 </Text>
                 <AreaLineChart
                   buckets={data?.areaChart.buckets ?? []}
@@ -441,6 +559,14 @@ export default function OverviewScreen() {
             </View>
 
             <View style={styles.sideCol}>
+              <SurfaceCard title="Most spending customers">
+                <Text style={[styles.cardHint, { color: detail.label }]}>
+                  Top 5 by purchase total · {selectedPeriodLabel}
+                </Text>
+                <SpendingCustomerList
+                  items={data?.topSpendingCustomers ?? []}
+                />
+              </SurfaceCard>
               <SurfaceCard title="Top products">
                 <ProductRankList
                   items={data?.topProducts ?? []}
@@ -497,10 +623,35 @@ const styles = StyleSheet.create({
     padding: 4,
     gap: 4,
   },
+  periodBlock: {
+    gap: 6,
+    alignItems: 'flex-end',
+  },
+  periodCaption: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
   periodTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
+    borderWidth: 1,
+  },
+  loadingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  dimmed: {
+    opacity: 0.45,
   },
   kpiGrid: {
     flexDirection: 'row',
