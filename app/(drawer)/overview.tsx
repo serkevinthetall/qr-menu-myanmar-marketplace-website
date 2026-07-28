@@ -308,6 +308,8 @@ export default function OverviewScreen() {
       return [];
     }
     const k = data.kpis;
+    const buying = k.buyingCustomers ?? k.totalCustomers;
+    const quotations = k.quotations ?? k.openQuotations;
     return [
       {
         key: 'sale',
@@ -318,27 +320,40 @@ export default function OverviewScreen() {
       },
       {
         key: 'orders',
-        label: 'Confirmed orders',
+        label: 'Sale orders',
         value: String(k.confirmedOrders.value),
         trend: k.confirmedOrders.trend,
       },
       {
+        key: 'purchaseAmount',
+        label: 'Purchase amount',
+        value: formatMoney(k.purchaseAmount?.value ?? 0),
+        trend: k.purchaseAmount?.trend ?? 0,
+        suffix: 'MMK',
+      },
+      {
+        key: 'purchaseOrders',
+        label: 'Purchase orders',
+        value: String(k.purchaseOrders?.value ?? 0),
+        trend: k.purchaseOrders?.trend ?? 0,
+      },
+      {
+        key: 'items',
+        label: 'Items sold',
+        value: String(Math.round(k.itemsSold?.value ?? 0)),
+        trend: k.itemsSold?.trend ?? 0,
+      },
+      {
         key: 'customers',
-        label: 'Total customers',
-        value: String(k.totalCustomers.value),
-        trend: k.totalCustomers.trend,
+        label: 'Buying customers',
+        value: String(buying?.value ?? 0),
+        trend: buying?.trend ?? 0,
       },
       {
         key: 'quotes',
-        label: 'Open quotations',
-        value: String(k.openQuotations.value),
-        trend: k.openQuotations.trend,
-      },
-      {
-        key: 'members',
-        label: 'Active memberships',
-        value: String(k.activeMemberships.value),
-        trend: k.activeMemberships.trend,
+        label: 'Quotations',
+        value: String(quotations?.value ?? 0),
+        trend: quotations?.trend ?? 0,
       },
       {
         key: 'aov',
@@ -392,7 +407,7 @@ export default function OverviewScreen() {
                 Overview
               </Text>
               <Text style={{ color: detail.label, marginTop: 2 }}>
-                Showing data for{' '}
+                All figures for{' '}
                 <Text style={{ color: theme.colors.primary, fontWeight: '800' }}>
                   {selectedPeriodLabel}
                 </Text>
@@ -503,7 +518,11 @@ export default function OverviewScreen() {
                 />
               </SurfaceCard>
 
-              <SurfaceCard title="Recent sale orders">
+              <SurfaceCard
+                title={`Sale orders · ${data?.kpis.confirmedOrders.value ?? 0}`}>
+                <Text style={[styles.cardHint, { color: detail.label }]}>
+                  Confirmed orders in {selectedPeriodLabel.toLowerCase()}
+                </Text>
                 <View style={styles.tableHeader}>
                   <Text style={[styles.th, styles.colCustomer, { color: detail.label }]}>
                     CUSTOMER
@@ -536,6 +555,64 @@ export default function OverviewScreen() {
                         style={[styles.colCustomer, { fontWeight: '600' }]}
                         numberOfLines={1}>
                         {order.customer || '—'}
+                      </CustomerNameText>
+                      <Text
+                        style={[styles.td, styles.colOrder, { color: theme.colors.primary }]}
+                        numberOfLines={1}>
+                        {order.number}
+                      </Text>
+                      <Text
+                        style={[styles.td, styles.colAmount, { color: detail.onSurface }]}
+                        numberOfLines={1}>
+                        {formatFullMoney(order.total)}
+                      </Text>
+                      <Text
+                        style={[styles.td, styles.colDate, { color: detail.label }]}
+                        numberOfLines={1}>
+                        {formatMyanmarDate(order.orderDate) || order.orderDate || '—'}
+                      </Text>
+                    </Pressable>
+                  ))
+                )}
+              </SurfaceCard>
+
+              <SurfaceCard
+                title={`Purchase orders · ${data?.kpis.purchaseOrders?.value ?? 0}`}>
+                <Text style={[styles.cardHint, { color: detail.label }]}>
+                  Confirmed purchases in {selectedPeriodLabel.toLowerCase()}
+                </Text>
+                <View style={styles.tableHeader}>
+                  <Text style={[styles.th, styles.colCustomer, { color: detail.label }]}>
+                    VENDOR
+                  </Text>
+                  <Text style={[styles.th, styles.colOrder, { color: detail.label }]}>
+                    ORDER
+                  </Text>
+                  <Text style={[styles.th, styles.colAmount, { color: detail.label }]}>
+                    AMOUNT
+                  </Text>
+                  <Text style={[styles.th, styles.colDate, { color: detail.label }]}>
+                    DATE
+                  </Text>
+                </View>
+                {(data?.recentPurchaseOrders ?? []).length === 0 ? (
+                  <Text style={{ color: detail.label, paddingVertical: 12 }}>
+                    No confirmed purchase orders in this period.
+                  </Text>
+                ) : (
+                  data?.recentPurchaseOrders.map(order => (
+                    <Pressable
+                      key={order.id}
+                      onPress={() => router.push('/(drawer)/purchase-orders')}
+                      style={[
+                        styles.tableRow,
+                        { borderBottomColor: detail.border },
+                      ]}>
+                      <CustomerNameText
+                        size="body"
+                        style={[styles.colCustomer, { fontWeight: '600' }]}
+                        numberOfLines={1}>
+                        {order.vendor || '—'}
                       </CustomerNameText>
                       <Text
                         style={[styles.td, styles.colOrder, { color: theme.colors.primary }]}

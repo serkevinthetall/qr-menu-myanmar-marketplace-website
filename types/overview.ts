@@ -39,6 +39,15 @@ export type OverviewRecentOrder = {
   status: string;
 };
 
+export type OverviewRecentPurchaseOrder = {
+  id: string;
+  number: string;
+  vendor: string;
+  total: number;
+  orderDate: string;
+  status: string;
+};
+
 export type OverviewSummary = {
   period: OverviewPeriod;
   range: {
@@ -48,10 +57,18 @@ export type OverviewSummary = {
   kpis: {
     saleAmount: OverviewKpi;
     confirmedOrders: OverviewKpi;
-    totalCustomers: OverviewKpi;
-    openQuotations: OverviewKpi;
-    activeMemberships: OverviewKpi;
+    buyingCustomers: OverviewKpi;
+    quotations: OverviewKpi;
+    itemsSold: OverviewKpi;
     avgOrderValue: OverviewKpi;
+    purchaseAmount: OverviewKpi;
+    purchaseOrders: OverviewKpi;
+    /** @deprecated use buyingCustomers — still period-scoped */
+    totalCustomers?: OverviewKpi;
+    /** @deprecated use quotations — still period-scoped */
+    openQuotations?: OverviewKpi;
+    /** Memberships started in period */
+    activeMemberships?: OverviewKpi;
   };
   areaChart: {
     buckets: string[];
@@ -61,4 +78,5 @@ export type OverviewSummary = {
   bottomProducts: OverviewProductRank[];
   topSpendingCustomers: OverviewSpendingCustomer[];
   recentOrders: OverviewRecentOrder[];
+  recentPurchaseOrders: OverviewRecentPurchaseOrder[];
 };
