@@ -23,6 +23,20 @@ export type OverviewProductRank = {
   qty: number;
 };
 
+export type OverviewStockProduct = {
+  id: string;
+  name: string;
+  onHand: number;
+};
+
+export type OverviewDemandStockProduct = {
+  id: string;
+  name: string;
+  demandQty: number;
+  onHand: number;
+  revenue: number;
+};
+
 export type OverviewSpendingCustomer = {
   id: string;
   name: string;
@@ -101,6 +115,8 @@ export type OverviewSummary = {
   };
   topProducts: OverviewProductRank[];
   bottomProducts: OverviewProductRank[];
+  lowestOnHandProducts?: OverviewStockProduct[];
+  highestDemandProducts?: OverviewDemandStockProduct[];
   topSpendingCustomers: OverviewSpendingCustomer[];
   recentOrders: OverviewRecentOrder[];
   recentPurchaseOrders: OverviewRecentPurchaseOrder[];

@@ -30,8 +30,10 @@ import {
 } from '@/services/insights';
 import {
   AiSuggestionsStatus,
+  OverviewDemandStockProduct,
   OverviewPeriod,
   OverviewProductRank,
+  OverviewStockProduct,
   OverviewSummary,
 } from '@/types/overview';
 import { formatMyanmarDate } from '@/utils/myanmar-datetime';
@@ -201,6 +203,107 @@ function ProductRankList({
           <Text style={[styles.productRevenue, { color: theme.colors.primary }]}>
             {formatFullMoney(item.revenue)}
           </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function LowestOnHandList({
+  items,
+}: {
+  items: OverviewStockProduct[];
+}) {
+  const detail = useDetailTheme();
+  const theme = useTheme();
+
+  if (items.length === 0) {
+    return (
+      <Text style={{ color: detail.label, paddingVertical: 8 }}>
+        No stockable products found.
+      </Text>
+    );
+  }
+
+  return (
+    <View style={{ gap: 10 }}>
+      {items.map((item, index) => (
+        <View key={item.id} style={styles.productRow}>
+          <View
+            style={[
+              styles.rankBadge,
+              { backgroundColor: theme.colors.errorContainer },
+            ]}>
+            <Text style={{ color: theme.colors.error, fontWeight: '800' }}>
+              {index + 1}
+            </Text>
+          </View>
+          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+            <Text
+              style={[styles.productName, { color: detail.onSurface }]}
+              numberOfLines={2}>
+              {item.name}
+            </Text>
+            <Text style={{ color: detail.label, fontSize: 12 }}>
+              On hand
+            </Text>
+          </View>
+          <Text style={[styles.productRevenue, { color: theme.colors.error }]}>
+            {item.onHand.toLocaleString()}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function HighestDemandStockList({
+  items,
+}: {
+  items: OverviewDemandStockProduct[];
+}) {
+  const detail = useDetailTheme();
+  const theme = useTheme();
+
+  if (items.length === 0) {
+    return (
+      <Text style={{ color: detail.label, paddingVertical: 8 }}>
+        No product demand in this period.
+      </Text>
+    );
+  }
+
+  return (
+    <View style={{ gap: 10 }}>
+      {items.map((item, index) => (
+        <View key={item.id} style={styles.productRow}>
+          <View
+            style={[
+              styles.rankBadge,
+              { backgroundColor: theme.colors.primaryContainer },
+            ]}>
+            <Text style={{ color: theme.colors.primary, fontWeight: '800' }}>
+              {index + 1}
+            </Text>
+          </View>
+          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+            <Text
+              style={[styles.productName, { color: detail.onSurface }]}
+              numberOfLines={2}>
+              {item.name}
+            </Text>
+            <Text style={{ color: detail.label, fontSize: 12 }}>
+              Demand {item.demandQty.toLocaleString()}
+            </Text>
+          </View>
+          <View style={{ alignItems: 'flex-end', gap: 2 }}>
+            <Text style={[styles.productRevenue, { color: theme.colors.primary }]}>
+              {item.onHand.toLocaleString()}
+            </Text>
+            <Text style={{ color: detail.label, fontSize: 11, fontWeight: '600' }}>
+              on hand
+            </Text>
+          </View>
         </View>
       ))}
     </View>
@@ -715,6 +818,20 @@ export default function OverviewScreen() {
                 <ProductRankList
                   items={data?.topProducts ?? []}
                   emptyLabel="No product sales in this period."
+                />
+              </SurfaceCard>
+              <SurfaceCard title="Lowest on hand">
+                <Text style={[styles.cardHint, { color: detail.label }]}>
+                  Top 3 products with the lowest stock
+                </Text>
+                <LowestOnHandList items={data?.lowestOnHandProducts ?? []} />
+              </SurfaceCard>
+              <SurfaceCard title="Highest demand">
+                <Text style={[styles.cardHint, { color: detail.label }]}>
+                  Top 3 by sold qty · showing on hand · {selectedPeriodLabel}
+                </Text>
+                <HighestDemandStockList
+                  items={data?.highestDemandProducts ?? []}
                 />
               </SurfaceCard>
               <SurfaceCard title="Least products">
