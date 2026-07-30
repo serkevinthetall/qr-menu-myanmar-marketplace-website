@@ -50,10 +50,9 @@ const SALE_PERSON_OPTIONS = [
   'Me Me',
   'Htet Htet',
   'Thiri',
-  'Myo Min Khant',
-  'Zay Yar Htet',
-  'Zaw Htet Naing',
-  'Mya Mya Thin',
+  'Kaung Htet San',
+  'Shine Aung',
+  'Par Kyaung',
 ] as const;
 
 function customerFromAddressCompany(
