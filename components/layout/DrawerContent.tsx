@@ -15,13 +15,20 @@ export function DrawerContent(props: DrawerContentComponentProps) {
   const insets = useSafeAreaInsets();
   const activeRoute = props.state.routes[props.state.index]?.name;
   // Only toggled by user press — never auto-open on route change.
-  const [ordersOpen, setOrdersOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   const navigateTo = (routeName: string) => {
     props.navigation.navigate(routeName);
     if (Platform.OS === 'web') {
       props.navigation.closeDrawer();
     }
+  };
+
+  const toggleGroup = (groupId: string) => {
+    setOpenGroups(prev => ({
+      ...prev,
+      [groupId]: !prev[groupId],
+    }));
   };
 
   const renderLeaf = (item: NavItem, nested = false) => {
@@ -82,16 +89,12 @@ export function DrawerContent(props: DrawerContentComponentProps) {
           const childActive = entry.children.some(
             child => child.name === activeRoute,
           );
-          const expanded = entry.id === 'orders' ? ordersOpen : false;
+          const expanded = Boolean(openGroups[entry.id]);
 
           return (
             <View key={entry.id}>
               <Pressable
-                onPress={() => {
-                  if (entry.id === 'orders') {
-                    setOrdersOpen(prev => !prev);
-                  }
-                }}
+                onPress={() => toggleGroup(entry.id)}
                 style={({ pressed, hovered }) => [
                   styles.groupRow,
                   {

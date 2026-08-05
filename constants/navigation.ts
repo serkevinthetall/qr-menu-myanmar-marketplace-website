@@ -101,7 +101,7 @@ const SETTINGS: NavItem = {
   description: 'Odoo connection, users, and app preferences.',
 };
 
-/** Drawer menu structure (supports nested Orders group). */
+/** Drawer menu structure (supports nested Orders / Membership groups). */
 export const NAV_ENTRIES: NavEntry[] = [
   { type: 'item', item: OVERVIEW },
   {
@@ -114,8 +114,13 @@ export const NAV_ENTRIES: NavEntry[] = [
   { type: 'item', item: CUSTOMERS },
   { type: 'item', item: PRODUCTS },
   { type: 'item', item: PURCHASE_ORDERS },
-  { type: 'item', item: MEMBERSHIPS },
-  { type: 'item', item: MEMBERSHIP_COUPONS },
+  {
+    type: 'group',
+    id: 'membership',
+    label: 'Membership',
+    icon: 'account-badge-outline',
+    children: [MEMBERSHIPS, MEMBERSHIP_COUPONS],
+  },
   { type: 'item', item: SETTINGS },
 ];
 

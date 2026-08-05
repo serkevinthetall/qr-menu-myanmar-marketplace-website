@@ -5,6 +5,7 @@ import { useTheme } from 'react-native-paper';
 
 import { AppHeader } from '@/components/layout/AppHeader';
 import { DrawerContent } from '@/components/layout/DrawerContent';
+import { OnlineOrderAlerts } from '@/components/layout/OnlineOrderAlerts';
 import { AppColors } from '@/constants/colors';
 import { NAV_ITEMS } from '@/constants/navigation';
 import { SearchProvider } from '@/contexts/search-context';
@@ -45,6 +46,7 @@ export default function DrawerLayout() {
 
   return (
     <SearchProvider>
+      <OnlineOrderAlerts />
       <Drawer
         drawerContent={props => <DrawerContent {...props} />}
         screenOptions={screenOptions}>
