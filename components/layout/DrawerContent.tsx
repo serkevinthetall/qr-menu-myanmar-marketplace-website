@@ -24,16 +24,26 @@ export function DrawerContent(props: DrawerContentComponentProps) {
     }
   };
 
-  const renderLeaf = (item: NavItem, nested = false) => (
-    <Drawer.Item
-      key={item.name}
-      label={item.label}
-      icon={item.icon}
-      active={activeRoute === item.name}
-      onPress={() => navigateTo(item.name)}
-      style={nested ? styles.nestedItem : undefined}
-    />
-  );
+  const renderLeaf = (item: NavItem, nested = false) => {
+    const row = (
+      <Drawer.Item
+        label={item.label}
+        icon={item.icon}
+        active={activeRoute === item.name}
+        onPress={() => navigateTo(item.name)}
+      />
+    );
+
+    if (!nested) {
+      return <View key={item.name}>{row}</View>;
+    }
+
+    return (
+      <View key={item.name} style={styles.nestedWrap}>
+        {row}
+      </View>
+    );
+  };
 
   return (
     <DrawerContentScrollView
@@ -120,7 +130,7 @@ export function DrawerContent(props: DrawerContentComponentProps) {
                   {entry.label}
                 </Text>
                 <Icon
-                  source={expanded ? 'chevron-down' : 'chevron-right'}
+                  source={expanded ? 'chevron-up' : 'chevron-down'}
                   size={22}
                   color={theme.colors.onSurfaceVariant}
                 />
@@ -172,7 +182,7 @@ const styles = StyleSheet.create({
   groupLabel: {
     flex: 1,
   },
-  nestedItem: {
-    marginLeft: 12,
+  nestedWrap: {
+    paddingLeft: 28,
   },
 });
