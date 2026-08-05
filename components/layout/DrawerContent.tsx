@@ -1,18 +1,21 @@
+import { useState } from 'react';
 import {
   DrawerContentComponentProps,
   DrawerContentScrollView,
 } from '@react-navigation/drawer';
 import { Image } from 'expo-image';
-import { Platform, StyleSheet, View } from 'react-native';
-import { Drawer, Text, useTheme } from 'react-native-paper';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Drawer, Icon, Text, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { NAV_ITEMS } from '@/constants/navigation';
+import { NAV_ENTRIES, NavItem } from '@/constants/navigation';
 
 export function DrawerContent(props: DrawerContentComponentProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const activeRoute = props.state.routes[props.state.index]?.name;
+  // Only toggled by user press — never auto-open on route change.
+  const [ordersOpen, setOrdersOpen] = useState(false);
 
   const navigateTo = (routeName: string) => {
     props.navigation.navigate(routeName);
@@ -20,6 +23,17 @@ export function DrawerContent(props: DrawerContentComponentProps) {
       props.navigation.closeDrawer();
     }
   };
+
+  const renderLeaf = (item: NavItem, nested = false) => (
+    <Drawer.Item
+      key={item.name}
+      label={item.label}
+      icon={item.icon}
+      active={activeRoute === item.name}
+      onPress={() => navigateTo(item.name)}
+      style={nested ? styles.nestedItem : undefined}
+    />
+  );
 
   return (
     <DrawerContentScrollView
@@ -50,15 +64,74 @@ export function DrawerContent(props: DrawerContentComponentProps) {
       </View>
 
       <Drawer.Section title="Modules" style={styles.section}>
-        {NAV_ITEMS.map(item => (
-          <Drawer.Item
-            key={item.name}
-            label={item.label}
-            icon={item.icon}
-            active={activeRoute === item.name}
-            onPress={() => navigateTo(item.name)}
-          />
-        ))}
+        {NAV_ENTRIES.map(entry => {
+          if (entry.type === 'item') {
+            return renderLeaf(entry.item);
+          }
+
+          const childActive = entry.children.some(
+            child => child.name === activeRoute,
+          );
+          const expanded = entry.id === 'orders' ? ordersOpen : false;
+
+          return (
+            <View key={entry.id}>
+              <Pressable
+                onPress={() => {
+                  if (entry.id === 'orders') {
+                    setOrdersOpen(prev => !prev);
+                  }
+                }}
+                style={({ pressed, hovered }) => [
+                  styles.groupRow,
+                  {
+                    backgroundColor:
+                      childActive && !expanded
+                        ? theme.colors.secondaryContainer
+                        : hovered || pressed
+                          ? theme.colors.surfaceVariant
+                          : 'transparent',
+                    opacity: pressed ? 0.9 : 1,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{ expanded }}
+                accessibilityLabel={`${entry.label} menu`}>
+                <Icon
+                  source={entry.icon}
+                  size={24}
+                  color={
+                    childActive
+                      ? theme.colors.primary
+                      : theme.colors.onSurfaceVariant
+                  }
+                />
+                <Text
+                  variant="labelLarge"
+                  style={[
+                    styles.groupLabel,
+                    {
+                      color: childActive
+                        ? theme.colors.primary
+                        : theme.colors.onSurface,
+                      fontWeight: childActive ? '700' : '500',
+                    },
+                  ]}>
+                  {entry.label}
+                </Text>
+                <Icon
+                  source={expanded ? 'chevron-down' : 'chevron-right'}
+                  size={22}
+                  color={theme.colors.onSurfaceVariant}
+                />
+              </Pressable>
+
+              {expanded
+                ? entry.children.map(child => renderLeaf(child, true))
+                : null}
+            </View>
+          );
+        })}
       </Drawer.Section>
     </DrawerContentScrollView>
   );
@@ -85,5 +158,21 @@ const styles = StyleSheet.create({
   },
   section: {
     marginTop: 8,
+  },
+  groupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginHorizontal: 12,
+    marginVertical: 2,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 28,
+  },
+  groupLabel: {
+    flex: 1,
+  },
+  nestedItem: {
+    marginLeft: 12,
   },
 });
