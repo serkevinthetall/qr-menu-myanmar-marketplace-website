@@ -30,7 +30,7 @@ export async function fetchProducts(
 
 export async function fetchProductsPage(
   token: string,
-  options?: { limit?: number; offset?: number },
+  options?: { limit?: number; offset?: number; filter?: 'qrApp' },
 ): Promise<ProductsPage> {
   const params = new URLSearchParams();
   if (options?.limit !== undefined) {
@@ -38,6 +38,9 @@ export async function fetchProductsPage(
   }
   if (options?.offset !== undefined) {
     params.set('offset', String(options.offset));
+  }
+  if (options?.filter) {
+    params.set('filter', options.filter);
   }
   const query = params.toString() ? `?${params.toString()}` : '';
   const response = await webApiRequest<ProductsResponse>(`/products${query}`, {

@@ -18,6 +18,8 @@ export type HeaderAction = {
   accessibilityLabel?: string;
   /** When set, renders a text button instead of an icon-only button. */
   label?: string;
+  /** Highlight a toggle-style label button as selected. */
+  active?: boolean;
 };
 
 export type DetailHeader = {

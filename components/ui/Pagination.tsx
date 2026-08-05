@@ -10,6 +10,8 @@ type PaginationProps = {
   pageSize: number;
   onChange: (page: number) => void;
   centerLabel?: string;
+  /** Singular noun shown after the count, e.g. "order" → "12 orders". */
+  itemLabel?: string;
 };
 
 export function Pagination({
@@ -19,33 +21,50 @@ export function Pagination({
   pageSize,
   onChange,
   centerLabel,
+  itemLabel,
 }: PaginationProps) {
   const theme = useTheme();
   const { isMobile } = useResponsive();
 
-  if (total === 0) {
-    return null;
-  }
-
-  const start = (page - 1) * pageSize + 1;
+  const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, total);
-  const atStart = page <= 1;
-  const atEnd = page >= pageCount;
+  const atStart = page <= 1 || total === 0;
+  const atEnd = page >= pageCount || total === 0;
   const showCenter = !!centerLabel && !isMobile;
+  const rangeLabel = total === 0 ? '0 of 0' : `${start}–${end} of ${total}`;
+  const itemWord =
+    itemLabel && total > 0
+      ? total === 1
+        ? itemLabel
+        : `${itemLabel}s`
+      : null;
 
   return (
     <View
       style={[
         styles.container,
+        isMobile && styles.containerMobile,
         {
           backgroundColor: theme.colors.surface,
           borderTopColor: theme.colors.outlineVariant ?? theme.colors.outline,
         },
       ]}>
-      <View style={styles.side}>
-        <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-          {start}–{end} of {total}
+      <View style={[styles.side, isMobile && styles.sideMobile]}>
+        <Text
+          variant={isMobile ? 'labelLarge' : 'bodySmall'}
+          style={[
+            styles.rangeText,
+            { color: theme.colors.onSurface },
+          ]}>
+          {rangeLabel}
         </Text>
+        {itemWord ? (
+          <Text
+            variant="bodySmall"
+            style={{ color: theme.colors.onSurfaceVariant }}>
+            {itemWord}
+          </Text>
+        ) : null}
       </View>
 
       {showCenter ? (
@@ -66,7 +85,7 @@ export function Pagination({
         </View>
       ) : null}
 
-      <View style={[styles.side, styles.sideRight]}>
+      <View style={[styles.side, styles.sideRight, isMobile && styles.sideMobile]}>
         <IconButton
           icon="chevron-double-left"
           size={20}
@@ -82,7 +101,7 @@ export function Pagination({
           accessibilityLabel="Previous page"
         />
         <Text variant="labelLarge" style={[styles.pageText, { color: theme.colors.onSurface }]}>
-          {page} / {pageCount}
+          {total === 0 ? '0 / 0' : `${page} / ${pageCount}`}
         </Text>
         <IconButton
           icon="chevron-right"
@@ -113,14 +132,32 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     minHeight: 52,
   },
+  containerMobile: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    paddingTop: 10,
+    paddingBottom: 4,
+    paddingLeft: 12,
+    paddingRight: 4,
+    gap: 2,
+  },
   side: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
     zIndex: 1,
+  },
+  sideMobile: {
+    flex: 0,
+    width: '100%',
+    justifyContent: 'center',
   },
   sideRight: {
     justifyContent: 'flex-end',
+  },
+  rangeText: {
+    fontWeight: '700',
   },
   centerOverlay: {
     ...StyleSheet.absoluteFillObject,

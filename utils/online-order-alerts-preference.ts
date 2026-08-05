@@ -27,7 +27,7 @@ export function writeOnlineOrderAlertsEnabled(enabled: boolean): void {
   }
 }
 
-/** Tell open Online Order screens to reload the list. */
+/** Tell open App Order screens to reload the list. */
 export function notifyOnlineOrdersRefresh(): void {
   if (typeof window === 'undefined') {
     return;

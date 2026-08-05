@@ -47,9 +47,9 @@ const SALE_ORDERS: NavItem = {
 
 const ONLINE_ORDERS: NavItem = {
   name: 'online-orders',
-  label: 'Online Order',
+  label: 'App Order',
   icon: 'shopping-outline',
-  title: 'Online Order',
+  title: 'App Order',
   description: 'Orders for salesperson Aung Soe Oo.',
 };
 

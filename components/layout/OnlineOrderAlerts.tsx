@@ -50,8 +50,8 @@ function writeSeenIds(ids: Set<string>) {
 }
 
 /**
- * Website ERP only: poll Online Orders and play sound when a new one appears.
- * Controlled from Settings → Online Order notifications.
+ * Website ERP only: poll App Orders and play sound when a new one appears.
+ * Controlled from Settings → App Order notifications.
  */
 export function OnlineOrderAlerts() {
   const { session, isAuthenticated } = useAuth();
@@ -136,8 +136,8 @@ export function OnlineOrderAlerts() {
           notifyOnlineOrdersRefresh();
           const label =
             newcomers.length === 1
-              ? 'New Online Order received'
-              : `${newcomers.length} new Online Orders received`;
+              ? 'New App Order received'
+              : `${newcomers.length} new App Orders received`;
           setSnack(label);
         }
       } catch {

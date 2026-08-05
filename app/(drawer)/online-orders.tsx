@@ -15,7 +15,17 @@ import {
   useTheme,
 } from 'react-native-paper';
 
+import { SaleOrderDateTotalBar } from '@/components/sale-order/SaleOrderDateTotalBar';
 import { SaleOrderDetailView } from '@/components/sale-order/SaleOrderDetailView';
+import {
+  EMPTY_SALE_ORDER_FILTERS,
+  getSaleOrderFilterDateLabel,
+  hasActiveSaleOrderFilters,
+  matchesSaleOrderFilters,
+  SaleOrderFilterBar,
+  SaleOrderFilters,
+} from '@/components/sale-order/SaleOrderFilterBar';
+import { SaleOrderPrintPreview } from '@/components/sale-order/SaleOrderPrintPreview';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { Pagination } from '@/components/ui/Pagination';
 import { getSaleOrderStatusColors } from '@/constants/status-colors';
@@ -23,6 +33,7 @@ import { useAuth } from '@/contexts/auth-context';
 import {
   HeaderAction,
   useHeaderActions,
+  useModuleFilters,
   useModuleSearch,
   useSearch,
 } from '@/contexts/search-context';
@@ -36,6 +47,7 @@ import {
 import { SaleOrder, SaleOrderDetail } from '@/types/sale-order';
 import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
 import { ONLINE_ORDERS_REFRESH_EVENT } from '@/utils/online-order-alerts-preference';
+import { PrintFormat } from '@/utils/print-quotation';
 
 const PAGE_SIZE = 50;
 
@@ -336,9 +348,25 @@ export default function OnlineOrdersScreen() {
   const [detail, setDetail] = useState<SaleOrderDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
+  const [printPreview, setPrintPreview] = useState<{
+    format: PrintFormat;
+    detail: SaleOrderDetail;
+  } | null>(null);
+  const [orderFilters, setOrderFilters] = useState<SaleOrderFilters>(
+    EMPTY_SALE_ORDER_FILTERS,
+  );
 
   const query = useModuleSearch('Search by number or customer', !selectedId);
   const { setDetailHeader } = useSearch();
+
+  const filterPanel = useMemo(
+    () => (
+      <SaleOrderFilterBar filters={orderFilters} onChange={setOrderFilters} />
+    ),
+    [orderFilters],
+  );
+
+  useModuleFilters(filterPanel, !selectedId);
 
   const load = useCallback(async (opts?: { quiet?: boolean }) => {
     if (!session?.token) return;
@@ -358,7 +386,7 @@ export default function OnlineOrdersScreen() {
     } catch (err) {
       if (!quiet) {
         setError(
-          err instanceof Error ? err.message : 'Failed to load online orders.',
+          err instanceof Error ? err.message : 'Failed to load app orders.',
         );
       }
     } finally {
@@ -375,7 +403,7 @@ export default function OnlineOrdersScreen() {
     return () => clearTimeout(timer);
   }, [load]);
 
-  // Keep the Online Order list live without a manual refresh.
+  // Keep the App Order list live without a manual refresh.
   useEffect(() => {
     if (!session?.token || selectedId) {
       return;
@@ -413,7 +441,7 @@ export default function OnlineOrdersScreen() {
         setDetailError(
           err instanceof Error
             ? err.message
-            : 'Failed to load online order.',
+            : 'Failed to load app order.',
         );
       } finally {
         setDetailLoading(false);
@@ -435,12 +463,15 @@ export default function OnlineOrdersScreen() {
     }
 
     setDetailHeader({
-      title: detail?.number ?? 'Online Order',
+      title: detail?.number ?? 'App Order',
       onBack: closeDetail,
       statusLabel: detail
         ? getSaleOrderStatusColors(mode, detail.status).label
         : undefined,
-      breadcrumbParent: 'Online Order',
+      breadcrumbParent: 'App Order',
+      onPrint: detail
+        ? format => setPrintPreview({ format, detail })
+        : undefined,
     });
 
     return () => setDetailHeader(null);
@@ -466,14 +497,26 @@ export default function OnlineOrdersScreen() {
 
   useHeaderActions(headerActions);
 
-  const filtered = useMemo(() => items, [items]);
+  const filtered = useMemo(
+    () => items.filter(order => matchesSaleOrderFilters(order, orderFilters)),
+    [items, orderFilters],
+  );
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
+  const filtersActive = hasActiveSaleOrderFilters(orderFilters);
+  const filteredTotalAmount = useMemo(
+    () => filtered.reduce((sum, order) => sum + (Number(order.total) || 0), 0),
+    [filtered],
+  );
+  const filterDateLabel = useMemo(
+    () => getSaleOrderFilterDateLabel(orderFilters),
+    [orderFilters],
+  );
 
   useEffect(() => {
     setPage(1);
-  }, [query, viewMode]);
+  }, [query, viewMode, orderFilters]);
 
   const paged = useMemo(
     () => filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
@@ -515,7 +558,7 @@ export default function OnlineOrdersScreen() {
 
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [query]);
+  }, [query, orderFilters]);
 
   const numColumns = useMemo(() => {
     if (width >= 1200) {
@@ -547,6 +590,14 @@ export default function OnlineOrdersScreen() {
           loading={detailLoading}
           error={detailError}
         />
+        {printPreview ? (
+          <SaleOrderPrintPreview
+            detail={printPreview.detail}
+            format={printPreview.format}
+            documentLabel="APP ORDER"
+            onClose={() => setPrintPreview(null)}
+          />
+        ) : null}
       </View>
     );
   }
@@ -555,7 +606,7 @@ export default function OnlineOrdersScreen() {
     return (
       <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator />
-        <Text style={{ marginTop: 12 }}>Loading online orders...</Text>
+        <Text style={{ marginTop: 12 }}>Loading app orders...</Text>
       </View>
     );
   }
@@ -564,7 +615,7 @@ export default function OnlineOrdersScreen() {
     return (
       <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
         <Text variant="titleMedium" style={styles.errorTitle}>
-          Could not load online orders
+          Could not load app orders
         </Text>
         <Text style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center' }}>
           {error}
@@ -575,6 +626,16 @@ export default function OnlineOrdersScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {filtersActive ? (
+        <SaleOrderDateTotalBar
+          dateLabel={filterDateLabel}
+          orderCount={filtered.length}
+          totalAmount={filteredTotalAmount}
+          itemLabel="order"
+          placement="top"
+        />
+      ) : null}
+
       {viewMode === 'list' ? (
         filtered.length === 0 ? (
           <ScrollView
@@ -584,9 +645,9 @@ export default function OnlineOrdersScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }>
             <Text style={styles.empty}>
-              {query.trim()
-                ? 'No online orders match your search.'
-                : 'No online orders found for salesperson Aung Soe Oo.'}
+              {query.trim() || filtersActive
+                ? 'No app orders match your search or filters.'
+                : 'No app orders found for salesperson Aung Soe Oo.'}
             </Text>
           </ScrollView>
         ) : (
@@ -639,13 +700,23 @@ export default function OnlineOrdersScreen() {
           )}
           ListEmptyComponent={
             <Text style={styles.empty}>
-              {query.trim()
-                ? 'No online orders match your search.'
-                : 'No online orders found for salesperson Aung Soe Oo.'}
+              {query.trim() || filtersActive
+                ? 'No app orders match your search or filters.'
+                : 'No app orders found for salesperson Aung Soe Oo.'}
             </Text>
           }
         />
       )}
+
+      {filtersActive ? (
+        <SaleOrderDateTotalBar
+          dateLabel={filterDateLabel}
+          orderCount={filtered.length}
+          totalAmount={filteredTotalAmount}
+          itemLabel="order"
+          placement="bottom"
+        />
+      ) : null}
 
       <Pagination
         page={safePage}
@@ -653,7 +724,12 @@ export default function OnlineOrdersScreen() {
         total={filtered.length}
         pageSize={PAGE_SIZE}
         onChange={setPage}
-        centerLabel={`${items.length} from Odoo`}
+        centerLabel={
+          filtersActive
+            ? `${filtered.length} matching · ${items.length} from Odoo`
+            : `${items.length} from Odoo`
+        }
+        itemLabel="order"
       />
     </View>
   );

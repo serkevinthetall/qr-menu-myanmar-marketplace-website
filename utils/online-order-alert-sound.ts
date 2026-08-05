@@ -1,5 +1,5 @@
 /**
- * Web-only Online Order alert sound.
+ * Web-only App Order alert sound.
  * Uses /sounds/onlinesaleorder.mp3 from the public folder (works on static hosting).
  */
 

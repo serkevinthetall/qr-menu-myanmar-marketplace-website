@@ -20,6 +20,8 @@ type QuotationFilterBarProps = {
 export type { QuotationFilters } from '@/components/quotation/quotation-filter-utils';
 export {
   EMPTY_QUOTATION_FILTERS,
+  getQuotationFilterDateLabel,
+  hasActiveQuotationDateFilters,
   hasActiveQuotationFilters,
   matchesQuotationFilters,
 } from '@/components/quotation/quotation-filter-utils';

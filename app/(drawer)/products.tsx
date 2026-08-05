@@ -27,7 +27,7 @@ import {
   useSearch,
 } from '@/contexts/search-context';
 import { useResponsive } from '@/hooks/use-responsive';
-import { fetchProductDetail } from '@/services/products';
+import { fetchProductDetail, fetchProductsPage } from '@/services/products';
 import {
   ensureWebProductCatalog,
   filterWebProducts,
@@ -37,6 +37,7 @@ import {
 import { Product, ProductDetail } from '@/types/product';
 
 const PAGE_SIZE = 50;
+const QR_APP_PAGE_SIZE = 500;
 
 type ViewMode = 'list' | 'card';
 
@@ -303,6 +304,8 @@ export default function ProductsScreen() {
   const [detail, setDetail] = useState<ProductDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
+  const [qrAppFilter, setQrAppFilter] = useState(false);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
 
   const query = useModuleSearch('Search products by name or SKU', !detailId);
   const { setDetailHeader } = useSearch();
@@ -370,11 +373,24 @@ export default function ProductsScreen() {
     setViewMode(prev => (prev === 'list' ? 'card' : 'list'));
   }, []);
 
+  const toggleQrAppFilter = useCallback(() => {
+    setQrAppFilter(prev => !prev);
+  }, []);
+
   const headerActions = useMemo<HeaderAction[]>(() => {
     if (detailId) {
       return [];
     }
     return [
+      {
+        key: 'qr-app',
+        label: 'QR App',
+        icon: qrAppFilter ? 'check-circle' : 'tag-outline',
+        active: qrAppFilter,
+        onPress: toggleQrAppFilter,
+        accessibilityLabel:
+          'Filter products that are for sale, published, and tagged QR App',
+      },
       {
         key: 'view',
         icon: viewMode === 'list' ? 'view-grid-outline' : 'format-list-bulleted',
@@ -382,7 +398,7 @@ export default function ProductsScreen() {
         accessibilityLabel: 'Toggle list or card view',
       },
     ];
-  }, [detailId, viewMode, toggleView]);
+  }, [detailId, viewMode, toggleView, qrAppFilter, toggleQrAppFilter]);
 
   useHeaderActions(headerActions);
 
@@ -396,7 +412,11 @@ export default function ProductsScreen() {
 
   useEffect(() => {
     setPage(1);
-  }, [query, viewMode]);
+  }, [query, viewMode, qrAppFilter]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [query, qrAppFilter]);
 
   const pagedProducts = useMemo(
     () => filteredProducts.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
@@ -449,23 +469,44 @@ export default function ProductsScreen() {
 
       try {
         setError('');
+        if (qrAppFilter) {
+          const page = await fetchProductsPage(session.token, {
+            limit: QR_APP_PAGE_SIZE,
+            offset: 0,
+            filter: 'qrApp',
+          });
+          setProducts(page.data);
+          setCatalogComplete(true);
+          return;
+        }
+
         await ensureWebProductCatalog(session.token, { force });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load products.');
       }
     },
-    [session?.token],
+    [session?.token, qrAppFilter],
   );
 
   useEffect(() => {
     return subscribeWebProductCatalog((catalog: WebProductCatalog) => {
-      setProducts(catalog.products);
-      setCatalogComplete(catalog.complete);
-      if (catalog.products.length > 0 || catalog.complete) {
-        setLoading(false);
+      setCatalogProducts(catalog.products);
+      if (!qrAppFilter) {
+        setProducts(catalog.products);
+        setCatalogComplete(catalog.complete);
+        if (catalog.products.length > 0 || catalog.complete) {
+          setLoading(false);
+        }
       }
     });
-  }, []);
+  }, [qrAppFilter]);
+
+  useEffect(() => {
+    if (!qrAppFilter && catalogProducts.length > 0) {
+      setProducts(catalogProducts);
+      setLoading(false);
+    }
+  }, [qrAppFilter, catalogProducts]);
 
   useEffect(() => {
     setLoading(true);
@@ -536,7 +577,9 @@ export default function ProductsScreen() {
             <Text style={styles.empty}>
               {query.trim()
                 ? `No products match "${query.trim()}".`
-                : 'No products found in Odoo.'}
+                : qrAppFilter
+                  ? 'No QR App products found (sale + published + QR App tag).'
+                  : 'No products found in Odoo.'}
             </Text>
           </ScrollView>
         ) : (
@@ -582,7 +625,9 @@ export default function ProductsScreen() {
             <Text style={styles.empty}>
               {query.trim()
                 ? `No products match "${query.trim()}".`
-                : 'No products found in Odoo.'}
+                : qrAppFilter
+                  ? 'No QR App products found (sale + published + QR App tag).'
+                  : 'No products found in Odoo.'}
             </Text>
           }
         />
@@ -594,7 +639,12 @@ export default function ProductsScreen() {
         total={filteredProducts.length}
         pageSize={PAGE_SIZE}
         onChange={setPage}
-        centerLabel={`${products.length} from Odoo`}
+        centerLabel={
+          qrAppFilter
+            ? `${filteredProducts.length} QR App`
+            : `${products.length} from Odoo`
+        }
+        itemLabel="product"
       />
     </View>
   );

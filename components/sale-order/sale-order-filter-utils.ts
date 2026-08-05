@@ -1,4 +1,4 @@
-export type QuotationPeriod =
+export type SaleOrderPeriod =
   | ''
   | 'today'
   | 'yesterday'
@@ -6,7 +6,10 @@ export type QuotationPeriod =
   | 'month'
   | 'year';
 
-export const QUOTATION_PERIOD_OPTIONS: { value: QuotationPeriod; label: string }[] = [
+export const SALE_ORDER_PERIOD_OPTIONS: {
+  value: SaleOrderPeriod;
+  label: string;
+}[] = [
   { value: 'today', label: 'Today' },
   { value: 'yesterday', label: 'Yesterday' },
   { value: 'week', label: 'This Week' },
@@ -14,52 +17,17 @@ export const QUOTATION_PERIOD_OPTIONS: { value: QuotationPeriod; label: string }
   { value: 'year', label: 'This Year' },
 ];
 
-export type QuotationStatusFilter = {
-  key: string;
-  label: string;
-  match: (status: string) => boolean;
-  bg: string;
-  fg: string;
-};
-
-export const QUOTATION_STATUS_FILTERS: QuotationStatusFilter[] = [
-  {
-    key: 'quotation',
-    label: 'Quotation',
-    match: status => status === 'draft' || status === 'sent',
-    bg: '#E2E8F0',
-    fg: '#475569',
-  },
-  {
-    key: 'sale',
-    label: 'Sales Order',
-    match: status => status === 'sale' || status === 'done',
-    bg: '#DCFCE7',
-    fg: '#166534',
-  },
-  {
-    key: 'cancel',
-    label: 'Cancelled',
-    match: status => status === 'cancel',
-    bg: '#FEE2E2',
-    fg: '#991B1B',
-  },
-];
-
-export type QuotationFilters = {
+export type SaleOrderFilters = {
   startDate: string;
   endDate: string;
-  period: QuotationPeriod;
-  statuses: string[];
+  period: SaleOrderPeriod;
 };
 
-export const EMPTY_QUOTATION_FILTERS: QuotationFilters = {
+export const EMPTY_SALE_ORDER_FILTERS: SaleOrderFilters = {
   startDate: '',
   endDate: '',
   period: '',
-  statuses: [],
 };
-
 
 function toISO(date: Date): string {
   const pad = (n: number) => (n < 10 ? `0${n}` : String(n));
@@ -102,7 +70,9 @@ function endOfYear(date: Date): Date {
   return new Date(date.getFullYear(), 11, 31);
 }
 
-function getPresetDateRange(period: QuotationPeriod): { from: string; to: string } | null {
+function getPresetDateRange(
+  period: SaleOrderPeriod,
+): { from: string; to: string } | null {
   if (!period) {
     return null;
   }
@@ -129,15 +99,15 @@ function getPresetDateRange(period: QuotationPeriod): { from: string; to: string
 }
 
 /** Human label for the active date filter (e.g. "Today", "2026-08-04 – 2026-08-05"). */
-export function getQuotationFilterDateLabel(filters: QuotationFilters): string {
+export function getSaleOrderFilterDateLabel(filters: SaleOrderFilters): string {
   if (filters.period) {
     return (
-      QUOTATION_PERIOD_OPTIONS.find(item => item.value === filters.period)
+      SALE_ORDER_PERIOD_OPTIONS.find(item => item.value === filters.period)
         ?.label ?? 'Selected dates'
     );
   }
 
-  const range = getQuotationDateRange(filters);
+  const range = getSaleOrderDateRange(filters);
   if (!range) {
     return 'Selected dates';
   }
@@ -149,11 +119,7 @@ export function getQuotationFilterDateLabel(filters: QuotationFilters): string {
   return `${range.from} – ${range.to}`;
 }
 
-export function hasActiveQuotationDateFilters(filters: QuotationFilters): boolean {
-  return !!filters.period || !!filters.startDate || !!filters.endDate;
-}
-
-export function getQuotationDateRange(filters: QuotationFilters): {
+export function getSaleOrderDateRange(filters: SaleOrderFilters): {
   from: string;
   to: string;
 } | null {
@@ -180,40 +146,27 @@ export function getQuotationDateRange(filters: QuotationFilters): {
   return { from: endDate, to: endDate };
 }
 
-export function quotationDateKey(createDate: string): string {
-  return createDate.trim().replace('T', ' ').split(' ')[0];
+export function saleOrderDateKey(orderDate: string): string {
+  return orderDate.trim().replace('T', ' ').split(' ')[0];
 }
 
-export function matchesQuotationFilters(
-  quotation: { createDate: string; status: string },
-  filters: QuotationFilters,
+export function matchesSaleOrderFilters(
+  order: { orderDate: string },
+  filters: SaleOrderFilters,
 ): boolean {
-  const range = getQuotationDateRange(filters);
-  if (range) {
-    const createdOn = quotationDateKey(quotation.createDate);
-    if (!createdOn || createdOn < range.from || createdOn > range.to) {
-      return false;
-    }
+  const range = getSaleOrderDateRange(filters);
+  if (!range) {
+    return true;
   }
 
-  if (filters.statuses.length > 0) {
-    const matches = filters.statuses.some(key => {
-      const rule = QUOTATION_STATUS_FILTERS.find(item => item.key === key);
-      return rule ? rule.match(quotation.status) : false;
-    });
-    if (!matches) {
-      return false;
-    }
+  const orderedOn = saleOrderDateKey(order.orderDate);
+  if (!orderedOn || orderedOn < range.from || orderedOn > range.to) {
+    return false;
   }
 
   return true;
 }
 
-export function hasActiveQuotationFilters(filters: QuotationFilters): boolean {
-  return (
-    !!filters.period ||
-    !!filters.startDate ||
-    !!filters.endDate ||
-    filters.statuses.length > 0
-  );
+export function hasActiveSaleOrderFilters(filters: SaleOrderFilters): boolean {
+  return !!filters.period || !!filters.startDate || !!filters.endDate;
 }

@@ -20,12 +20,15 @@ import {
 import { QuotationDetailView } from '@/components/quotation/QuotationDetailView';
 import {
   EMPTY_QUOTATION_FILTERS,
+  getQuotationFilterDateLabel,
+  hasActiveQuotationDateFilters,
   hasActiveQuotationFilters,
   matchesQuotationFilters,
   QuotationFilterBar,
   QuotationFilters,
 } from '@/components/quotation/QuotationFilterBar';
 import { QuotationPrintPreview } from '@/components/quotation/QuotationPrintPreview';
+import { SaleOrderDateTotalBar } from '@/components/sale-order/SaleOrderDateTotalBar';
 import { Pagination } from '@/components/ui/Pagination';
 import { useAuth } from '@/contexts/auth-context';
 import { useAppTheme } from '@/contexts/theme-context';
@@ -802,6 +805,26 @@ export default function QuotationScreen() {
 
   const pageCount = Math.max(1, Math.ceil(filteredQuotations.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
+  const filtersActive = hasActiveQuotationFilters(quotationFilters);
+  const dateFiltersActive = hasActiveQuotationDateFilters(quotationFilters);
+  const showFilteredTotal = filtersActive || dateFiltersActive;
+  const filteredTotalAmount = useMemo(
+    () =>
+      filteredQuotations.reduce(
+        (sum, quotation) => sum + (Number(quotation.total) || 0),
+        0,
+      ),
+    [filteredQuotations],
+  );
+  const filterDateLabel = useMemo(() => {
+    if (dateFiltersActive) {
+      return getQuotationFilterDateLabel(quotationFilters);
+    }
+    if (quotationFilters.statuses.length > 0) {
+      return 'Selected status';
+    }
+    return 'Filtered';
+  }, [quotationFilters, dateFiltersActive]);
 
   useEffect(() => {
     setPage(1);
@@ -1063,6 +1086,16 @@ export default function QuotationScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {showFilteredTotal ? (
+        <SaleOrderDateTotalBar
+          dateLabel={filterDateLabel}
+          orderCount={filteredQuotations.length}
+          totalAmount={filteredTotalAmount}
+          itemLabel="quotation"
+          placement="top"
+        />
+      ) : null}
+
       {viewMode === 'list' ? (
         filteredQuotations.length === 0 ? (
           <ScrollView
@@ -1130,6 +1163,16 @@ export default function QuotationScreen() {
         />
       )}
 
+      {showFilteredTotal ? (
+        <SaleOrderDateTotalBar
+          dateLabel={filterDateLabel}
+          orderCount={filteredQuotations.length}
+          totalAmount={filteredTotalAmount}
+          itemLabel="quotation"
+          placement="bottom"
+        />
+      ) : null}
+
       <Pagination
         page={safePage}
         pageCount={pageCount}
@@ -1137,6 +1180,7 @@ export default function QuotationScreen() {
         pageSize={PAGE_SIZE}
         onChange={setPage}
         centerLabel={`${quotations.length} from Odoo`}
+        itemLabel="quotation"
       />
 
       <Snackbar

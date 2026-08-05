@@ -235,11 +235,17 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
                 <Button
                   key={action.key}
                   icon={action.icon}
-                  mode="outlined"
+                  mode={action.active ? 'contained' : 'outlined'}
                   compact
-                  textColor={colors.onPrimary}
+                  textColor={action.active ? theme.colors.primary : colors.onPrimary}
+                  buttonColor={action.active ? colors.onPrimary : undefined}
                   rippleColor={colors.headerRipple}
-                  style={[styles.textAction, { borderColor: colors.onPrimary }]}
+                  style={[
+                    styles.textAction,
+                    action.active
+                      ? { borderColor: colors.onPrimary }
+                      : { borderColor: colors.onPrimary },
+                  ]}
                   contentStyle={styles.textActionContent}
                   labelStyle={styles.textActionLabel}
                   accessibilityLabel={action.accessibilityLabel}
