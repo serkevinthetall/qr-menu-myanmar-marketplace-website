@@ -1,8 +1,11 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import {
   Button,
   List,
   SegmentedButtons,
+  Snackbar,
+  Switch,
   Text,
   useTheme,
 } from 'react-native-paper';
@@ -11,6 +14,14 @@ import { ThemeMode } from '@/constants/colors';
 import { NAV_ITEMS } from '@/constants/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { useAppTheme } from '@/contexts/theme-context';
+import {
+  readOnlineOrderAlertsEnabled,
+  writeOnlineOrderAlertsEnabled,
+} from '@/utils/online-order-alerts-preference';
+import {
+  playOnlineOrderAlertSound,
+  unlockOnlineOrderAlertSound,
+} from '@/utils/online-order-alert-sound';
 
 const screen = NAV_ITEMS.find(item => item.name === 'settings')!;
 
@@ -18,6 +29,63 @@ export default function SettingsScreen() {
   const theme = useTheme();
   const { mode, setMode } = useAppTheme();
   const { user, logout } = useAuth();
+  const [alertsEnabled, setAlertsEnabled] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [snack, setSnack] = useState('');
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      setAlertsEnabled(readOnlineOrderAlertsEnabled());
+    }
+  }, []);
+
+  const onToggleAlerts = useCallback(
+    async (next: boolean) => {
+      if (Platform.OS !== 'web') {
+        return;
+      }
+      setBusy(true);
+      try {
+        if (!next) {
+          writeOnlineOrderAlertsEnabled(false);
+          setAlertsEnabled(false);
+          setSnack('Online Order notifications turned off.');
+          return;
+        }
+
+        const ok = await unlockOnlineOrderAlertSound();
+        if (!ok) {
+          writeOnlineOrderAlertsEnabled(false);
+          setAlertsEnabled(false);
+          setSnack(
+            'Could not enable sound. Allow sound for this site, then try again.',
+          );
+          return;
+        }
+
+        writeOnlineOrderAlertsEnabled(true);
+        setAlertsEnabled(true);
+        playOnlineOrderAlertSound();
+        setSnack('Online Order notifications on — test sound played.');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [],
+  );
+
+  const onTestSound = useCallback(async () => {
+    if (Platform.OS !== 'web') {
+      return;
+    }
+    const ok = await unlockOnlineOrderAlertSound();
+    if (!ok) {
+      setSnack('Could not play sound. Click again after checking browser sound settings.');
+      return;
+    }
+    playOnlineOrderAlertSound();
+    setSnack('Test sound played.');
+  }, []);
 
   return (
     <ScrollView
@@ -69,6 +137,37 @@ export default function SettingsScreen() {
           </View>
         </List.Section>
 
+        {Platform.OS === 'web' ? (
+          <List.Section>
+            <List.Subheader>Notifications</List.Subheader>
+            <List.Item
+              title="Online Order notifications"
+              description="Play a sound when a new Online Order arrives (Salesperson Aung Soe Oo)."
+              left={props => <List.Icon {...props} icon="bell-ring-outline" />}
+              right={() => (
+                <Switch
+                  value={alertsEnabled}
+                  disabled={busy}
+                  onValueChange={value => {
+                    void onToggleAlerts(value);
+                  }}
+                />
+              )}
+            />
+            <View style={styles.notifyActions}>
+              <Button
+                mode="outlined"
+                icon="volume-high"
+                disabled={busy || !alertsEnabled}
+                onPress={() => {
+                  void onTestSound();
+                }}>
+                Test sound
+              </Button>
+            </View>
+          </List.Section>
+        ) : null}
+
         <List.Section>
           <List.Subheader>Account</List.Subheader>
           <List.Item
@@ -90,6 +189,17 @@ export default function SettingsScreen() {
           </View>
         </List.Section>
       </View>
+
+      <Snackbar
+        visible={Boolean(snack)}
+        onDismiss={() => setSnack('')}
+        duration={4000}
+        action={{
+          label: 'OK',
+          onPress: () => setSnack(''),
+        }}>
+        {snack}
+      </Snackbar>
     </ScrollView>
   );
 }
@@ -116,6 +226,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   accountActions: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    alignItems: 'flex-start',
+  },
+  notifyActions: {
     paddingHorizontal: 16,
     paddingBottom: 8,
     alignItems: 'flex-start',

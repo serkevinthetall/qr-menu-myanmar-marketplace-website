@@ -1,40 +1,19 @@
 /**
  * Web-only Online Order alert sound.
- * Plays assets/sounds/onlinesaleorder.mp3; falls back to a short beep if needed.
+ * Uses /sounds/onlinesaleorder.mp3 from the public folder (works on static hosting).
  */
+
+const SOUND_URL = '/sounds/onlinesaleorder.mp3';
 
 let unlocked = false;
 let audioEl: HTMLAudioElement | null = null;
-
-function resolveAssetUrl(asset: unknown): string {
-  if (typeof asset === 'string') {
-    return asset;
-  }
-  if (asset && typeof asset === 'object') {
-    const row = asset as { default?: unknown; uri?: unknown };
-    if (typeof row.default === 'string') {
-      return row.default;
-    }
-    if (typeof row.uri === 'string') {
-      return row.uri;
-    }
-  }
-  return '';
-}
 
 function getAlertAudio(): HTMLAudioElement | null {
   if (typeof window === 'undefined' || typeof Audio === 'undefined') {
     return null;
   }
   if (!audioEl) {
-    // Metro/Expo resolves this to a URL on web.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const asset = require('@/assets/sounds/onlinesaleorder.mp3');
-    const src = resolveAssetUrl(asset);
-    if (!src) {
-      return null;
-    }
-    audioEl = new Audio(src);
+    audioEl = new Audio(SOUND_URL);
     audioEl.preload = 'auto';
   }
   return audioEl;
@@ -67,12 +46,12 @@ function playFallbackBeep(): void {
   void ctx.close().catch(() => undefined);
 }
 
-/** Call once after a user gesture so browsers allow playback. */
-export async function unlockOnlineOrderAlertSound(): Promise<void> {
+/** Must be called from a real click/tap. Returns true if audio can play. */
+export async function unlockOnlineOrderAlertSound(): Promise<boolean> {
   const audio = getAlertAudio();
   if (!audio) {
-    unlocked = true;
-    return;
+    unlocked = false;
+    return false;
   }
   try {
     audio.muted = true;
@@ -81,9 +60,10 @@ export async function unlockOnlineOrderAlertSound(): Promise<void> {
     audio.currentTime = 0;
     audio.muted = false;
     unlocked = true;
+    return true;
   } catch {
-    // Still mark unlocked so we try real play later after another gesture.
-    unlocked = true;
+    unlocked = false;
+    return false;
   }
 }
 

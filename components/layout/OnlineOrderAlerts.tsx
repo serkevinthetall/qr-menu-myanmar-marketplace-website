@@ -5,6 +5,11 @@ import { Portal, Snackbar } from 'react-native-paper';
 import { useAuth } from '@/contexts/auth-context';
 import { fetchOnlineOrders } from '@/services/online-orders';
 import {
+  ONLINE_ORDER_ALERTS_EVENT,
+  readOnlineOrderAlertsEnabled,
+} from '@/utils/online-order-alerts-preference';
+import {
+  isOnlineOrderAlertSoundUnlocked,
   playOnlineOrderAlertSound,
   unlockOnlineOrderAlertSound,
 } from '@/utils/online-order-alert-sound';
@@ -36,7 +41,6 @@ function writeSeenIds(ids: Set<string>) {
     return;
   }
   try {
-    // Keep the newest ids only so storage stays small.
     const list = [...ids].slice(-500);
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(list));
   } catch {
@@ -45,33 +49,56 @@ function writeSeenIds(ids: Set<string>) {
 }
 
 /**
- * Website ERP only: poll Online Orders and chime when a new one appears.
- * First poll establishes baseline (no sound). Quotation / Sale Order ignored.
+ * Website ERP only: poll Online Orders and play sound when a new one appears.
+ * Controlled from Settings → Online Order notifications.
  */
 export function OnlineOrderAlerts() {
   const { session, isAuthenticated } = useAuth();
   const [snack, setSnack] = useState('');
+  const [prefEnabled, setPrefEnabled] = useState(false);
   const seenRef = useRef<Set<string>>(new Set());
   const readyRef = useRef(false);
 
-  // Unlock audio after first user gesture (browser autoplay policy).
   useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    if (Platform.OS !== 'web') {
+      return;
+    }
+    setPrefEnabled(readOnlineOrderAlertsEnabled());
+
+    const onPref = (event: Event) => {
+      const detail = (event as CustomEvent<{ enabled?: boolean }>).detail;
+      if (typeof detail?.enabled === 'boolean') {
+        setPrefEnabled(detail.enabled);
+        return;
+      }
+      setPrefEnabled(readOnlineOrderAlertsEnabled());
+    };
+    window.addEventListener(ONLINE_ORDER_ALERTS_EVENT, onPref);
+    return () => window.removeEventListener(ONLINE_ORDER_ALERTS_EVENT, onPref);
+  }, []);
+
+  // If preference is on, unlock audio on the next user gesture (needed after refresh).
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !prefEnabled || typeof window === 'undefined') {
+      return;
+    }
+    if (isOnlineOrderAlertSoundUnlocked()) {
       return;
     }
     const unlock = () => {
       void unlockOnlineOrderAlertSound();
     };
     window.addEventListener('pointerdown', unlock, { passive: true });
-    window.addEventListener('keydown', unlock);
-    return () => {
-      window.removeEventListener('pointerdown', unlock);
-      window.removeEventListener('keydown', unlock);
-    };
-  }, []);
+    return () => window.removeEventListener('pointerdown', unlock);
+  }, [prefEnabled]);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || !isAuthenticated || !session?.token) {
+    if (
+      Platform.OS !== 'web' ||
+      !isAuthenticated ||
+      !session?.token ||
+      !prefEnabled
+    ) {
       return;
     }
 
@@ -102,7 +129,9 @@ export function OnlineOrderAlerts() {
             seenRef.current.add(id);
           }
           writeSeenIds(seenRef.current);
-          playOnlineOrderAlertSound();
+          if (isOnlineOrderAlertSoundUnlocked()) {
+            playOnlineOrderAlertSound();
+          }
           const label =
             newcomers.length === 1
               ? 'New Online Order received'
@@ -123,7 +152,7 @@ export function OnlineOrderAlerts() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [isAuthenticated, session?.token]);
+  }, [isAuthenticated, session?.token, prefEnabled]);
 
   if (Platform.OS !== 'web') {
     return null;
