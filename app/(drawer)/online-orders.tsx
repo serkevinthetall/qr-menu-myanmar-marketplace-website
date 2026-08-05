@@ -647,7 +647,7 @@ export default function OnlineOrdersScreen() {
             <Text style={styles.empty}>
               {query.trim() || filtersActive
                 ? 'No app orders match your search or filters.'
-                : 'No app orders found for salesperson Aung Soe Oo.'}
+                : 'No Quotation Sent app orders found for salesperson Aung Soe Oo.'}
             </Text>
           </ScrollView>
         ) : (
@@ -702,7 +702,7 @@ export default function OnlineOrdersScreen() {
             <Text style={styles.empty}>
               {query.trim() || filtersActive
                 ? 'No app orders match your search or filters.'
-                : 'No app orders found for salesperson Aung Soe Oo.'}
+                : 'No Quotation Sent app orders found for salesperson Aung Soe Oo.'}
             </Text>
           }
         />
