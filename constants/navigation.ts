@@ -50,7 +50,7 @@ const ONLINE_ORDERS: NavItem = {
   label: 'App Order',
   icon: 'shopping-outline',
   title: 'App Order',
-  description: 'Orders for salesperson Aung Soe Oo.',
+  description: 'Quotations in Quotation Sent stage.',
 };
 
 const CUSTOMERS: NavItem = {
