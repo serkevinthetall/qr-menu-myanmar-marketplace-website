@@ -1,5 +1,6 @@
 const ENABLED_KEY = '@qr_shop_web_online_order_alerts_enabled';
 export const ONLINE_ORDER_ALERTS_EVENT = 'qr-shop-online-order-alerts-changed';
+export const ONLINE_ORDERS_REFRESH_EVENT = 'qr-shop-online-orders-refresh';
 
 export function readOnlineOrderAlertsEnabled(): boolean {
   if (typeof window === 'undefined') {
@@ -24,4 +25,12 @@ export function writeOnlineOrderAlertsEnabled(enabled: boolean): void {
   } catch {
     // Ignore private mode / quota failures.
   }
+}
+
+/** Tell open Online Order screens to reload the list. */
+export function notifyOnlineOrdersRefresh(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.dispatchEvent(new Event(ONLINE_ORDERS_REFRESH_EVENT));
 }

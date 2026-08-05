@@ -35,6 +35,7 @@ import {
 } from '@/services/online-orders';
 import { SaleOrder, SaleOrderDetail } from '@/types/sale-order';
 import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
+import { ONLINE_ORDERS_REFRESH_EVENT } from '@/utils/online-order-alerts-preference';
 
 const PAGE_SIZE = 50;
 
@@ -339,19 +340,27 @@ export default function OnlineOrdersScreen() {
   const query = useModuleSearch('Search by number or customer', !selectedId);
   const { setDetailHeader } = useSearch();
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { quiet?: boolean }) => {
     if (!session?.token) return;
-    setError('');
+    const quiet = Boolean(opts?.quiet);
+    if (!quiet) {
+      setError('');
+    }
     try {
       const data = await fetchOnlineOrders(session.token, {
         q: query.trim() || undefined,
         limit: 300,
       });
       setItems(data);
+      if (!quiet) {
+        setError('');
+      }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to load online orders.',
-      );
+      if (!quiet) {
+        setError(
+          err instanceof Error ? err.message : 'Failed to load online orders.',
+        );
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -365,6 +374,30 @@ export default function OnlineOrdersScreen() {
     }, 250);
     return () => clearTimeout(timer);
   }, [load]);
+
+  // Keep the Online Order list live without a manual refresh.
+  useEffect(() => {
+    if (!session?.token || selectedId) {
+      return;
+    }
+    const timer = setInterval(() => {
+      void load({ quiet: true });
+    }, 15_000);
+
+    const onRefresh = () => {
+      void load({ quiet: true });
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener(ONLINE_ORDERS_REFRESH_EVENT, onRefresh);
+    }
+
+    return () => {
+      clearInterval(timer);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener(ONLINE_ORDERS_REFRESH_EVENT, onRefresh);
+      }
+    };
+  }, [session?.token, selectedId, load]);
 
   const openDetail = useCallback(
     async (id: string) => {

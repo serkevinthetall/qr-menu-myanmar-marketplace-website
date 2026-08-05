@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { fetchOnlineOrders } from '@/services/online-orders';
 import {
   ONLINE_ORDER_ALERTS_EVENT,
+  notifyOnlineOrdersRefresh,
   readOnlineOrderAlertsEnabled,
 } from '@/utils/online-order-alerts-preference';
 import {
@@ -132,6 +133,7 @@ export function OnlineOrderAlerts() {
           if (isOnlineOrderAlertSoundUnlocked()) {
             playOnlineOrderAlertSound();
           }
+          notifyOnlineOrdersRefresh();
           const label =
             newcomers.length === 1
               ? 'New Online Order received'
