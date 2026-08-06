@@ -423,13 +423,6 @@ export function SaleOrderDetailView({
               emphasize={!!detail.preferredDeliveryDate}
             />
             <MetaTile
-              icon="notebook-outline"
-              label="CUSTOMER NOTE"
-              value={detail.customerNote}
-              myanmar={!!detail.customerNote}
-              maxLines={4}
-            />
-            <MetaTile
               icon="note-text-outline"
               label="DELIVERY NOTES"
               value={detail.deliveryNotes}

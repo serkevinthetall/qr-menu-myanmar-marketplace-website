@@ -274,7 +274,6 @@ function buildA4Html(
       <div class="info-block">
         <h3>BILL TO</h3>
         <p><strong>${escapeHtml(detail.customer)}</strong></p>
-        ${detail.customerNote?.trim() ? `<p class="info-label">Customer Note: ${escapeHtml(detail.customerNote)}</p>` : ''}
         ${detail.deliveryAddress?.trim() ? `<p class="info-label">${escapeHtml(detail.deliveryAddress)}</p>` : ''}
       </div>
       <div class="info-block">
