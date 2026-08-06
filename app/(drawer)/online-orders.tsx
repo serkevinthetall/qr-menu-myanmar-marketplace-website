@@ -433,9 +433,10 @@ export default function OnlineOrdersScreen() {
     format: PrintFormat;
     detail: SaleOrderDetail;
   } | null>(null);
-  const [orderFilters, setOrderFilters] = useState<SaleOrderFilters>(
-    EMPTY_SALE_ORDER_FILTERS,
-  );
+  const [orderFilters, setOrderFilters] = useState<SaleOrderFilters>({
+    ...EMPTY_SALE_ORDER_FILTERS,
+    period: 'today',
+  });
 
   const query = useModuleSearch('Search by number or customer', !selectedId);
   const { setDetailHeader } = useSearch();
