@@ -8,6 +8,7 @@ import { DrawerContent } from '@/components/layout/DrawerContent';
 import { OnlineOrderAlerts } from '@/components/layout/OnlineOrderAlerts';
 import { AppColors } from '@/constants/colors';
 import { NAV_ITEMS } from '@/constants/navigation';
+import { AppOrderUnreadProvider } from '@/contexts/app-order-unread-context';
 import { SearchProvider } from '@/contexts/search-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useResponsive } from '@/hooks/use-responsive';
@@ -46,25 +47,27 @@ export default function DrawerLayout() {
 
   return (
     <SearchProvider>
-      <OnlineOrderAlerts />
-      <Drawer
-        drawerContent={props => <DrawerContent {...props} />}
-        screenOptions={screenOptions}>
-        {NAV_ITEMS.map(item => (
+      <AppOrderUnreadProvider>
+        <OnlineOrderAlerts />
+        <Drawer
+          drawerContent={props => <DrawerContent {...props} />}
+          screenOptions={screenOptions}>
+          {NAV_ITEMS.map(item => (
+            <Drawer.Screen
+              key={item.name}
+              name={item.name}
+              options={{ title: item.title, drawerLabel: item.label }}
+            />
+          ))}
           <Drawer.Screen
-            key={item.name}
-            name={item.name}
-            options={{ title: item.title, drawerLabel: item.label }}
+            name="contact-create"
+            options={{
+              title: 'New Contact',
+              drawerItemStyle: { display: 'none' },
+            }}
           />
-        ))}
-        <Drawer.Screen
-          name="contact-create"
-          options={{
-            title: 'New Contact',
-            drawerItemStyle: { display: 'none' },
-          }}
-        />
-      </Drawer>
+        </Drawer>
+      </AppOrderUnreadProvider>
     </SearchProvider>
   );
 }

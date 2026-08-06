@@ -9,8 +9,11 @@ import {
 } from 'react-native';
 import {
   ActivityIndicator,
+  Badge,
   Checkbox,
+  Chip,
   Icon,
+  IconButton,
   Text,
   useTheme,
 } from 'react-native-paper';
@@ -29,6 +32,7 @@ import { SaleOrderPrintPreview } from '@/components/sale-order/SaleOrderPrintPre
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { Pagination } from '@/components/ui/Pagination';
 import { getSaleOrderStatusColors } from '@/constants/status-colors';
+import { useAppOrderUnread } from '@/contexts/app-order-unread-context';
 import { useAuth } from '@/contexts/auth-context';
 import {
   HeaderAction,
@@ -52,6 +56,7 @@ import { PrintFormat } from '@/utils/print-quotation';
 const PAGE_SIZE = 50;
 
 type ViewMode = 'list' | 'card';
+type ReadFilter = 'all' | 'unread' | 'read';
 
 type Column = {
   key: string;
@@ -122,15 +127,18 @@ function SaleOrderRow({
   selected,
   onToggle,
   onOpen,
+  onToggleRead,
 }: {
   item: SaleOrder;
   index: number;
   selected: boolean;
   onToggle: (id: string) => void;
   onOpen: (id: string) => void;
+  onToggleRead: (id: string, nextRead: boolean) => void;
 }) {
   const theme = useTheme();
   const zebra = index % 2 === 1;
+  const unread = Boolean(item.unread);
 
   return (
     <Pressable
@@ -153,6 +161,14 @@ function SaleOrderRow({
         <Checkbox
           status={selected ? 'checked' : 'unchecked'}
           onPress={() => onToggle(item.id)}
+        />
+      </View>
+      <View style={styles.readCell}>
+        <IconButton
+          icon={unread ? 'email-mark-as-unread' : 'email-open-outline'}
+          size={18}
+          onPress={() => onToggleRead(item.id, unread)}
+          accessibilityLabel={unread ? 'Mark as read' : 'Mark as unread'}
         />
       </View>
       {COLUMNS.map(col => {
@@ -179,11 +195,26 @@ function SaleOrderRow({
               isCustomer && styles.customerCell,
               { flex: col.flex },
             ]}>
-            {useNameText ? (
+            {isNumber ? (
+              <View style={styles.numberCell}>
+                {unread ? <Badge size={8} style={styles.unreadDot} /> : null}
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    flex: 1,
+                    fontWeight: unread ? '800' : '700',
+                    color: text
+                      ? theme.colors.onSurface
+                      : theme.colors.onSurfaceVariant,
+                  }}>
+                  {text || '—'}
+                </Text>
+              </View>
+            ) : useNameText ? (
               <CustomerNameText
                 numberOfLines={1}
                 style={{
-                  fontWeight: '400',
+                  fontWeight: unread ? '700' : '400',
                   paddingTop: 0,
                   paddingBottom: 0,
                   lineHeight: 20,
@@ -196,7 +227,7 @@ function SaleOrderRow({
                 numberOfLines={1}
                 style={{
                   textAlign: col.align === 'right' ? 'right' : 'left',
-                  fontWeight: isNumber || isTotal ? '700' : '400',
+                  fontWeight: isTotal ? '700' : unread ? '600' : '400',
                   color: isTotal
                     ? theme.colors.primary
                     : text
@@ -236,6 +267,7 @@ function TableHeader({
           uncheckedColor={theme.colors.onPrimary}
         />
       </View>
+      <View style={styles.readCell} />
       {COLUMNS.map(col => (
         <View key={col.key} style={[styles.cell, { flex: col.flex }]}>
           <Text
@@ -259,16 +291,19 @@ function SaleOrderCard({
   selected,
   onToggle,
   onOpen,
+  onToggleRead,
 }: {
   item: SaleOrder;
   selected: boolean;
   onToggle: (id: string) => void;
   onOpen: (id: string) => void;
+  onToggleRead: (id: string, nextRead: boolean) => void;
 }) {
   const theme = useTheme();
   const { mode } = useAppTheme();
   const colors = useAppColors();
   const statusColors = getSaleOrderStatusColors(mode, item.status);
+  const unread = Boolean(item.unread);
 
   return (
     <Pressable
@@ -294,9 +329,21 @@ function SaleOrderCard({
                 onPress={() => onToggle(item.id)}
               />
             </View>
-            <Text variant="titleMedium" style={styles.cardNumber} numberOfLines={1}>
-              {item.number || '—'}
-            </Text>
+            <View style={styles.cardNumberRow}>
+              {unread ? <Badge size={8} style={styles.unreadDot} /> : null}
+              <Text
+                variant="titleMedium"
+                style={[styles.cardNumber, { fontWeight: unread ? '800' : '700' }]}
+                numberOfLines={1}>
+                {item.number || '—'}
+              </Text>
+            </View>
+            <IconButton
+              icon={unread ? 'email-mark-as-unread' : 'email-open-outline'}
+              size={18}
+              onPress={() => onToggleRead(item.id, unread)}
+              accessibilityLabel={unread ? 'Mark as read' : 'Mark as unread'}
+            />
             <StatusBadge status={item.status} />
           </View>
 
@@ -369,11 +416,13 @@ export default function OnlineOrdersScreen() {
   const { mode } = useAppTheme();
   const { session } = useAuth();
   const { width } = useResponsive();
+  const { refreshUnreadCount, markOrderReadState } = useAppOrderUnread();
   const [items, setItems] = useState<SaleOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [readFilter, setReadFilter] = useState<ReadFilter>('all');
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -393,9 +442,30 @@ export default function OnlineOrdersScreen() {
 
   const filterPanel = useMemo(
     () => (
-      <SaleOrderFilterBar filters={orderFilters} onChange={setOrderFilters} />
+      <View style={styles.readFilterPanel}>
+        <View style={styles.readFilterRow}>
+          {(
+            [
+              { id: 'all', label: 'All' },
+              { id: 'unread', label: 'Unread' },
+              { id: 'read', label: 'Read' },
+            ] as const
+          ).map(opt => (
+            <Chip
+              key={opt.id}
+              compact
+              selected={readFilter === opt.id}
+              onPress={() => setReadFilter(opt.id)}
+              style={styles.readFilterChip}
+            >
+              {opt.label}
+            </Chip>
+          ))}
+        </View>
+        <SaleOrderFilterBar filters={orderFilters} onChange={setOrderFilters} />
+      </View>
     ),
-    [orderFilters],
+    [orderFilters, readFilter],
   );
 
   useModuleFilters(filterPanel, !selectedId);
@@ -474,6 +544,12 @@ export default function OnlineOrdersScreen() {
       try {
         const data = await fetchOnlineOrderDetail(session.token, id);
         setDetail(data);
+        setItems(prev =>
+          prev.map(order =>
+            order.id === id ? { ...order, unread: false } : order,
+          ),
+        );
+        void refreshUnreadCount();
       } catch (err) {
         setDetailError(
           err instanceof Error
@@ -484,7 +560,23 @@ export default function OnlineOrdersScreen() {
         setDetailLoading(false);
       }
     },
-    [session?.token],
+    [session?.token, refreshUnreadCount],
+  );
+
+  const toggleRead = useCallback(
+    async (id: string, nextRead: boolean) => {
+      try {
+        setItems(prev =>
+          prev.map(order =>
+            order.id === id ? { ...order, unread: !nextRead } : order,
+          ),
+        );
+        await markOrderReadState(id, nextRead);
+      } catch {
+        void load({ quiet: true });
+      }
+    },
+    [markOrderReadState, load],
   );
 
   const closeDetail = useCallback(() => {
@@ -535,8 +627,14 @@ export default function OnlineOrdersScreen() {
   useHeaderActions(headerActions);
 
   const filtered = useMemo(
-    () => items.filter(order => matchesSaleOrderFilters(order, orderFilters)),
-    [items, orderFilters],
+    () =>
+      items.filter(order => {
+        if (!matchesSaleOrderFilters(order, orderFilters)) return false;
+        if (readFilter === 'unread') return Boolean(order.unread);
+        if (readFilter === 'read') return !order.unread;
+        return true;
+      }),
+    [items, orderFilters, readFilter],
   );
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -553,7 +651,7 @@ export default function OnlineOrdersScreen() {
 
   useEffect(() => {
     setPage(1);
-  }, [query, viewMode, orderFilters]);
+  }, [query, viewMode, orderFilters, readFilter]);
 
   const paged = useMemo(
     () => filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
@@ -682,7 +780,7 @@ export default function OnlineOrdersScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }>
             <Text style={styles.empty}>
-              {query.trim() || filtersActive
+              {query.trim() || filtersActive || readFilter !== 'all'
                 ? 'No app orders match your search or filters.'
                 : 'No App Orders found (Quotation Sent or Salesperson Administrator).'}
             </Text>
@@ -704,6 +802,7 @@ export default function OnlineOrdersScreen() {
                   selected={selectedIds.has(item.id)}
                   onToggle={toggleOne}
                   onOpen={openDetail}
+                  onToggleRead={toggleRead}
                 />
               ))}
             </ScrollView>
@@ -732,12 +831,13 @@ export default function OnlineOrdersScreen() {
                 selected={selectedIds.has(item.id)}
                 onToggle={toggleOne}
                 onOpen={openDetail}
+                onToggleRead={toggleRead}
               />
             </View>
           )}
           ListEmptyComponent={
             <Text style={styles.empty}>
-              {query.trim() || filtersActive
+              {query.trim() || filtersActive || readFilter !== 'all'
                 ? 'No app orders match your search or filters.'
                 : 'No App Orders found (Quotation Sent or Salesperson Administrator).'}
             </Text>
@@ -805,6 +905,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     transform: [{ scale: 0.8 }],
+  },
+  readCell: {
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  numberCell: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 0,
+  },
+  unreadDot: {
+    backgroundColor: '#D32F2F',
+    alignSelf: 'center',
+  },
+  readFilterPanel: {
+    gap: 4,
+  },
+  readFilterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingBottom: 4,
+    justifyContent: 'center',
+  },
+  readFilterChip: {
+    marginRight: 0,
+  },
+  cardNumberRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 0,
   },
   statusBadge: {
     alignSelf: 'flex-start',

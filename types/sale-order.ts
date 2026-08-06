@@ -20,6 +20,8 @@ export type SaleOrder = {
   phoneNumber: string;
   /** Studio "Sale Person Name" (`x_studio_sale_person_name`). */
   salePersonName: string;
+  /** Shared team read state for App Orders (false = read). */
+  unread?: boolean;
 };
 
 export type SaleOrderDetail = SaleOrder & {

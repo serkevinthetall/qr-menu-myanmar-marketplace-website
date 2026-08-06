@@ -9,6 +9,7 @@ type ListResponse = {
     offset: number;
     count: number;
     hasMore: boolean;
+    unreadCount?: number;
   };
 };
 
@@ -19,16 +20,23 @@ export type OnlineOrdersPage = {
   hasMore: boolean;
   offset: number;
   limit: number;
+  unreadCount?: number;
 };
 
 export async function fetchOnlineOrdersPage(
   token: string,
-  options?: { q?: string; limit?: number; offset?: number },
+  options?: {
+    q?: string;
+    limit?: number;
+    offset?: number;
+    read?: 'read' | 'unread';
+  },
 ): Promise<OnlineOrdersPage> {
   const params = new URLSearchParams();
   if (options?.q) params.set('q', options.q);
   if (options?.limit !== undefined) params.set('limit', String(options.limit));
   if (options?.offset !== undefined) params.set('offset', String(options.offset));
+  if (options?.read) params.set('read', options.read);
   const query = params.toString() ? `?${params.toString()}` : '';
   const response = await webApiRequest<ListResponse>(`/online-orders${query}`, {
     token,
@@ -40,6 +48,7 @@ export async function fetchOnlineOrdersPage(
     hasMore: response.meta?.hasMore ?? false,
     offset,
     limit,
+    unreadCount: response.meta?.unreadCount,
   };
 }
 
@@ -48,6 +57,7 @@ export async function fetchOnlineOrders(
   token: string,
   options?: {
     q?: string;
+    read?: 'read' | 'unread';
     /** When set, fetches a single page only (used by new-order alerts). */
     limit?: number;
     pageSize?: number;
@@ -58,6 +68,7 @@ export async function fetchOnlineOrders(
   if (options?.limit !== undefined && options.pageSize === undefined) {
     const page = await fetchOnlineOrdersPage(token, {
       q: options.q,
+      read: options.read,
       limit: options.limit,
       offset: 0,
     });
@@ -72,6 +83,7 @@ export async function fetchOnlineOrders(
   while (hasMore) {
     const page = await fetchOnlineOrdersPage(token, {
       q: options?.q,
+      read: options?.read,
       limit: pageSize,
       offset,
     });
@@ -93,4 +105,28 @@ export async function fetchOnlineOrderDetail(
     token,
   });
   return response.data;
+}
+
+export async function setOnlineOrderRead(
+  token: string,
+  id: string,
+  read: boolean,
+): Promise<{ id: string; unread: boolean }> {
+  const response = await webApiRequest<{ data: { id: string; unread: boolean } }>(
+    `/online-orders/${id}/read`,
+    {
+      method: 'PUT',
+      token,
+      body: { read },
+    },
+  );
+  return response.data;
+}
+
+export async function fetchAppOrderUnreadCount(token: string): Promise<number> {
+  const response = await webApiRequest<{ data: { unreadCount: number } }>(
+    '/online-orders/unread-count',
+    { token },
+  );
+  return Number(response.data?.unreadCount) || 0;
 }

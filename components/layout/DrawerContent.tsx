@@ -5,14 +5,16 @@ import {
 } from '@react-navigation/drawer';
 import { Image } from 'expo-image';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
-import { Drawer, Icon, Text, useTheme } from 'react-native-paper';
+import { Badge, Drawer, Icon, Text, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NAV_ENTRIES, NavItem } from '@/constants/navigation';
+import { useAppOrderUnread } from '@/contexts/app-order-unread-context';
 
 export function DrawerContent(props: DrawerContentComponentProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { unreadCount } = useAppOrderUnread();
   const activeRoute = props.state.routes[props.state.index]?.name;
   // Only toggled by user press — never auto-open on route change.
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
@@ -32,13 +34,23 @@ export function DrawerContent(props: DrawerContentComponentProps) {
   };
 
   const renderLeaf = (item: NavItem, nested = false) => {
+    const showBadge = item.name === 'online-orders' && unreadCount > 0;
     const row = (
-      <Drawer.Item
-        label={item.label}
-        icon={item.icon}
-        active={activeRoute === item.name}
-        onPress={() => navigateTo(item.name)}
-      />
+      <View style={styles.leafRow}>
+        <View style={styles.leafItem}>
+          <Drawer.Item
+            label={item.label}
+            icon={item.icon}
+            active={activeRoute === item.name}
+            onPress={() => navigateTo(item.name)}
+          />
+        </View>
+        {showBadge ? (
+          <Badge style={styles.navBadge} size={18}>
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </Badge>
+        ) : null}
+      </View>
     );
 
     if (!nested) {
@@ -90,6 +102,8 @@ export function DrawerContent(props: DrawerContentComponentProps) {
             child => child.name === activeRoute,
           );
           const expanded = Boolean(openGroups[entry.id]);
+          const showGroupBadge =
+            entry.id === 'orders' && unreadCount > 0 && !expanded;
 
           return (
             <View key={entry.id}>
@@ -132,6 +146,11 @@ export function DrawerContent(props: DrawerContentComponentProps) {
                   ]}>
                   {entry.label}
                 </Text>
+                {showGroupBadge ? (
+                  <Badge style={styles.groupBadge} size={18}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Badge>
+                ) : null}
                 <Icon
                   source={expanded ? 'chevron-up' : 'chevron-down'}
                   size={22}
@@ -187,5 +206,20 @@ const styles = StyleSheet.create({
   },
   nestedWrap: {
     paddingLeft: 28,
+  },
+  leafRow: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  leafItem: {
+    flexGrow: 1,
+  },
+  navBadge: {
+    position: 'absolute',
+    right: 20,
+    top: 14,
+  },
+  groupBadge: {
+    marginRight: 4,
   },
 });
