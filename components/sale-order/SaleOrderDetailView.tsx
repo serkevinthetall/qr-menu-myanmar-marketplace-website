@@ -400,7 +400,7 @@ export function SaleOrderDetailView({
             <MetaTile
               icon="account-tie-outline"
               label="SALE PERSON NAME"
-              value={detail.salePersonName || detail.salesperson}
+              value={detail.salePersonName}
               myanmar
             />
             <MetaTile
@@ -421,6 +421,13 @@ export function SaleOrderDetailView({
                 detail.preferredDeliveryDate
               }
               emphasize={!!detail.preferredDeliveryDate}
+            />
+            <MetaTile
+              icon="notebook-outline"
+              label="CUSTOMER NOTE"
+              value={detail.customerNote}
+              myanmar={!!detail.customerNote}
+              maxLines={4}
             />
             <MetaTile
               icon="note-text-outline"

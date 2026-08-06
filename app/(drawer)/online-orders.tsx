@@ -61,12 +61,13 @@ type Column = {
 };
 
 const COLUMNS: Column[] = [
-  { key: 'number', label: 'Number', flex: 1.4 },
-  { key: 'orderDate', label: 'Order Date', flex: 1.5 },
-  { key: 'customer', label: 'Customer', flex: 2.0 },
-  { key: 'phoneNumber', label: 'Phonenumber', flex: 1.4 },
-  { key: 'total', label: 'Total', flex: 1.4, align: 'right' },
-  { key: 'status', label: 'Status', flex: 1.3 },
+  { key: 'number', label: 'Number', flex: 1.2 },
+  { key: 'orderDate', label: 'Order Date', flex: 1.3 },
+  { key: 'customer', label: 'Customer', flex: 1.6 },
+  { key: 'phoneNumber', label: 'Phonenumber', flex: 1.2 },
+  { key: 'salePersonName', label: 'Sale Person', flex: 1.3 },
+  { key: 'total', label: 'Total', flex: 1.3, align: 'right' },
+  { key: 'status', label: 'Status', flex: 1.2 },
 ];
 
 function formatMoney(value: number): string {
@@ -166,7 +167,9 @@ function SaleOrderRow({
         const text = cellText(item, col.key);
         const isNumber = col.key === 'number';
         const isCustomer = col.key === 'customer';
+        const isSalePerson = col.key === 'salePersonName';
         const isTotal = col.key === 'total';
+        const useNameText = isCustomer || isSalePerson;
 
         return (
           <View
@@ -176,7 +179,7 @@ function SaleOrderRow({
               isCustomer && styles.customerCell,
               { flex: col.flex },
             ]}>
-            {isCustomer ? (
+            {useNameText ? (
               <CustomerNameText
                 numberOfLines={1}
                 style={{
@@ -314,6 +317,22 @@ function SaleOrderCard({
                 numberOfLines={1}>
                 {item.phoneNumber}
               </Text>
+            </View>
+          ) : null}
+
+          {item.salePersonName?.trim() ? (
+            <View style={styles.cardMetaRow}>
+              <Icon
+                source="account-outline"
+                size={14}
+                color={theme.colors.onSurfaceVariant}
+              />
+              <CustomerNameText
+                muted
+                style={{ fontWeight: '400', fontSize: 13, flex: 1, paddingTop: 0, paddingBottom: 0 }}
+                numberOfLines={1}>
+                {item.salePersonName}
+              </CustomerNameText>
             </View>
           ) : null}
 

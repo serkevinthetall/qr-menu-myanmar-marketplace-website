@@ -60,11 +60,12 @@ type Column = {
 };
 
 const COLUMNS: Column[] = [
-  { key: 'number', label: 'Number', flex: 1.4 },
-  { key: 'orderDate', label: 'Order Date', flex: 1.5 },
-  { key: 'customer', label: 'Customer', flex: 2.2 },
-  { key: 'total', label: 'Total', flex: 1.5, align: 'right' },
-  { key: 'status', label: 'Status', flex: 1.4 },
+  { key: 'number', label: 'Number', flex: 1.3 },
+  { key: 'orderDate', label: 'Order Date', flex: 1.4 },
+  { key: 'customer', label: 'Customer', flex: 1.8 },
+  { key: 'salePersonName', label: 'Sale Person', flex: 1.4 },
+  { key: 'total', label: 'Total', flex: 1.4, align: 'right' },
+  { key: 'status', label: 'Status', flex: 1.3 },
 ];
 
 function formatMoney(value: number): string {
@@ -102,6 +103,8 @@ function cellText(item: SaleOrder, key: string): string {
       return formatMyanmarDateTime(item.orderDate) || item.orderDate;
     case 'customer':
       return item.customer;
+    case 'salePersonName':
+      return item.salePersonName?.trim() || '';
     case 'total':
       return formatMoney(item.total);
     default:
@@ -160,7 +163,9 @@ function SaleOrderRow({
         const text = cellText(item, col.key);
         const isNumber = col.key === 'number';
         const isCustomer = col.key === 'customer';
+        const isSalePerson = col.key === 'salePersonName';
         const isTotal = col.key === 'total';
+        const useNameText = isCustomer || isSalePerson;
 
         return (
           <View
@@ -170,7 +175,7 @@ function SaleOrderRow({
               isCustomer && styles.customerCell,
               { flex: col.flex },
             ]}>
-            {isCustomer ? (
+            {useNameText ? (
               <CustomerNameText
                 numberOfLines={1}
                 style={{
@@ -295,19 +300,19 @@ function SaleOrderCard({
             {item.customer?.trim() || '—'}
           </CustomerNameText>
 
-          {item.salesperson ? (
+          {item.salePersonName?.trim() ? (
             <View style={styles.cardMetaRow}>
               <Icon
                 source="account-outline"
                 size={14}
                 color={theme.colors.onSurfaceVariant}
               />
-              <Text
-                variant="bodySmall"
-                style={{ color: theme.colors.onSurfaceVariant, flex: 1 }}
+              <CustomerNameText
+                muted
+                style={{ fontWeight: '400', fontSize: 13, flex: 1, paddingTop: 0, paddingBottom: 0 }}
                 numberOfLines={1}>
-                {item.salesperson}
-              </Text>
+                {item.salePersonName}
+              </CustomerNameText>
             </View>
           ) : null}
 

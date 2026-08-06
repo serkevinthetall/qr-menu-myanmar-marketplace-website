@@ -274,15 +274,15 @@ function buildA4Html(
       <div class="info-block">
         <h3>BILL TO</h3>
         <p><strong>${escapeHtml(detail.customer)}</strong></p>
-        ${detail.customerReference?.trim() ? `<p class="info-label">Customer Ref: ${escapeHtml(detail.customerReference)}</p>` : ''}
+        ${detail.customerNote?.trim() ? `<p class="info-label">Customer Note: ${escapeHtml(detail.customerNote)}</p>` : ''}
         ${detail.deliveryAddress?.trim() ? `<p class="info-label">${escapeHtml(detail.deliveryAddress)}</p>` : ''}
       </div>
       <div class="info-block">
         <h3>ORDER DETAILS</h3>
         <p><span class="info-label">STATUS:</span> <strong>${escapeHtml(detail.status || '—')}</strong></p>
-        <p><span class="info-label">SALE PERSON NAME:</span> <strong>${escapeHtml(detail.salePersonName?.trim() || detail.salesperson?.trim() || '—')}</strong></p>
+        <p><span class="info-label">SALE PERSON NAME:</span> <strong>${escapeHtml(detail.salePersonName?.trim() || '—')}</strong></p>
         ${detail.phoneNumber?.trim() ? `<p><span class="info-label">PHONE:</span> <strong>${escapeHtml(detail.phoneNumber)}</strong></p>` : ''}
-        <p><span class="info-label">COMMITMENT:</span> <strong>${formatDate(detail.commitmentDate)}</strong></p>
+        <p><span class="info-label">PREFERRED DELIVERY DATE:</span> <strong>${formatDate(detail.preferredDeliveryDate || detail.commitmentDate)}</strong></p>
       </div>
     </div>
 
@@ -536,7 +536,7 @@ function buildThermalHtml(
       <strong>CUSTOMER:</strong> <strong>${escapeHtml(detail.customer)}</strong>
     </div>
     <div class="customer-line">
-      <strong>SALE PERSON:</strong> <strong>${displayValue(detail.salePersonName || detail.salesperson)}</strong>
+      <strong>SALE PERSON:</strong> <strong>${displayValue(detail.salePersonName)}</strong>
     </div>
     <div class="customer-line">
       <strong>PHONE:</strong> <strong>${displayValue(detail.phoneNumber)}</strong>
@@ -563,7 +563,7 @@ function buildThermalHtml(
     <hr class="divider" />
 
     <div class="split">
-      <span><strong>COMMITMENT:</strong> ${formatDate(detail.commitmentDate)}</span>
+      <span><strong>PREFERRED DELIVERY DATE:</strong> ${formatDate(detail.preferredDeliveryDate || detail.commitmentDate)}</span>
     </div>
 
     <div class="field">
