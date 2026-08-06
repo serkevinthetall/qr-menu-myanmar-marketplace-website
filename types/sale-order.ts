@@ -28,5 +28,9 @@ export type SaleOrderDetail = SaleOrder & {
   commitmentDate: string;
   customerReference: string;
   deliveryAddress: string;
+  /** Studio Preferred Delivery Date (`x_studio_preferred_delivery_date`). */
+  preferredDeliveryDate: string;
+  /** Studio Delivery Notes (`x_studio_delivery_notes`). */
+  deliveryNotes: string;
   lines: SaleOrderLine[];
 };

@@ -54,15 +54,21 @@ function MetaTile({
   label,
   value,
   emphasize,
+  myanmar,
+  maxLines = 2,
 }: {
   icon: string;
   label: string;
   value: string;
   emphasize?: boolean;
+  /** Myanmar-safe text in normal (black) color. */
+  myanmar?: boolean;
+  maxLines?: number;
 }) {
   const theme = useTheme();
   const detail = useDetailTheme();
   const display = value?.trim() || '—';
+  const useNameText = emphasize || myanmar;
 
   return (
     <View
@@ -82,17 +88,22 @@ function MetaTile({
       </View>
       <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
         <Text style={[styles.metaLabel, { color: detail.label }]}>{label}</Text>
-        {emphasize ? (
+        {useNameText ? (
           <CustomerNameText
             size="body"
-            style={{ fontWeight: '700', color: theme.colors.primary }}
-            numberOfLines={2}>
+            style={{
+              fontWeight: emphasize ? '700' : '500',
+              color: emphasize ? theme.colors.primary : detail.onSurface,
+              paddingTop: 0,
+              paddingBottom: 0,
+            }}
+            numberOfLines={maxLines}>
             {display}
           </CustomerNameText>
         ) : (
           <Text
             style={[styles.metaValue, { color: detail.onSurface }]}
-            numberOfLines={2}>
+            numberOfLines={maxLines}>
             {display}
           </Text>
         )}
@@ -390,6 +401,7 @@ export function SaleOrderDetailView({
               icon="account-tie-outline"
               label="SALE PERSON NAME"
               value={detail.salePersonName || detail.salesperson}
+              myanmar
             />
             <MetaTile
               icon="phone-outline"
@@ -402,20 +414,20 @@ export function SaleOrderDetailView({
               value={formatMyanmarDateTime(detail.orderDate) || detail.orderDate}
             />
             <MetaTile
-              icon="calendar-clock"
-              label="COMMITMENT"
-              value={formatMyanmarDate(detail.commitmentDate) || detail.commitmentDate}
+              icon="truck-delivery-outline"
+              label="PREFERRED DELIVERY DATE"
+              value={
+                formatMyanmarDate(detail.preferredDeliveryDate) ||
+                detail.preferredDeliveryDate
+              }
+              emphasize={!!detail.preferredDeliveryDate}
             />
             <MetaTile
-              icon="source-branch"
-              label="CUSTOMER REF"
-              value={detail.customerReference}
-              emphasize={!!detail.customerReference}
-            />
-            <MetaTile
-              icon="map-marker-outline"
-              label="DELIVERY"
-              value={detail.deliveryAddress}
+              icon="note-text-outline"
+              label="DELIVERY NOTES"
+              value={detail.deliveryNotes}
+              myanmar={!!detail.deliveryNotes}
+              maxLines={4}
             />
           </View>
 
