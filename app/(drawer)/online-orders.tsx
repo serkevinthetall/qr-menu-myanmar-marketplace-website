@@ -63,9 +63,11 @@ type Column = {
 const COLUMNS: Column[] = [
   { key: 'number', label: 'Number', flex: 1.4 },
   { key: 'orderDate', label: 'Order Date', flex: 1.5 },
-  { key: 'customer', label: 'Customer', flex: 2.2 },
-  { key: 'total', label: 'Total', flex: 1.5, align: 'right' },
-  { key: 'status', label: 'Status', flex: 1.4 },
+  { key: 'customer', label: 'Customer', flex: 2.0 },
+  { key: 'phoneNumber', label: 'Phonenumber', flex: 1.4 },
+  { key: 'salePersonName', label: 'Sale Person', flex: 1.4 },
+  { key: 'total', label: 'Total', flex: 1.4, align: 'right' },
+  { key: 'status', label: 'Status', flex: 1.3 },
 ];
 
 function formatMoney(value: number): string {
@@ -103,6 +105,10 @@ function cellText(item: SaleOrder, key: string): string {
       return formatMyanmarDateTime(item.orderDate) || item.orderDate;
     case 'customer':
       return item.customer;
+    case 'phoneNumber':
+      return item.phoneNumber?.trim() || '';
+    case 'salePersonName':
+      return item.salePersonName?.trim() || '';
     case 'total':
       return formatMoney(item.total);
     default:
@@ -288,7 +294,23 @@ function SaleOrderCard({
             {item.customer?.trim() || '—'}
           </CustomerNameText>
 
-          {item.salesperson ? (
+          {item.phoneNumber?.trim() ? (
+            <View style={styles.cardMetaRow}>
+              <Icon
+                source="phone-outline"
+                size={14}
+                color={theme.colors.onSurfaceVariant}
+              />
+              <Text
+                variant="bodySmall"
+                style={{ color: theme.colors.onSurfaceVariant, flex: 1 }}
+                numberOfLines={1}>
+                {item.phoneNumber}
+              </Text>
+            </View>
+          ) : null}
+
+          {item.salePersonName?.trim() || item.salesperson ? (
             <View style={styles.cardMetaRow}>
               <Icon
                 source="account-outline"
@@ -299,7 +321,7 @@ function SaleOrderCard({
                 variant="bodySmall"
                 style={{ color: theme.colors.onSurfaceVariant, flex: 1 }}
                 numberOfLines={1}>
-                {item.salesperson}
+                {item.salePersonName?.trim() || item.salesperson}
               </Text>
             </View>
           ) : null}

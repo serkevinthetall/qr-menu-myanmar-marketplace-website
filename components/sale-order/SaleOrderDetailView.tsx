@@ -388,8 +388,13 @@ export function SaleOrderDetailView({
           <View style={[styles.metaGrid, isMobile && styles.metaGridStack]}>
             <MetaTile
               icon="account-tie-outline"
-              label="SALESPERSON"
-              value={detail.salesperson}
+              label="SALE PERSON NAME"
+              value={detail.salePersonName || detail.salesperson}
+            />
+            <MetaTile
+              icon="phone-outline"
+              label="PHONENUMBER"
+              value={detail.phoneNumber}
             />
             <MetaTile
               icon="calendar"

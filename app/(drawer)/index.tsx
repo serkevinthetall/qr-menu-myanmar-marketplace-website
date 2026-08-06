@@ -91,10 +91,12 @@ type Column = {
 const COLUMNS: Column[] = [
   { key: 'number', label: 'Number', flex: 1.4 },
   { key: 'createDate', label: 'Creation Date', flex: 1.5 },
-  { key: 'customer', label: 'Customer', flex: 2.2 },
-  { key: 'total', label: 'Total', flex: 1.5, align: 'right' },
-  { key: 'status', label: 'Status', flex: 1.4 },
-  { key: 'paymentMethod', label: 'Payment Method', flex: 1.6 },
+  { key: 'customer', label: 'Customer', flex: 2.0 },
+  { key: 'phoneNumber', label: 'Phonenumber', flex: 1.4 },
+  { key: 'salePersonName', label: 'Sale Person', flex: 1.4 },
+  { key: 'total', label: 'Total', flex: 1.4, align: 'right' },
+  { key: 'status', label: 'Status', flex: 1.3 },
+  { key: 'paymentMethod', label: 'Payment Method', flex: 1.5 },
 ];
 
 function formatMoney(value: unknown) {
@@ -138,6 +140,10 @@ function cellText(item: Quotation, key: string): string {
       return formatDateTime(item.createDate);
     case 'customer':
       return item.customer;
+    case 'phoneNumber':
+      return item.phoneNumber?.trim() || '';
+    case 'salePersonName':
+      return item.salePersonName?.trim() || '';
     case 'total':
       return formatMoney(item.total);
     case 'paymentMethod':
@@ -301,6 +307,18 @@ function QuotationCard({
 
         <CustomerNameText>{item.customer?.trim() || '—'}</CustomerNameText>
 
+        {item.phoneNumber?.trim() ? (
+          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>
+            {item.phoneNumber}
+          </Text>
+        ) : null}
+
+        {item.salePersonName?.trim() ? (
+          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>
+            {item.salePersonName}
+          </Text>
+        ) : null}
+
         {item.paymentMethod ? (
           <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>
             {item.paymentMethod}
@@ -394,7 +412,9 @@ export default function QuotationScreen() {
       }
       return (
         quotation.number.toLowerCase().includes(term) ||
-        quotation.customer.toLowerCase().includes(term)
+        quotation.customer.toLowerCase().includes(term) ||
+        quotation.phoneNumber?.toLowerCase().includes(term) ||
+        quotation.salePersonName?.toLowerCase().includes(term)
       );
     });
   }, [quotations, query, quotationFilters]);

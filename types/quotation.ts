@@ -11,6 +11,9 @@ export type Quotation = {
   total: number;
   status: string;
   paymentMethod: string;
+  phoneNumber: string;
+  /** Studio "Sale Person Name" (`x_studio_sale_person_name`). */
+  salePersonName: string;
 };
 
 export type QuotationLine = {

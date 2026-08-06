@@ -280,7 +280,8 @@ function buildA4Html(
       <div class="info-block">
         <h3>ORDER DETAILS</h3>
         <p><span class="info-label">STATUS:</span> <strong>${escapeHtml(detail.status || '—')}</strong></p>
-        <p><span class="info-label">SALESPERSON:</span> <strong>${escapeHtml(detail.salesperson?.trim() || '—')}</strong></p>
+        <p><span class="info-label">SALE PERSON NAME:</span> <strong>${escapeHtml(detail.salePersonName?.trim() || detail.salesperson?.trim() || '—')}</strong></p>
+        ${detail.phoneNumber?.trim() ? `<p><span class="info-label">PHONE:</span> <strong>${escapeHtml(detail.phoneNumber)}</strong></p>` : ''}
         <p><span class="info-label">COMMITMENT:</span> <strong>${formatDate(detail.commitmentDate)}</strong></p>
       </div>
     </div>
@@ -535,7 +536,10 @@ function buildThermalHtml(
       <strong>CUSTOMER:</strong> <strong>${escapeHtml(detail.customer)}</strong>
     </div>
     <div class="customer-line">
-      <strong>SALESPERSON:</strong> <strong>${displayValue(detail.salesperson)}</strong>
+      <strong>SALE PERSON:</strong> <strong>${displayValue(detail.salePersonName || detail.salesperson)}</strong>
+    </div>
+    <div class="customer-line">
+      <strong>PHONE:</strong> <strong>${displayValue(detail.phoneNumber)}</strong>
     </div>
 
     <hr class="divider" />
