@@ -65,7 +65,6 @@ const COLUMNS: Column[] = [
   { key: 'orderDate', label: 'Order Date', flex: 1.5 },
   { key: 'customer', label: 'Customer', flex: 2.0 },
   { key: 'phoneNumber', label: 'Phonenumber', flex: 1.4 },
-  { key: 'salePersonName', label: 'Sale Person', flex: 1.4 },
   { key: 'total', label: 'Total', flex: 1.4, align: 'right' },
   { key: 'status', label: 'Status', flex: 1.3 },
 ];
@@ -310,22 +309,6 @@ function SaleOrderCard({
             </View>
           ) : null}
 
-          {item.salePersonName?.trim() || item.salesperson ? (
-            <View style={styles.cardMetaRow}>
-              <Icon
-                source="account-outline"
-                size={14}
-                color={theme.colors.onSurfaceVariant}
-              />
-              <Text
-                variant="bodySmall"
-                style={{ color: theme.colors.onSurfaceVariant, flex: 1 }}
-                numberOfLines={1}>
-                {item.salePersonName?.trim() || item.salesperson}
-              </Text>
-            </View>
-          ) : null}
-
           <View style={styles.cardFooter}>
             <View style={styles.cardMetaRow}>
               <Icon source="calendar" size={14} color={theme.colors.onSurfaceVariant} />
@@ -397,11 +380,16 @@ export default function OnlineOrdersScreen() {
       setError('');
     }
     try {
-      const data = await fetchOnlineOrders(session.token, {
+      await fetchOnlineOrders(session.token, {
         q: query.trim() || undefined,
-        limit: 300,
+        pageSize: 100,
+        onPage: all => {
+          setItems(all);
+          if (!quiet) {
+            setLoading(false);
+          }
+        },
       });
-      setItems(data);
       if (!quiet) {
         setError('');
       }

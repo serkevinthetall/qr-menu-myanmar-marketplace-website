@@ -371,11 +371,14 @@ export default function SaleOrdersScreen() {
     if (!session?.token) return;
     setError('');
     try {
-      const data = await fetchSaleOrders(session.token, {
+      await fetchSaleOrders(session.token, {
         q: query.trim() || undefined,
-        limit: 300,
+        pageSize: 100,
+        onPage: all => {
+          setItems(all);
+          setLoading(false);
+        },
       });
-      setItems(data);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to load sale orders.',
