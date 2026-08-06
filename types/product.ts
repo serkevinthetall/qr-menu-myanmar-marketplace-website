@@ -8,6 +8,8 @@ export type Product = {
   category: string;
   image: string;
   unit: string;
+  /** Odoo priority star — true when priority === '1'. */
+  favorite?: boolean;
 };
 
 export type ProductDetail = Product & {

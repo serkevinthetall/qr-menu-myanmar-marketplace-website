@@ -65,3 +65,19 @@ export async function fetchProductDetail(
   });
   return response.data;
 }
+
+export async function setProductFavorite(
+  token: string,
+  id: string,
+  favorite: boolean,
+): Promise<{ id: string; favorite: boolean }> {
+  const response = await webApiRequest<{ data: { id: string; favorite: boolean } }>(
+    `/products/${id}/favorite`,
+    {
+      method: 'PUT',
+      token,
+      body: { favorite },
+    },
+  );
+  return response.data;
+}

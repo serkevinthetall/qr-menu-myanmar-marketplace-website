@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Icon, Text, useTheme } from 'react-native-paper';
 
+import { FavoriteStar } from '@/components/ui/FavoriteStar';
 import { ProductThumb } from '@/components/ui/ProductThumb';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
@@ -125,12 +126,16 @@ type ProductDetailViewProps = {
   detail: ProductDetail | null;
   loading: boolean;
   error: string;
+  onToggleFavorite?: (next: boolean) => void;
+  favoriteBusy?: boolean;
 };
 
 export function ProductDetailView({
   detail,
   loading,
   error,
+  onToggleFavorite,
+  favoriteBusy,
 }: ProductDetailViewProps) {
   const theme = useTheme();
   const detailTheme = useDetailTheme();
@@ -198,7 +203,18 @@ export function ProductDetailView({
                   <ProductThumb uri={detail.image} size={88} />
                 </View>
                 <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
-                  <Text style={styles.heroEyebrow}>PRODUCT</Text>
+                  <View style={styles.heroTitleRow}>
+                    <Text style={styles.heroEyebrow}>PRODUCT</Text>
+                    {onToggleFavorite ? (
+                      <FavoriteStar
+                        favorite={Boolean(detail.favorite)}
+                        disabled={favoriteBusy}
+                        onToggle={() => onToggleFavorite(!detail.favorite)}
+                        size={26}
+                        inactiveColor="rgba(255,255,255,0.85)"
+                      />
+                    ) : null}
+                  </View>
                   <Text style={styles.heroName} numberOfLines={3}>
                     {detail.name || '—'}
                   </Text>
@@ -350,6 +366,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1,
+  },
+  heroTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
   heroName: {
     color: '#fff',

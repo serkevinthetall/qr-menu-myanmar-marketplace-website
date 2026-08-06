@@ -4,7 +4,7 @@ import { fetchProductsPage } from '@/services/products';
 import { Product } from '@/types/product';
 import { mergeById } from '@/utils/quotation-builder-cache';
 
-const STORAGE_KEY = '@qr_shop_web_product_catalog_v1';
+const STORAGE_KEY = '@qr_shop_web_product_catalog_v2';
 const PAGE_SIZE = 200;
 const FRESH_MS = 30 * 60 * 1000;
 
@@ -76,12 +76,34 @@ export function filterWebProducts(
   const q = String(options?.q ?? '')
     .trim()
     .toLowerCase();
-  if (!q) return products;
-  return products.filter(
-    item =>
-      item.name.toLowerCase().includes(q) ||
-      item.sku.toLowerCase().includes(q),
+  const filtered = !q
+    ? products
+    : products.filter(
+        item =>
+          item.name.toLowerCase().includes(q) ||
+          item.sku.toLowerCase().includes(q),
+      );
+  // Favorites first (same idea as Odoo priority sort).
+  return [...filtered].sort((a, b) => {
+    const fav = Number(Boolean(b.favorite)) - Number(Boolean(a.favorite));
+    if (fav !== 0) return fav;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+/** Optimistically patch a product's favorite flag in the in-memory catalog. */
+export function patchWebProductFavorite(id: string, favorite: boolean) {
+  if (!memory) return;
+  const products = memory.products.map(p =>
+    p.id === id ? { ...p, favorite } : p,
   );
+  const next: WebProductCatalog = {
+    ...memory,
+    products,
+    updatedAt: Date.now(),
+  };
+  emit(next);
+  void persist(next);
 }
 
 async function fetchAllPages(

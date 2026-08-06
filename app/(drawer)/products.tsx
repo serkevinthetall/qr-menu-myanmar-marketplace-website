@@ -17,6 +17,7 @@ import {
 } from 'react-native-paper';
 
 import { ProductDetailView } from '@/components/product/ProductDetailView';
+import { FavoriteStar } from '@/components/ui/FavoriteStar';
 import { Pagination } from '@/components/ui/Pagination';
 import { ProductThumb } from '@/components/ui/ProductThumb';
 import { useAuth } from '@/contexts/auth-context';
@@ -27,10 +28,15 @@ import {
   useSearch,
 } from '@/contexts/search-context';
 import { useResponsive } from '@/hooks/use-responsive';
-import { fetchProductDetail, fetchProductsPage } from '@/services/products';
+import {
+  fetchProductDetail,
+  fetchProductsPage,
+  setProductFavorite,
+} from '@/services/products';
 import {
   ensureWebProductCatalog,
   filterWebProducts,
+  patchWebProductFavorite,
   subscribeWebProductCatalog,
   WebProductCatalog,
 } from '@/services/web/product-catalog-cache';
@@ -101,12 +107,16 @@ function ProductRow({
   selected,
   onToggle,
   onOpen,
+  onToggleFavorite,
+  favoriteBusy,
 }: {
   item: Product;
   index: number;
   selected: boolean;
   onToggle: (id: string) => void;
   onOpen: (id: string) => void;
+  onToggleFavorite: (id: string, next: boolean) => void;
+  favoriteBusy: boolean;
 }) {
   const theme = useTheme();
   const zebra = index % 2 === 1;
@@ -132,6 +142,13 @@ function ProductRow({
         <Checkbox
           status={selected ? 'checked' : 'unchecked'}
           onPress={() => onToggle(item.id)}
+        />
+      </View>
+      <View style={styles.starCell}>
+        <FavoriteStar
+          favorite={Boolean(item.favorite)}
+          disabled={favoriteBusy}
+          onToggle={() => onToggleFavorite(item.id, !item.favorite)}
         />
       </View>
       {COLUMNS.map(col => {
@@ -201,6 +218,7 @@ function TableHeader({
           uncheckedColor={theme.colors.onPrimary}
         />
       </View>
+      <View style={styles.starCell} />
       {COLUMNS.map(col => (
         <View key={col.key} style={[styles.cell, { flex: col.flex }]}>
           <Text
@@ -222,9 +240,13 @@ function TableHeader({
 function ProductCard({
   item,
   onOpen,
+  onToggleFavorite,
+  favoriteBusy,
 }: {
   item: Product;
   onOpen: (id: string) => void;
+  onToggleFavorite: (id: string, next: boolean) => void;
+  favoriteBusy: boolean;
 }) {
   const theme = useTheme();
 
@@ -240,7 +262,16 @@ function ProductCard({
           },
         ]}>
         <Card.Content style={styles.cardContent}>
-          <ProductThumb uri={item.image} size={120} style={styles.cardImage} />
+          <View style={styles.cardImageRow}>
+            <ProductThumb uri={item.image} size={120} style={styles.cardImage} />
+            <View style={styles.cardStar}>
+              <FavoriteStar
+                favorite={Boolean(item.favorite)}
+                disabled={favoriteBusy}
+                onToggle={() => onToggleFavorite(item.id, !item.favorite)}
+              />
+            </View>
+          </View>
           <View style={styles.cardTop}>
             <Text variant="titleMedium" style={styles.productName} numberOfLines={2}>
               {item.name}
@@ -306,6 +337,7 @@ export default function ProductsScreen() {
   const [detailError, setDetailError] = useState('');
   const [qrAppFilter, setQrAppFilter] = useState(false);
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
+  const [favoriteBusyId, setFavoriteBusyId] = useState<string | null>(null);
 
   const query = useModuleSearch('Search products by name or SKU', !detailId);
   const { setDetailHeader } = useSearch();
@@ -348,6 +380,55 @@ export default function ProductsScreen() {
     setDetail(null);
     setDetailError('');
   }, []);
+
+  const toggleFavorite = useCallback(
+    async (id: string, next: boolean) => {
+      if (!session?.token || favoriteBusyId) return;
+
+      const listed = products.find(p => p.id === id);
+      const previous =
+        listed?.favorite !== undefined
+          ? Boolean(listed.favorite)
+          : detail?.id === id
+            ? Boolean(detail.favorite)
+            : false;
+
+      setFavoriteBusyId(id);
+      setProducts(prev => prev.map(p => (p.id === id ? { ...p, favorite: next } : p)));
+      setCatalogProducts(prev =>
+        prev.map(p => (p.id === id ? { ...p, favorite: next } : p)),
+      );
+      if (!qrAppFilter) {
+        patchWebProductFavorite(id, next);
+      }
+      if (detail?.id === id) {
+        setDetail(prev => (prev ? { ...prev, favorite: next } : prev));
+      }
+
+      try {
+        await setProductFavorite(session.token, id, next);
+      } catch (err) {
+        setProducts(prev =>
+          prev.map(p => (p.id === id ? { ...p, favorite: previous } : p)),
+        );
+        setCatalogProducts(prev =>
+          prev.map(p => (p.id === id ? { ...p, favorite: previous } : p)),
+        );
+        if (!qrAppFilter) {
+          patchWebProductFavorite(id, previous);
+        }
+        if (detail?.id === id) {
+          setDetail(prev => (prev ? { ...prev, favorite: previous } : prev));
+        }
+        setError(
+          err instanceof Error ? err.message : 'Failed to update favorite.',
+        );
+      } finally {
+        setFavoriteBusyId(null);
+      }
+    },
+    [session?.token, favoriteBusyId, products, detail, qrAppFilter],
+  );
 
   useEffect(() => {
     if (!detailId) {
@@ -526,6 +607,10 @@ export default function ProductsScreen() {
           detail={detail}
           loading={detailLoading}
           error={detailError}
+          onToggleFavorite={next => {
+            if (detailId) void toggleFavorite(detailId, next);
+          }}
+          favoriteBusy={favoriteBusyId === detailId}
         />
       </View>
     );
@@ -599,6 +684,8 @@ export default function ProductsScreen() {
                   selected={selectedIds.has(item.id)}
                   onToggle={toggleOne}
                   onOpen={openDetail}
+                  onToggleFavorite={toggleFavorite}
+                  favoriteBusy={favoriteBusyId === item.id}
                 />
               ))}
             </ScrollView>
@@ -618,7 +705,12 @@ export default function ProductsScreen() {
           columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
           renderItem={({ item }) => (
             <View style={[styles.cardWrapper, { width: numColumns > 1 ? cardWidth : '100%' }]}>
-              <ProductCard item={item} onOpen={openDetail} />
+              <ProductCard
+                item={item}
+                onOpen={openDetail}
+                onToggleFavorite={toggleFavorite}
+                favoriteBusy={favoriteBusyId === item.id}
+              />
             </View>
           )}
           ListEmptyComponent={
@@ -703,6 +795,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     transform: [{ scale: 0.8 }],
   },
+  starCell: {
+    width: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   statusBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
@@ -728,6 +825,15 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     gap: 10,
+  },
+  cardImageRow: {
+    position: 'relative',
+  },
+  cardStar: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    zIndex: 2,
   },
   cardImage: {
     width: '100%',
