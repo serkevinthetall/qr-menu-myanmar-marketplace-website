@@ -678,15 +678,7 @@ export default function SaleOrdersScreen() {
         />
       )}
 
-      {filtersActive ? (
-        <SaleOrderDateTotalBar
-          dateLabel={filterDateLabel}
-          orderCount={filtered.length}
-          totalAmount={filteredTotalAmount}
-          itemLabel="order"
-          placement="bottom"
-        />
-      ) : null}
+      )}
 
       <Pagination
         page={safePage}
@@ -694,11 +686,7 @@ export default function SaleOrdersScreen() {
         total={filtered.length}
         pageSize={PAGE_SIZE}
         onChange={setPage}
-        centerLabel={
-          filtersActive
-            ? `${filtered.length} matching · ${items.length} from Odoo`
-            : `${items.length} from Odoo`
-        }
+        centerLabel={`${filtered.length} from Odoo`}
         itemLabel="order"
       />
     </View>

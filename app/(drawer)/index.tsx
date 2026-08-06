@@ -1183,15 +1183,7 @@ export default function QuotationScreen() {
         />
       )}
 
-      {showFilteredTotal ? (
-        <SaleOrderDateTotalBar
-          dateLabel={filterDateLabel}
-          orderCount={filteredQuotations.length}
-          totalAmount={filteredTotalAmount}
-          itemLabel="quotation"
-          placement="bottom"
-        />
-      ) : null}
+      )}
 
       <Pagination
         page={safePage}
@@ -1199,7 +1191,7 @@ export default function QuotationScreen() {
         total={filteredQuotations.length}
         pageSize={PAGE_SIZE}
         onChange={setPage}
-        centerLabel={`${quotations.length} from Odoo`}
+        centerLabel={`${filteredQuotations.length} from Odoo`}
         itemLabel="quotation"
       />
 

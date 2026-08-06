@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Platform,
   Pressable,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Icon, Text, useTheme } from 'react-native-paper';
 
+import { DismissibleModal } from '@/components/ui/DismissibleModal';
 import { useAppColors } from '@/hooks/use-app-colors';
 
 type SearchableDropdownFieldProps = {
@@ -35,13 +36,14 @@ export function SearchableDropdownField({
   const theme = useTheme();
   const colors = useAppColors();
   const isHeader = variant === 'header';
-  const [query, setQuery] = useState(value);
   const [open, setOpen] = useState(false);
-  const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [query, setQuery] = useState('');
 
   useEffect(() => {
-    setQuery(value);
-  }, [value]);
+    if (!open) {
+      setQuery('');
+    }
+  }, [open]);
 
   const sortedOptions = useMemo(() => {
     const unique = Array.from(
@@ -58,51 +60,20 @@ export function SearchableDropdownField({
     return sortedOptions.filter(option => option.toLowerCase().includes(term));
   }, [query, sortedOptions]);
 
+  const close = () => setOpen(false);
+
   const pick = (option: string) => {
-    if (blurTimer.current) {
-      clearTimeout(blurTimer.current);
-      blurTimer.current = null;
-    }
-    setQuery(option);
     onChange(option);
-    setOpen(false);
+    close();
   };
 
   const clearSelection = () => {
-    setQuery('');
     onChange('');
-    setOpen(false);
-  };
-
-  const handleFocus = () => {
-    if (blurTimer.current) {
-      clearTimeout(blurTimer.current);
-      blurTimer.current = null;
-    }
-    setOpen(true);
-  };
-
-  const handleBlur = () => {
-    blurTimer.current = setTimeout(() => {
-      setOpen(false);
-      if (!query.trim()) {
-        onChange('');
-        return;
-      }
-      const exact = sortedOptions.find(
-        option => option.toLowerCase() === query.trim().toLowerCase(),
-      );
-      if (exact) {
-        setQuery(exact);
-        onChange(exact);
-        return;
-      }
-      setQuery(value);
-    }, 150);
+    close();
   };
 
   return (
-    <View style={[compact ? styles.compactRoot : undefined, styles.wrapper]}>
+    <View style={compact ? styles.compactRoot : undefined}>
       {label && !compact ? (
         <Text
           variant="labelMedium"
@@ -111,7 +82,8 @@ export function SearchableDropdownField({
         </Text>
       ) : null}
 
-      <View
+      <Pressable
+        onPress={() => setOpen(true)}
         style={[
           styles.field,
           compact && styles.compactField,
@@ -126,30 +98,29 @@ export function SearchableDropdownField({
           size={compact ? 16 : 18}
           color={isHeader ? colors.headerFieldMuted : theme.colors.onSurfaceVariant}
         />
-        <TextInput
-          value={query}
-          onChangeText={text => {
-            setQuery(text);
-            setOpen(true);
-            onChange(text.trim());
-          }}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          placeholder={placeholder}
-          placeholderTextColor={isHeader ? colors.headerFieldMuted : theme.colors.onSurfaceVariant}
-          style={[
-            styles.input,
-            {
-              color: isHeader ? colors.headerFieldText : theme.colors.onSurface,
-              fontSize: compact ? 13 : 15,
-            },
-            Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null,
-          ]}
-          autoCorrect={false}
-          autoCapitalize="none"
-        />
-        {query ? (
-          <Pressable onPress={clearSelection} hitSlop={8} accessibilityLabel="Clear township">
+        <Text
+          numberOfLines={1}
+          style={{
+            flex: 1,
+            color: value
+              ? isHeader
+                ? colors.headerFieldText
+                : theme.colors.onSurface
+              : isHeader
+                ? colors.headerFieldMuted
+                : theme.colors.onSurfaceVariant,
+            fontSize: compact ? 13 : 15,
+          }}>
+          {value || placeholder}
+        </Text>
+        {value ? (
+          <Pressable
+            onPress={e => {
+              e.stopPropagation?.();
+              clearSelection();
+            }}
+            hitSlop={8}
+            accessibilityLabel="Clear selection">
             <Icon
               source="close-circle"
               size={compact ? 16 : 18}
@@ -163,32 +134,62 @@ export function SearchableDropdownField({
             color={isHeader ? colors.headerFieldMuted : theme.colors.onSurfaceVariant}
           />
         )}
-      </View>
+      </Pressable>
 
-      {open && filteredOptions.length > 0 ? (
+      <DismissibleModal
+        visible={open}
+        onDismiss={close}
+        title={label || placeholder}
+        contentContainerStyle={styles.modal}>
         <View
           style={[
-            styles.dropdown,
+            styles.searchBox,
             {
-              backgroundColor: isHeader ? colors.headerFieldBg : theme.colors.surface,
-              borderColor: isHeader ? colors.headerFieldBorder : theme.colors.outline,
+              borderColor: theme.colors.outline,
+              backgroundColor: theme.colors.surfaceVariant,
             },
           ]}>
-          <ScrollView
-            style={styles.dropdownList}
-            keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled>
-            {!query.trim() ? (
-              <Pressable
-                onPress={clearSelection}
-                style={({ pressed }) => [
-                  styles.option,
-                  pressed && { backgroundColor: theme.colors.surfaceVariant },
-                ]}>
-                <Text style={{ color: theme.colors.onSurfaceVariant }}>All townships</Text>
-              </Pressable>
-            ) : null}
-            {filteredOptions.map(option => (
+          <Icon source="magnify" size={18} color={theme.colors.onSurfaceVariant} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder={`Search ${placeholder.toLowerCase()}…`}
+            placeholderTextColor={theme.colors.onSurfaceVariant}
+            style={[
+              styles.searchInput,
+              { color: theme.colors.onSurface },
+              Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null,
+            ]}
+            autoFocus
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
+          {query ? (
+            <Pressable onPress={() => setQuery('')} hitSlop={8}>
+              <Icon source="close-circle" size={18} color={theme.colors.onSurfaceVariant} />
+            </Pressable>
+          ) : null}
+        </View>
+
+        <ScrollView
+          style={styles.list}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled>
+          <Pressable
+            onPress={clearSelection}
+            style={({ pressed }) => [
+              styles.option,
+              pressed && { backgroundColor: theme.colors.surfaceVariant },
+            ]}>
+            <Text style={{ color: theme.colors.onSurfaceVariant }}>All townships</Text>
+          </Pressable>
+
+          {filteredOptions.length === 0 ? (
+            <Text style={{ color: theme.colors.onSurfaceVariant, padding: 12 }}>
+              No townships match &quot;{query.trim()}&quot;
+            </Text>
+          ) : (
+            filteredOptions.map(option => (
               <Pressable
                 key={option}
                 onPress={() => pick(option)}
@@ -210,33 +211,15 @@ export function SearchableDropdownField({
                   {option}
                 </Text>
               </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-      ) : open && query.trim() ? (
-        <View
-          style={[
-            styles.dropdown,
-            styles.emptyDropdown,
-            {
-              backgroundColor: isHeader ? colors.headerFieldBg : theme.colors.surface,
-              borderColor: isHeader ? colors.headerFieldBorder : theme.colors.outline,
-            },
-          ]}>
-          <Text style={{ color: theme.colors.onSurfaceVariant, padding: 12 }}>
-            No townships match &quot;{query.trim()}&quot;
-          </Text>
-        </View>
-      ) : null}
+            ))
+          )}
+        </ScrollView>
+      </DismissibleModal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    position: 'relative',
-    zIndex: 20,
-  },
   compactRoot: {
     minWidth: 160,
     maxWidth: 220,
@@ -261,37 +244,33 @@ const styles = StyleSheet.create({
   headerField: {
     minWidth: 150,
   },
-  input: {
+  modal: {
+    maxWidth: 420,
+    maxHeight: '80%',
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    height: 40,
+    marginBottom: 8,
+  },
+  searchInput: {
     flex: 1,
     padding: 0,
     margin: 0,
     minWidth: 0,
+    fontSize: 14,
   },
-  dropdown: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    marginTop: 4,
-    borderWidth: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-    maxHeight: 220,
-    zIndex: 30,
-    elevation: 8,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-  },
-  emptyDropdown: {
-    maxHeight: undefined,
-  },
-  dropdownList: {
-    maxHeight: 220,
+  list: {
+    maxHeight: 360,
   },
   option: {
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 12,
+    borderRadius: 8,
   },
 });
