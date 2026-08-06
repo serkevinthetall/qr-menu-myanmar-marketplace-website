@@ -177,7 +177,15 @@ function SaleOrderRow({
               { flex: col.flex },
             ]}>
             {isCustomer ? (
-              <CustomerNameText style={{ fontWeight: '400' }}>
+              <CustomerNameText
+                numberOfLines={1}
+                style={{
+                  fontWeight: '400',
+                  paddingTop: 0,
+                  paddingBottom: 0,
+                  lineHeight: 20,
+                  fontSize: 14,
+                }}>
                 {text || '—'}
               </CustomerNameText>
             ) : (
@@ -754,7 +762,7 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -773,14 +781,12 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   customerCell: {
-    paddingVertical: 10,
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
   },
   checkCell: {
     width: 38,
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingTop: 10,
+    justifyContent: 'center',
     transform: [{ scale: 0.8 }],
   },
   statusBadge: {
