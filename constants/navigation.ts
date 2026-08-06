@@ -50,7 +50,7 @@ const ONLINE_ORDERS: NavItem = {
   label: 'App Order',
   icon: 'shopping-outline',
   title: 'App Order',
-  description: 'Quotations in Quotation Sent stage.',
+  description: 'Quotation Sent, or Salesperson Administrator.',
 };
 
 const CUSTOMERS: NavItem = {

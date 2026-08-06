@@ -142,7 +142,7 @@ export default function SettingsScreen() {
             <List.Subheader>Notifications</List.Subheader>
             <List.Item
               title="App Order notifications"
-              description="Play a sound when a new App Order arrives (Quotation Sent)."
+              description="Play a sound when a new App Order arrives (Quotation Sent or Salesperson Administrator)."
               left={props => <List.Icon {...props} icon="bell-ring-outline" />}
               right={() => (
                 <Switch

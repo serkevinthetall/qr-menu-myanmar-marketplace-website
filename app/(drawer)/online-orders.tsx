@@ -684,7 +684,7 @@ export default function OnlineOrdersScreen() {
             <Text style={styles.empty}>
               {query.trim() || filtersActive
                 ? 'No app orders match your search or filters.'
-                : 'No Quotation Sent app orders found.'}
+                : 'No App Orders found (Quotation Sent or Salesperson Administrator).'}
             </Text>
           </ScrollView>
         ) : (
@@ -739,12 +739,10 @@ export default function OnlineOrdersScreen() {
             <Text style={styles.empty}>
               {query.trim() || filtersActive
                 ? 'No app orders match your search or filters.'
-                : 'No Quotation Sent app orders found.'}
+                : 'No App Orders found (Quotation Sent or Salesperson Administrator).'}
             </Text>
           }
         />
-      )}
-
       )}
 
       <Pagination
