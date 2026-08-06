@@ -1,9 +1,19 @@
 import { DrawerHeaderProps } from '@react-navigation/drawer';
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { Appbar, Button, Icon, IconButton, Menu, Text, useTheme } from 'react-native-paper';
+import {
+  Appbar,
+  Badge,
+  Button,
+  Icon,
+  IconButton,
+  Menu,
+  Text,
+  useTheme,
+} from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useAppOrderUnread } from '@/contexts/app-order-unread-context';
 import { useSearch } from '@/contexts/search-context';
 import { useAppColors } from '@/hooks/use-app-colors';
 import { useResponsive } from '@/hooks/use-responsive';
@@ -13,6 +23,7 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
   const colors = useAppColors();
   const { isMobile } = useResponsive();
   const insets = useSafeAreaInsets();
+  const { unreadCount } = useAppOrderUnread();
   const {
     visible,
     placeholder,
@@ -62,14 +73,33 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
               accessibilityLabel="Go back"
             />
           ) : (
-            <IconButton
-              icon="menu"
-              iconColor={colors.onPrimary}
-              containerColor="transparent"
-              rippleColor={colors.headerRipple}
-              size={24}
-              onPress={() => navigation.toggleDrawer()}
-            />
+            <>
+              <IconButton
+                icon="menu"
+                iconColor={colors.onPrimary}
+                containerColor="transparent"
+                rippleColor={colors.headerRipple}
+                size={24}
+                onPress={() => navigation.toggleDrawer()}
+                accessibilityLabel="Open menu"
+              />
+              {unreadCount > 0 ? (
+                <View style={styles.notifWrap}>
+                  <IconButton
+                    icon="bell-outline"
+                    iconColor={colors.onPrimary}
+                    containerColor="transparent"
+                    rippleColor={colors.headerRipple}
+                    size={22}
+                    onPress={() => navigation.navigate('online-orders')}
+                    accessibilityLabel={`App Order notifications, ${unreadCount} unread`}
+                  />
+                  <Badge style={styles.notifBadge} size={16}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Badge>
+                </View>
+              ) : null}
+            </>
           )}
 
           {visible ? (
@@ -291,6 +321,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 56,
     paddingRight: 4,
+  },
+  notifWrap: {
+    position: 'relative',
+    justifyContent: 'center',
+    marginLeft: -6,
+  },
+  notifBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 4,
+    backgroundColor: '#D32F2F',
   },
   detailHeaderContent: {
     flex: 1,
