@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View, ViewStyle } from 'react-native';
+import { Platform, StyleSheet, View, ViewStyle } from 'react-native';
 import { Icon, useTheme } from 'react-native-paper';
 
 import { API_BASE_URL } from '@/constants/api';
@@ -38,6 +38,7 @@ export function ProductThumb({
 }: ProductThumbProps) {
   const theme = useTheme();
   const { session } = useAuth();
+  const [displayUri, setDisplayUri] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
   const resolvedUri = useMemo(
@@ -45,25 +46,59 @@ export function ProductThumb({
     [uri, productId],
   );
 
-  useEffect(() => {
-    setFailed(false);
-  }, [resolvedUri, session?.token]);
-
   const needsAuth =
     Boolean(session?.token) &&
     resolvedUri.startsWith(API_BASE_URL) &&
     resolvedUri.includes('/products/') &&
     resolvedUri.endsWith('/image');
 
-  if (resolvedUri && !failed) {
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+
+    setFailed(false);
+    setDisplayUri(null);
+
+    if (!resolvedUri) {
+      return;
+    }
+
+    // Web <img>/expo-image often cannot send Authorization headers.
+    // Fetch the binary with the bearer token, then show a blob URL.
+    if (needsAuth && session?.token) {
+      void (async () => {
+        try {
+          const response = await fetch(resolvedUri, {
+            headers: { Authorization: `Bearer ${session.token}` },
+            cache: 'force-cache',
+          });
+          if (!response.ok) {
+            throw new Error(`Image HTTP ${response.status}`);
+          }
+          const blob = await response.blob();
+          if (cancelled) return;
+          objectUrl = URL.createObjectURL(blob);
+          setDisplayUri(objectUrl);
+        } catch {
+          if (!cancelled) setFailed(true);
+        }
+      })();
+    } else {
+      setDisplayUri(resolvedUri);
+    }
+
+    return () => {
+      cancelled = true;
+      if (objectUrl && Platform.OS === 'web') {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [resolvedUri, needsAuth, session?.token]);
+
+  if (displayUri && !failed) {
     return (
       <Image
-        source={{
-          uri: resolvedUri,
-          ...(needsAuth
-            ? { headers: { Authorization: `Bearer ${session!.token}` } }
-            : null),
-        }}
+        source={{ uri: displayUri }}
         style={[
           styles.image,
           { width: size, height: size, borderRadius: Math.max(4, size * 0.12) },
