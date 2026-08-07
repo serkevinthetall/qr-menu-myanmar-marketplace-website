@@ -1,16 +1,27 @@
-import { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Icon, Text, useTheme } from 'react-native-paper';
+import { ReactNode, useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Button,
+  Icon,
+  Text,
+  TextInput,
+  useTheme,
+} from 'react-native-paper';
 
 import { FavoriteStar } from '@/components/ui/FavoriteStar';
 import { ProductThumb } from '@/components/ui/ProductThumb';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
-import { ProductDetail } from '@/types/product';
+import { ProductDetail, ProductPricesUpdate } from '@/types/product';
 
-function formatMoney(value: number): string {
-  const safe = Number.isFinite(value) ? value : 0;
-  return `${safe.toLocaleString('en-US', {
+type DetailTab = 'details' | 'prices';
+
+function formatMoney(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) {
+    return '—';
+  }
+  return `${value.toLocaleString('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   })} MMK`;
@@ -109,6 +120,52 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function DetailTabs({
+  tab,
+  onChange,
+}: {
+  tab: DetailTab;
+  onChange: (tab: DetailTab) => void;
+}) {
+  const theme = useTheme();
+  const detail = useDetailTheme();
+
+  return (
+    <View style={[styles.tabBarRow, { borderBottomColor: detail.border }]}>
+      <View style={styles.tabBar}>
+        {(
+          [
+            { key: 'details' as const, label: 'Product details' },
+            { key: 'prices' as const, label: 'Prices' },
+          ] as const
+        ).map(item => {
+          const active = tab === item.key;
+          return (
+            <Pressable
+              key={item.key}
+              onPress={() => onChange(item.key)}
+              style={[
+                styles.tab,
+                active && { borderBottomColor: theme.colors.primary },
+              ]}>
+              <Text
+                style={[
+                  styles.tabText,
+                  {
+                    color: active ? theme.colors.primary : detail.label,
+                    fontWeight: active ? '700' : '600',
+                  },
+                ]}>
+                {item.label.toUpperCase()}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 function productTypeLabel(type: string): string {
   switch (type) {
     case 'consu':
@@ -122,12 +179,57 @@ function productTypeLabel(type: string): string {
   }
 }
 
+function parseMoneyInput(raw: string): number | null {
+  const cleaned = raw.replace(/,/g, '').trim();
+  if (!cleaned) return null;
+  const value = Number(cleaned);
+  return Number.isFinite(value) ? value : null;
+}
+
+function PriceField({
+  label,
+  hint,
+  value,
+  onChangeText,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  onChangeText: (next: string) => void;
+}) {
+  const theme = useTheme();
+  const detail = useDetailTheme();
+
+  return (
+    <View style={[styles.priceField, { borderBottomColor: detail.border }]}>
+      <Text style={[styles.infoLabel, { color: detail.label }]}>{label}</Text>
+      {hint ? (
+        <Text style={[styles.priceHint, { color: detail.label }]}>{hint}</Text>
+      ) : null}
+      <TextInput
+        mode="outlined"
+        dense
+        keyboardType="numeric"
+        value={value}
+        onChangeText={onChangeText}
+        right={<TextInput.Affix text="MMK" />}
+        style={{ backgroundColor: detail.surface }}
+        outlineColor={detail.border}
+        activeOutlineColor={theme.colors.primary}
+      />
+    </View>
+  );
+}
+
 type ProductDetailViewProps = {
   detail: ProductDetail | null;
   loading: boolean;
   error: string;
   onToggleFavorite?: (next: boolean) => void;
   favoriteBusy?: boolean;
+  onSavePrices?: (updates: ProductPricesUpdate) => Promise<void>;
+  pricesSaving?: boolean;
+  pricesError?: string;
 };
 
 export function ProductDetailView({
@@ -136,11 +238,37 @@ export function ProductDetailView({
   error,
   onToggleFavorite,
   favoriteBusy,
+  onSavePrices,
+  pricesSaving,
+  pricesError,
 }: ProductDetailViewProps) {
   const theme = useTheme();
   const detailTheme = useDetailTheme();
   const { width } = useResponsive();
   const isMobile = width < 768;
+  const [tab, setTab] = useState<DetailTab>('details');
+  const [salesInput, setSalesInput] = useState('');
+  const [premiumInput, setPremiumInput] = useState('');
+  const [proInput, setProInput] = useState('');
+  const [localError, setLocalError] = useState('');
+
+  useEffect(() => {
+    if (!detail) return;
+    setSalesInput(
+      Number.isFinite(detail.price) ? String(Math.round(detail.price)) : '',
+    );
+    setPremiumInput(
+      detail.premiumPrice?.price != null
+        ? String(Math.round(detail.premiumPrice.price))
+        : '',
+    );
+    setProInput(
+      detail.proPrice?.price != null
+        ? String(Math.round(detail.proPrice.price))
+        : '',
+    );
+    setLocalError('');
+  }, [detail]);
 
   if (loading) {
     return (
@@ -182,6 +310,40 @@ export function ProductDetailView({
     );
   }
 
+  const handleSavePrices = async () => {
+    if (!onSavePrices) return;
+    setLocalError('');
+
+    const salesPrice = parseMoneyInput(salesInput);
+    const premiumPrice = parseMoneyInput(premiumInput);
+    const proPrice = parseMoneyInput(proInput);
+
+    if (salesPrice == null || salesPrice < 0) {
+      setLocalError('Enter a valid Sales price.');
+      return;
+    }
+    if (premiumInput.trim() && (premiumPrice == null || premiumPrice < 0)) {
+      setLocalError('Enter a valid Premium Membership price.');
+      return;
+    }
+    if (proInput.trim() && (proPrice == null || proPrice < 0)) {
+      setLocalError('Enter a valid Pro Membership price.');
+      return;
+    }
+
+    const updates: ProductPricesUpdate = { salesPrice };
+    if (premiumPrice != null) updates.premiumPrice = premiumPrice;
+    if (proPrice != null) updates.proPrice = proPrice;
+
+    try {
+      await onSavePrices(updates);
+    } catch (err) {
+      setLocalError(
+        err instanceof Error ? err.message : 'Failed to save prices.',
+      );
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: detailTheme.background }]}>
       <ScrollView
@@ -190,7 +352,8 @@ export function ProductDetailView({
           styles.scrollContent,
           isMobile ? styles.padMobile : styles.padDesktop,
         ]}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
         <View style={styles.page}>
           {error ? (
             <Text style={{ color: theme.colors.error, paddingHorizontal: 4 }}>{error}</Text>
@@ -269,47 +432,89 @@ export function ProductDetailView({
           </View>
 
           <SurfaceCard noPadding>
-            <View
-              style={[
-                styles.sectionBar,
-                { borderBottomColor: detailTheme.border },
-              ]}>
-              <View style={styles.sectionBarLeft}>
-                <Icon source="information-outline" size={18} color={theme.colors.primary} />
-                <Text style={[styles.sectionTitle, { color: detailTheme.onSurface }]}>
-                  Product details
-                </Text>
+            <DetailTabs tab={tab} onChange={setTab} />
+
+            {tab === 'details' ? (
+              <View style={styles.sectionBody}>
+                <InfoRow label="Name" value={detail.name} />
+                <InfoRow label="SKU / Internal reference" value={detail.sku} />
+                <InfoRow label="Barcode" value={detail.barcode} />
+                <InfoRow label="Category" value={detail.category} />
+                <InfoRow label="Unit of measure" value={detail.unit} />
+                <InfoRow label="Product type" value={productTypeLabel(detail.type)} />
+                <InfoRow label="Sales price" value={formatMoney(detail.price)} />
+                {detail.cost > 0 ? (
+                  <InfoRow label="Cost" value={formatMoney(detail.cost)} />
+                ) : null}
+                <InfoRow label="Quantity on hand" value={String(detail.stock)} />
+                <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+                  <Text style={[styles.infoLabel, { color: detailTheme.label }]}>
+                    Sales description
+                  </Text>
+                  <Text
+                    style={[
+                      styles.infoValue,
+                      {
+                        color: detail.description?.trim()
+                          ? detailTheme.onSurface
+                          : detailTheme.label,
+                      },
+                    ]}>
+                    {detail.description?.trim() || '—'}
+                  </Text>
+                </View>
               </View>
-            </View>
-            <View style={styles.sectionBody}>
-              <InfoRow label="Name" value={detail.name} />
-              <InfoRow label="SKU / Internal reference" value={detail.sku} />
-              <InfoRow label="Barcode" value={detail.barcode} />
-              <InfoRow label="Category" value={detail.category} />
-              <InfoRow label="Unit of measure" value={detail.unit} />
-              <InfoRow label="Product type" value={productTypeLabel(detail.type)} />
-              <InfoRow label="Sales price" value={formatMoney(detail.price)} />
-              {detail.cost > 0 ? (
-                <InfoRow label="Cost" value={formatMoney(detail.cost)} />
-              ) : null}
-              <InfoRow label="Quantity on hand" value={String(detail.stock)} />
-              <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-                <Text style={[styles.infoLabel, { color: detailTheme.label }]}>
-                  Sales description
-                </Text>
-                <Text
-                  style={[
-                    styles.infoValue,
-                    {
-                      color: detail.description?.trim()
-                        ? detailTheme.onSurface
-                        : detailTheme.label,
-                    },
-                  ]}>
-                  {detail.description?.trim() || '—'}
-                </Text>
+            ) : (
+              <View style={styles.sectionBody}>
+                <PriceField
+                  label="Sales price (default)"
+                  hint="Odoo Sales Price (list_price)"
+                  value={salesInput}
+                  onChangeText={setSalesInput}
+                />
+                <PriceField
+                  label="Premium Membership"
+                  hint={
+                    detail.premiumPrice?.pricelistName
+                      ? `Pricelist: ${detail.premiumPrice.pricelistName}`
+                      : 'Pricelist: Premium Membership'
+                  }
+                  value={premiumInput}
+                  onChangeText={setPremiumInput}
+                />
+                <PriceField
+                  label="Pro Membership"
+                  hint={
+                    detail.proPrice?.pricelistName
+                      ? `Pricelist: ${detail.proPrice.pricelistName}`
+                      : 'Pricelist: Pro Membership'
+                  }
+                  value={proInput}
+                  onChangeText={setProInput}
+                />
+
+                {localError || pricesError ? (
+                  <Text style={[styles.priceError, { color: theme.colors.error }]}>
+                    {localError || pricesError}
+                  </Text>
+                ) : null}
+
+                {onSavePrices ? (
+                  <View style={styles.priceActions}>
+                    <Button
+                      mode="contained"
+                      icon="content-save-outline"
+                      loading={Boolean(pricesSaving)}
+                      disabled={Boolean(pricesSaving)}
+                      onPress={() => {
+                        void handleSavePrices();
+                      }}>
+                      Save prices
+                    </Button>
+                  </View>
+                ) : null}
               </View>
-            </View>
+            )}
           </SurfaceCard>
         </View>
       </ScrollView>
@@ -439,22 +644,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  sectionBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  tabBarRow: {
+    paddingHorizontal: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  sectionBarLeft: {
+  tabBar: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    alignItems: 'flex-end',
+    gap: 4,
   },
-  sectionTitle: {
-    fontWeight: '800',
-    fontSize: 15,
+  tab: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabText: {
+    fontSize: 12,
+    letterSpacing: 0.4,
   },
   sectionBody: {
     paddingHorizontal: 16,
@@ -474,5 +681,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 20,
+  },
+  priceField: {
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 6,
+  },
+  priceHint: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  priceError: {
+    marginTop: 10,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  priceActions: {
+    paddingVertical: 16,
+    alignItems: 'flex-start',
   },
 });

@@ -32,15 +32,17 @@ import {
   fetchProductDetail,
   fetchProductsPage,
   setProductFavorite,
+  updateProductPrices,
 } from '@/services/products';
 import {
   ensureWebProductCatalog,
   filterWebProducts,
   patchWebProductFavorite,
+  patchWebProductPrice,
   subscribeWebProductCatalog,
   WebProductCatalog,
 } from '@/services/web/product-catalog-cache';
-import { Product, ProductDetail } from '@/types/product';
+import { Product, ProductDetail, ProductPricesUpdate } from '@/types/product';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
 
 const PAGE_SIZE = 50;
@@ -342,6 +344,8 @@ export default function ProductsScreen() {
   const [detail, setDetail] = useState<ProductDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
+  const [pricesSaving, setPricesSaving] = useState(false);
+  const [pricesError, setPricesError] = useState('');
   const [qrAppFilter, setQrAppFilter] = useState(false);
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [favoriteBusyId, setFavoriteBusyId] = useState<string | null>(null);
@@ -407,7 +411,52 @@ export default function ProductsScreen() {
     setDetailId(null);
     setDetail(null);
     setDetailError('');
+    setPricesError('');
   }, []);
+
+  const savePrices = useCallback(
+    async (updates: ProductPricesUpdate) => {
+      if (!session?.token || !detailId) return;
+      setPricesSaving(true);
+      setPricesError('');
+      try {
+        const saved = await updateProductPrices(session.token, detailId, updates);
+        setDetail(prev =>
+          prev
+            ? {
+                ...prev,
+                price: saved.price,
+                premiumPrice: saved.premiumPrice ?? prev.premiumPrice,
+                proPrice: saved.proPrice ?? prev.proPrice,
+              }
+            : prev,
+        );
+        if (updates.salesPrice !== undefined) {
+          setProducts(prev =>
+            prev.map(p =>
+              p.id === detailId ? { ...p, price: updates.salesPrice! } : p,
+            ),
+          );
+          setCatalogProducts(prev =>
+            prev.map(p =>
+              p.id === detailId ? { ...p, price: updates.salesPrice! } : p,
+            ),
+          );
+          if (!qrAppFilter) {
+            patchWebProductPrice(detailId, updates.salesPrice);
+          }
+        }
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Failed to save prices.';
+        setPricesError(message);
+        throw err instanceof Error ? err : new Error(message);
+      } finally {
+        setPricesSaving(false);
+      }
+    },
+    [session?.token, detailId, qrAppFilter],
+  );
 
   const toggleFavorite = useCallback(
     async (id: string, next: boolean) => {
@@ -639,6 +688,9 @@ export default function ProductsScreen() {
             if (detailId) void toggleFavorite(detailId, next);
           }}
           favoriteBusy={favoriteBusyId === detailId}
+          onSavePrices={savePrices}
+          pricesSaving={pricesSaving}
+          pricesError={pricesError}
         />
       </View>
     );

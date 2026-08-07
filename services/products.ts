@@ -1,5 +1,9 @@
 import { webApiRequest } from '@/services/web/client';
-import { Product, ProductDetail } from '@/types/product';
+import {
+  Product,
+  ProductDetail,
+  ProductPricesUpdate,
+} from '@/types/product';
 
 type ProductsResponse = {
   data: Product[];
@@ -62,6 +66,21 @@ export async function fetchProductDetail(
 ): Promise<ProductDetail> {
   const response = await webApiRequest<ProductDetailResponse>(`/products/${id}`, {
     token,
+  });
+  return response.data;
+}
+
+export async function updateProductPrices(
+  token: string,
+  id: string,
+  updates: ProductPricesUpdate,
+): Promise<Pick<ProductDetail, 'id' | 'price' | 'premiumPrice' | 'proPrice'>> {
+  const response = await webApiRequest<{
+    data: Pick<ProductDetail, 'id' | 'price' | 'premiumPrice' | 'proPrice'>;
+  }>(`/products/${id}/prices`, {
+    method: 'PUT',
+    token,
+    body: updates,
   });
   return response.data;
 }

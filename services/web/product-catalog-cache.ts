@@ -4,7 +4,7 @@ import { fetchProductsPage } from '@/services/products';
 import { Product } from '@/types/product';
 import { mergeById } from '@/utils/quotation-builder-cache';
 
-const STORAGE_KEY = '@qr_shop_web_product_catalog_v3';
+const STORAGE_KEY = '@qr_shop_web_product_catalog_v4';
 const PAGE_SIZE = 200;
 const FRESH_MS = 30 * 60 * 1000;
 
@@ -96,6 +96,21 @@ export function patchWebProductFavorite(id: string, favorite: boolean) {
   if (!memory) return;
   const products = memory.products.map(p =>
     p.id === id ? { ...p, favorite } : p,
+  );
+  const next: WebProductCatalog = {
+    ...memory,
+    products,
+    updatedAt: Date.now(),
+  };
+  emit(next);
+  void persist(next);
+}
+
+/** Optimistically patch a product's sales price in the in-memory catalog. */
+export function patchWebProductPrice(id: string, price: number) {
+  if (!memory) return;
+  const products = memory.products.map(p =>
+    p.id === id ? { ...p, price } : p,
   );
   const next: WebProductCatalog = {
     ...memory,

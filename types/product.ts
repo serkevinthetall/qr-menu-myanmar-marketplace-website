@@ -12,9 +12,24 @@ export type Product = {
   favorite?: boolean;
 };
 
+export type ProductMembershipPrice = {
+  pricelistId: string | null;
+  pricelistName: string;
+  itemId: string | null;
+  price: number | null;
+};
+
 export type ProductDetail = Product & {
   cost: number;
   barcode: string;
   description: string;
   type: string;
+  premiumPrice?: ProductMembershipPrice;
+  proPrice?: ProductMembershipPrice;
+};
+
+export type ProductPricesUpdate = {
+  salesPrice?: number;
+  premiumPrice?: number;
+  proPrice?: number;
 };
