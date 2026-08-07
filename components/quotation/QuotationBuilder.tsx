@@ -243,7 +243,7 @@ function OrderLineRow({
 
   const productCell = (
     <View style={styles.orderProductCell}>
-      <ProductThumb uri={line.product.image} size={variant === 'card' ? 48 : 32} />
+      <ProductThumb productId={line.product.id} size={variant === 'card' ? 48 : 32} />
       <View style={styles.flex1}>
         <Text numberOfLines={2} style={styles.orderProductName}>
           {line.product.name}
@@ -1581,7 +1581,7 @@ export function QuotationBuilder({
           hovered && { backgroundColor: theme.colors.primaryContainer },
           pressed && { opacity: 0.85 },
         ]}>
-        <ProductThumb uri={product.image} size={48} />
+        <ProductThumb productId={product.id} size={48} />
         <View style={styles.flex1}>
           <Text numberOfLines={1} style={{ fontWeight: '600' }}>
             {product.name}
@@ -1634,7 +1634,7 @@ export function QuotationBuilder({
           },
           pressed && { opacity: 0.9 },
         ]}>
-        <ProductThumb uri={product.image} size={72} style={styles.pickCardImage} />
+        <ProductThumb productId={product.id} size={72} style={styles.pickCardImage} />
         <View style={styles.pickCardTop}>
           <Text numberOfLines={2} style={styles.pickCardName}>
             {product.name}

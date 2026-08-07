@@ -455,7 +455,7 @@ export function ProductDetailView({
             <View style={[styles.hero, { backgroundColor: theme.colors.primary }]}>
               <View style={styles.heroTop}>
                 <View style={styles.heroImageWrap}>
-                  <ProductThumb uri={detail.image} size={88} />
+                  <ProductThumb productId={detail.id} size={88} />
                 </View>
                 <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
                   <View style={styles.heroTitleRow}>

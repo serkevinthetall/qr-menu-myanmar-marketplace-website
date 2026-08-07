@@ -4,7 +4,7 @@ import { fetchProductsPage } from '@/services/products';
 import { Product } from '@/types/product';
 import { mergeById } from '@/utils/quotation-builder-cache';
 
-const STORAGE_KEY = '@qr_shop_web_product_catalog_v4';
+const STORAGE_KEY = '@qr_shop_web_product_catalog_v5';
 const PAGE_SIZE = 200;
 const FRESH_MS = 30 * 60 * 1000;
 

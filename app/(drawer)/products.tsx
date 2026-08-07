@@ -165,7 +165,7 @@ function ProductRow({
           return (
             <View key={col.key} style={[styles.cell, { flex: col.flex }]}>
               <View style={styles.nameCell}>
-                <ProductThumb uri={item.image} size={36} />
+                <ProductThumb productId={item.id} size={36} />
                 <Text numberOfLines={1} style={styles.nameText}>
                   {item.name}
                 </Text>
@@ -272,7 +272,7 @@ function ProductCard({
         ]}>
         <Card.Content style={styles.cardContent}>
           <View style={styles.cardImageRow}>
-            <ProductThumb uri={item.image} size={120} style={styles.cardImage} />
+            <ProductThumb productId={item.id} size={120} style={styles.cardImage} />
             <View style={styles.cardStar}>
               <FavoriteStar
                 favorite={Boolean(item.favorite)}
