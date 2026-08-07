@@ -1,9 +1,11 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import {
   ActivityIndicator,
   Button,
+  Dialog,
   Icon,
+  Portal,
   Text,
   TextInput,
   useTheme,
@@ -16,6 +18,15 @@ import { useResponsive } from '@/hooks/use-responsive';
 import { ProductDetail, ProductPricesUpdate } from '@/types/product';
 
 type DetailTab = 'details' | 'prices';
+
+type PriceRowKey = 'sales' | 'premium' | 'pro';
+
+type PendingPriceChange = {
+  key: PriceRowKey;
+  label: string;
+  from: number | null;
+  to: number;
+};
 
 function formatMoney(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) {
@@ -186,37 +197,49 @@ function parseMoneyInput(raw: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
-function PriceField({
+function PriceTableRow({
   label,
-  hint,
   value,
   onChangeText,
+  last,
 }: {
   label: string;
-  hint?: string;
   value: string;
   onChangeText: (next: string) => void;
+  last?: boolean;
 }) {
   const theme = useTheme();
   const detail = useDetailTheme();
 
   return (
-    <View style={[styles.priceField, { borderBottomColor: detail.border }]}>
-      <Text style={[styles.infoLabel, { color: detail.label }]}>{label}</Text>
-      {hint ? (
-        <Text style={[styles.priceHint, { color: detail.label }]}>{hint}</Text>
-      ) : null}
-      <TextInput
-        mode="outlined"
-        dense
-        keyboardType="numeric"
-        value={value}
-        onChangeText={onChangeText}
-        right={<TextInput.Affix text="MMK" />}
-        style={{ backgroundColor: detail.surface }}
-        outlineColor={detail.border}
-        activeOutlineColor={theme.colors.primary}
-      />
+    <View
+      style={[
+        styles.priceTableRow,
+        {
+          borderBottomColor: detail.border,
+          borderBottomWidth: last ? 0 : StyleSheet.hairlineWidth,
+        },
+      ]}>
+      <View style={styles.priceNameCell}>
+        <Text
+          style={[styles.priceNameText, { color: detail.onSurface }]}
+          numberOfLines={2}>
+          {label}
+        </Text>
+      </View>
+      <View style={styles.priceValueCell}>
+        <TextInput
+          mode="outlined"
+          dense
+          keyboardType="numeric"
+          value={value}
+          onChangeText={onChangeText}
+          right={<TextInput.Affix text="MMK" />}
+          style={styles.priceInput}
+          outlineColor={detail.border}
+          activeOutlineColor={theme.colors.primary}
+        />
+      </View>
     </View>
   );
 }
@@ -251,6 +274,11 @@ export function ProductDetailView({
   const [premiumInput, setPremiumInput] = useState('');
   const [proInput, setProInput] = useState('');
   const [localError, setLocalError] = useState('');
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [pendingUpdates, setPendingUpdates] = useState<ProductPricesUpdate | null>(
+    null,
+  );
+  const [pendingChanges, setPendingChanges] = useState<PendingPriceChange[]>([]);
 
   useEffect(() => {
     if (!detail) return;
@@ -268,7 +296,19 @@ export function ProductDetailView({
         : '',
     );
     setLocalError('');
+    setConfirmVisible(false);
+    setPendingUpdates(null);
+    setPendingChanges([]);
   }, [detail]);
+
+  const premiumLabel = useMemo(
+    () => detail?.premiumPrice?.pricelistName?.trim() || 'Premium Membership',
+    [detail?.premiumPrice?.pricelistName],
+  );
+  const proLabel = useMemo(
+    () => detail?.proPrice?.pricelistName?.trim() || 'Pro Membership',
+    [detail?.proPrice?.pricelistName],
+  );
 
   if (loading) {
     return (
@@ -310,8 +350,8 @@ export function ProductDetailView({
     );
   }
 
-  const handleSavePrices = async () => {
-    if (!onSavePrices) return;
+  const handleRequestSave = () => {
+    if (!onSavePrices || !detail) return;
     setLocalError('');
 
     const salesPrice = parseMoneyInput(salesInput);
@@ -331,16 +371,68 @@ export function ProductDetailView({
       return;
     }
 
-    const updates: ProductPricesUpdate = { salesPrice };
-    if (premiumPrice != null) updates.premiumPrice = premiumPrice;
-    if (proPrice != null) updates.proPrice = proPrice;
+    const updates: ProductPricesUpdate = {};
+    const changes: PendingPriceChange[] = [];
 
+    const currentSales = Number.isFinite(detail.price) ? detail.price : null;
+    if (currentSales == null || salesPrice !== currentSales) {
+      updates.salesPrice = salesPrice;
+      changes.push({
+        key: 'sales',
+        label: 'Sales price',
+        from: currentSales,
+        to: salesPrice,
+      });
+    }
+
+    if (premiumPrice != null) {
+      const currentPremium = detail.premiumPrice?.price ?? null;
+      if (currentPremium == null || premiumPrice !== currentPremium) {
+        updates.premiumPrice = premiumPrice;
+        changes.push({
+          key: 'premium',
+          label: premiumLabel,
+          from: currentPremium,
+          to: premiumPrice,
+        });
+      }
+    }
+
+    if (proPrice != null) {
+      const currentPro = detail.proPrice?.price ?? null;
+      if (currentPro == null || proPrice !== currentPro) {
+        updates.proPrice = proPrice;
+        changes.push({
+          key: 'pro',
+          label: proLabel,
+          from: currentPro,
+          to: proPrice,
+        });
+      }
+    }
+
+    if (changes.length === 0) {
+      setLocalError('No price changes to save.');
+      return;
+    }
+
+    setPendingUpdates(updates);
+    setPendingChanges(changes);
+    setConfirmVisible(true);
+  };
+
+  const handleConfirmSave = async () => {
+    if (!onSavePrices || !pendingUpdates) return;
     try {
-      await onSavePrices(updates);
+      await onSavePrices(pendingUpdates);
+      setConfirmVisible(false);
+      setPendingUpdates(null);
+      setPendingChanges([]);
     } catch (err) {
       setLocalError(
         err instanceof Error ? err.message : 'Failed to save prices.',
       );
+      setConfirmVisible(false);
     }
   };
 
@@ -466,32 +558,45 @@ export function ProductDetailView({
               </View>
             ) : (
               <View style={styles.sectionBody}>
-                <PriceField
-                  label="Sales price (default)"
-                  hint="Odoo Sales Price (list_price)"
-                  value={salesInput}
-                  onChangeText={setSalesInput}
-                />
-                <PriceField
-                  label="Premium Membership"
-                  hint={
-                    detail.premiumPrice?.pricelistName
-                      ? `Pricelist: ${detail.premiumPrice.pricelistName}`
-                      : 'Pricelist: Premium Membership'
-                  }
-                  value={premiumInput}
-                  onChangeText={setPremiumInput}
-                />
-                <PriceField
-                  label="Pro Membership"
-                  hint={
-                    detail.proPrice?.pricelistName
-                      ? `Pricelist: ${detail.proPrice.pricelistName}`
-                      : 'Pricelist: Pro Membership'
-                  }
-                  value={proInput}
-                  onChangeText={setProInput}
-                />
+                <View
+                  style={[
+                    styles.priceTable,
+                    { borderColor: detailTheme.border },
+                  ]}>
+                  <View
+                    style={[
+                      styles.priceTableHeader,
+                      {
+                        backgroundColor: theme.colors.primary,
+                        borderBottomColor: detailTheme.border,
+                      },
+                    ]}>
+                    <Text style={styles.priceTableHeaderText}>Name</Text>
+                    <Text
+                      style={[
+                        styles.priceTableHeaderText,
+                        styles.priceTableHeaderPrice,
+                      ]}>
+                      Price
+                    </Text>
+                  </View>
+                  <PriceTableRow
+                    label="Sales price"
+                    value={salesInput}
+                    onChangeText={setSalesInput}
+                  />
+                  <PriceTableRow
+                    label={premiumLabel}
+                    value={premiumInput}
+                    onChangeText={setPremiumInput}
+                  />
+                  <PriceTableRow
+                    label={proLabel}
+                    value={proInput}
+                    onChangeText={setProInput}
+                    last
+                  />
+                </View>
 
                 {localError || pricesError ? (
                   <Text style={[styles.priceError, { color: theme.colors.error }]}>
@@ -506,9 +611,7 @@ export function ProductDetailView({
                       icon="content-save-outline"
                       loading={Boolean(pricesSaving)}
                       disabled={Boolean(pricesSaving)}
-                      onPress={() => {
-                        void handleSavePrices();
-                      }}>
+                      onPress={handleRequestSave}>
                       Save prices
                     </Button>
                   </View>
@@ -518,6 +621,48 @@ export function ProductDetailView({
           </SurfaceCard>
         </View>
       </ScrollView>
+
+      <Portal>
+        <Dialog
+          visible={confirmVisible}
+          onDismiss={() => {
+            if (pricesSaving) return;
+            setConfirmVisible(false);
+          }}>
+          <Dialog.Title>Confirm price change?</Dialog.Title>
+          <Dialog.Content>
+            <Text style={{ marginBottom: 12, color: detailTheme.onSurface }}>
+              Please confirm these updates before saving to Odoo:
+            </Text>
+            {pendingChanges.map(change => (
+              <View key={change.key} style={styles.confirmRow}>
+                <Text style={[styles.confirmLabel, { color: detailTheme.label }]}>
+                  {change.label}
+                </Text>
+                <Text style={{ color: detailTheme.onSurface, fontWeight: '700' }}>
+                  {formatMoney(change.from)} → {formatMoney(change.to)}
+                </Text>
+              </View>
+            ))}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button
+              disabled={Boolean(pricesSaving)}
+              onPress={() => setConfirmVisible(false)}>
+              Cancel
+            </Button>
+            <Button
+              mode="contained"
+              loading={Boolean(pricesSaving)}
+              disabled={Boolean(pricesSaving)}
+              onPress={() => {
+                void handleConfirmSave();
+              }}>
+              Confirm
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
@@ -682,14 +827,54 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 20,
   },
-  priceField: {
+  priceTable: {
+    marginTop: 12,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  priceTableHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 6,
   },
-  priceHint: {
+  priceTableHeaderText: {
+    flex: 1.4,
+    color: '#fff',
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  priceTableHeaderPrice: {
+    flex: 1,
+    textAlign: 'right',
+  },
+  priceTableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  priceNameCell: {
+    flex: 1.4,
+    minWidth: 0,
+    paddingRight: 4,
+  },
+  priceNameText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  priceValueCell: {
+    flex: 1,
+    minWidth: 120,
+  },
+  priceInput: {
+    backgroundColor: 'transparent',
   },
   priceError: {
     marginTop: 10,
@@ -699,5 +884,13 @@ const styles = StyleSheet.create({
   priceActions: {
     paddingVertical: 16,
     alignItems: 'flex-start',
+  },
+  confirmRow: {
+    marginBottom: 10,
+    gap: 2,
+  },
+  confirmLabel: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
