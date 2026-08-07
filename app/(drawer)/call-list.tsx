@@ -36,6 +36,7 @@ import {
   APP_INSTALL_REASON_OPTIONS,
   APP_INSTALL_STATUS_OPTIONS,
   ENABLE_APP_INSTALL_CALL_LIST,
+  exportCallListExcel,
   fetchCallList,
   removeFromCallList,
   updateAppInstallStatus,
@@ -327,6 +328,18 @@ export default function CallListScreen() {
     setViewMode(prev => (prev === 'list' ? 'grid' : 'list'));
   }, []);
 
+  const exportExcel = useCallback(() => {
+    if (items.length === 0) {
+      setError('Nothing to export. Adjust filters or add Call List contacts.');
+      return;
+    }
+    setError('');
+    const ok = exportCallListExcel(items);
+    if (!ok) {
+      setError('Excel export is only available on web.');
+    }
+  }, [items]);
+
   const headerActions = useMemo<HeaderAction[]>(
     () =>
       ENABLE_APP_INSTALL_CALL_LIST
@@ -338,9 +351,15 @@ export default function CallListScreen() {
               onPress: toggleView,
               accessibilityLabel: 'Toggle list or grid view',
             },
+            {
+              key: 'excel',
+              icon: 'microsoft-excel',
+              onPress: exportExcel,
+              accessibilityLabel: 'Export call list to Excel',
+            },
           ]
         : [],
-    [viewMode, toggleView],
+    [viewMode, toggleView, exportExcel],
   );
   useHeaderActions(headerActions);
 

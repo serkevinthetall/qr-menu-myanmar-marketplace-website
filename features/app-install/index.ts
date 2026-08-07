@@ -33,3 +33,4 @@ export {
   CallListBadgeProvider,
   useCallListBadge,
 } from './CallListBadgeProvider';
+export { exportCallListExcel } from './export-call-list-excel';
