@@ -71,6 +71,7 @@ import {
   shouldResumeQuotationDraft,
 } from '@/utils/quotation-draft-storage';
 import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
+import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
 import { PrintFormat } from '@/utils/print-quotation';
 
 const PAGE_SIZE = 50;
@@ -80,6 +81,12 @@ const BUILDER_PAGE_SIZE = 100;
 const BUILDER_MAX_CUSTOMER_PAGES = 50;
 
 type ViewMode = 'list' | 'card';
+
+type QuotationsListUi = {
+  viewMode: ViewMode;
+  quotationFilters: QuotationFilters;
+  selectedIds: string[];
+};
 
 type Column = {
   key: string;
@@ -379,6 +386,30 @@ export default function QuotationScreen() {
   const [quotationFilters, setQuotationFilters] = useState<QuotationFilters>(
     EMPTY_QUOTATION_FILTERS,
   );
+
+  const listUiSnapshot = useMemo<QuotationsListUi>(
+    () => ({
+      viewMode,
+      quotationFilters,
+      selectedIds: [...selectedIds],
+    }),
+    [viewMode, quotationFilters, selectedIds],
+  );
+
+  useListUiCache<QuotationsListUi>('quotations', listUiSnapshot, saved => {
+    if (saved.viewMode === 'list' || saved.viewMode === 'card') {
+      setViewMode(saved.viewMode);
+    }
+    if (saved.quotationFilters && typeof saved.quotationFilters === 'object') {
+      setQuotationFilters({
+        ...EMPTY_QUOTATION_FILTERS,
+        ...saved.quotationFilters,
+      });
+    }
+    if (saved.selectedIds) {
+      setSelectedIds(asIdSet(saved.selectedIds));
+    }
+  });
 
   const query = useModuleSearch(
     'Search by number or customer',
@@ -1181,8 +1212,6 @@ export default function QuotationScreen() {
             </Text>
           }
         />
-      )}
-
       )}
 
       <Pagination

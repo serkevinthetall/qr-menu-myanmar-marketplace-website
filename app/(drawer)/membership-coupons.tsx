@@ -32,11 +32,16 @@ import {
   fetchMembershipCoupons,
 } from '@/services/membership-coupons';
 import { MembershipCouponTicket } from '@/types/membership';
+import { useListUiCache } from '@/utils/list-ui-cache';
 import { formatMyanmarDate } from '@/utils/myanmar-datetime';
 
 const PAGE_SIZE = 50;
 
 type ViewMode = 'list' | 'card';
+
+type MembershipCouponsListUi = {
+  viewMode: ViewMode;
+};
 
 type Column = {
   key: string;
@@ -308,6 +313,21 @@ export default function MembershipCouponsScreen() {
   const [detail, setDetail] = useState<MembershipCouponTicket | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
+
+  const listUiSnapshot = useMemo<MembershipCouponsListUi>(
+    () => ({ viewMode }),
+    [viewMode],
+  );
+
+  useListUiCache<MembershipCouponsListUi>(
+    'membership-coupons',
+    listUiSnapshot,
+    saved => {
+      if (saved.viewMode === 'list' || saved.viewMode === 'card') {
+        setViewMode(saved.viewMode);
+      }
+    },
+  );
 
   const query = useModuleSearch('Search coupon tickets', !selectedId);
   const { setDetailHeader } = useSearch();

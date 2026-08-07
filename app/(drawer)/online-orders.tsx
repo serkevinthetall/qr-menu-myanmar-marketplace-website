@@ -49,6 +49,7 @@ import {
   fetchOnlineOrders,
 } from '@/services/online-orders';
 import { SaleOrder, SaleOrderDetail } from '@/types/sale-order';
+import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
 import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
 import { ONLINE_ORDERS_REFRESH_EVENT } from '@/utils/online-order-alerts-preference';
 import { PrintFormat } from '@/utils/print-quotation';
@@ -57,6 +58,13 @@ const PAGE_SIZE = 50;
 
 type ViewMode = 'list' | 'card';
 type ReadFilter = 'all' | 'unread' | 'read';
+
+type OnlineOrdersListUi = {
+  viewMode: ViewMode;
+  readFilter: ReadFilter;
+  orderFilters: SaleOrderFilters;
+  selectedIds: string[];
+};
 
 type Column = {
   key: string;
@@ -436,6 +444,38 @@ export default function OnlineOrdersScreen() {
   const [orderFilters, setOrderFilters] = useState<SaleOrderFilters>({
     ...EMPTY_SALE_ORDER_FILTERS,
     period: 'today',
+  });
+
+  const listUiSnapshot = useMemo<OnlineOrdersListUi>(
+    () => ({
+      viewMode,
+      readFilter,
+      orderFilters,
+      selectedIds: [...selectedIds],
+    }),
+    [viewMode, readFilter, orderFilters, selectedIds],
+  );
+
+  useListUiCache<OnlineOrdersListUi>('online-orders', listUiSnapshot, saved => {
+    if (saved.viewMode === 'list' || saved.viewMode === 'card') {
+      setViewMode(saved.viewMode);
+    }
+    if (
+      saved.readFilter === 'all' ||
+      saved.readFilter === 'unread' ||
+      saved.readFilter === 'read'
+    ) {
+      setReadFilter(saved.readFilter);
+    }
+    if (saved.orderFilters && typeof saved.orderFilters === 'object') {
+      setOrderFilters({
+        ...EMPTY_SALE_ORDER_FILTERS,
+        ...saved.orderFilters,
+      });
+    }
+    if (saved.selectedIds) {
+      setSelectedIds(asIdSet(saved.selectedIds));
+    }
   });
 
   const query = useModuleSearch('Search by number or customer', !selectedId);

@@ -45,12 +45,19 @@ import {
   fetchSaleOrders,
 } from '@/services/sale-orders';
 import { SaleOrder, SaleOrderDetail } from '@/types/sale-order';
+import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
 import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
 import { PrintFormat } from '@/utils/print-quotation';
 
 const PAGE_SIZE = 50;
 
 type ViewMode = 'list' | 'card';
+
+type SaleOrdersListUi = {
+  viewMode: ViewMode;
+  orderFilters: SaleOrderFilters;
+  selectedIds: string[];
+};
 
 type Column = {
   key: string;
@@ -367,6 +374,30 @@ export default function SaleOrdersScreen() {
   const [orderFilters, setOrderFilters] = useState<SaleOrderFilters>(
     EMPTY_SALE_ORDER_FILTERS,
   );
+
+  const listUiSnapshot = useMemo<SaleOrdersListUi>(
+    () => ({
+      viewMode,
+      orderFilters,
+      selectedIds: [...selectedIds],
+    }),
+    [viewMode, orderFilters, selectedIds],
+  );
+
+  useListUiCache<SaleOrdersListUi>('sale-orders', listUiSnapshot, saved => {
+    if (saved.viewMode === 'list' || saved.viewMode === 'card') {
+      setViewMode(saved.viewMode);
+    }
+    if (saved.orderFilters && typeof saved.orderFilters === 'object') {
+      setOrderFilters({
+        ...EMPTY_SALE_ORDER_FILTERS,
+        ...saved.orderFilters,
+      });
+    }
+    if (saved.selectedIds) {
+      setSelectedIds(asIdSet(saved.selectedIds));
+    }
+  });
 
   const query = useModuleSearch('Search by number or customer', !selectedId);
   const { setDetailHeader } = useSearch();
@@ -689,8 +720,6 @@ export default function SaleOrdersScreen() {
             </Text>
           }
         />
-      )}
-
       )}
 
       <Pagination

@@ -41,11 +41,18 @@ import {
   WebProductCatalog,
 } from '@/services/web/product-catalog-cache';
 import { Product, ProductDetail } from '@/types/product';
+import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
 
 const PAGE_SIZE = 50;
 const QR_APP_PAGE_SIZE = 500;
 
 type ViewMode = 'list' | 'card';
+
+type ProductsListUi = {
+  viewMode: ViewMode;
+  qrAppFilter: boolean;
+  selectedIds: string[];
+};
 
 type Column = {
   key: string;
@@ -338,6 +345,27 @@ export default function ProductsScreen() {
   const [qrAppFilter, setQrAppFilter] = useState(false);
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [favoriteBusyId, setFavoriteBusyId] = useState<string | null>(null);
+
+  const listUiSnapshot = useMemo<ProductsListUi>(
+    () => ({
+      viewMode,
+      qrAppFilter,
+      selectedIds: [...selectedIds],
+    }),
+    [viewMode, qrAppFilter, selectedIds],
+  );
+
+  useListUiCache<ProductsListUi>('products', listUiSnapshot, saved => {
+    if (saved.viewMode === 'list' || saved.viewMode === 'card') {
+      setViewMode(saved.viewMode);
+    }
+    if (typeof saved.qrAppFilter === 'boolean') {
+      setQrAppFilter(saved.qrAppFilter);
+    }
+    if (saved.selectedIds) {
+      setSelectedIds(asIdSet(saved.selectedIds));
+    }
+  });
 
   const query = useModuleSearch('Search products by name or SKU', !detailId);
   const { setDetailHeader } = useSearch();

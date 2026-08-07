@@ -42,10 +42,17 @@ import {
 import { useResponsive } from '@/hooks/use-responsive';
 import { fetchCustomerDetail, fetchCustomers, fetchTownships } from '@/services/customers';
 import { Customer, CustomerDetail, Township } from '@/types/customer';
+import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
 
 const PAGE_SIZE = 50;
 
 type ViewMode = 'list' | 'card';
+
+type CustomersListUi = {
+  viewMode: ViewMode;
+  contactFilters: ContactFilters;
+  selectedIds: string[];
+};
 
 type Column = {
   key: string;
@@ -417,6 +424,30 @@ export default function CustomersScreen() {
   const [detail, setDetail] = useState<CustomerDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
+
+  const listUiSnapshot = useMemo<CustomersListUi>(
+    () => ({
+      viewMode,
+      contactFilters,
+      selectedIds: [...selectedIds],
+    }),
+    [viewMode, contactFilters, selectedIds],
+  );
+
+  useListUiCache<CustomersListUi>('customers', listUiSnapshot, saved => {
+    if (saved.viewMode === 'list' || saved.viewMode === 'card') {
+      setViewMode(saved.viewMode);
+    }
+    if (saved.contactFilters && typeof saved.contactFilters === 'object') {
+      setContactFilters({
+        ...EMPTY_CONTACT_FILTERS,
+        ...saved.contactFilters,
+      });
+    }
+    if (saved.selectedIds) {
+      setSelectedIds(asIdSet(saved.selectedIds));
+    }
+  });
 
   const query = useModuleSearch('Search contacts by name', !detailId);
   const { setDetailHeader } = useSearch();

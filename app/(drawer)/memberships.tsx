@@ -28,12 +28,17 @@ import {
 import { useResponsive } from '@/hooks/use-responsive';
 import { fetchMembershipDetail, fetchMemberships } from '@/services/memberships';
 import { Membership } from '@/types/membership';
+import { useListUiCache } from '@/utils/list-ui-cache';
 import { formatMyanmarDate } from '@/utils/myanmar-datetime';
 import { ThemeMode } from '@/constants/colors';
 
 const PAGE_SIZE = 50;
 
 type ViewMode = 'list' | 'card';
+
+type MembershipsListUi = {
+  viewMode: ViewMode;
+};
 
 type Column = {
   key: string;
@@ -288,6 +293,17 @@ export default function MembershipsScreen() {
   const [detail, setDetail] = useState<Membership | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
+
+  const listUiSnapshot = useMemo<MembershipsListUi>(
+    () => ({ viewMode }),
+    [viewMode],
+  );
+
+  useListUiCache<MembershipsListUi>('memberships', listUiSnapshot, saved => {
+    if (saved.viewMode === 'list' || saved.viewMode === 'card') {
+      setViewMode(saved.viewMode);
+    }
+  });
 
   const query = useModuleSearch('Search memberships', !selectedId);
   const { setDetailHeader } = useSearch();

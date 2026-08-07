@@ -33,11 +33,16 @@ import {
   fetchPurchaseOrders,
 } from '@/services/purchase-orders';
 import { PurchaseOrder, PurchaseOrderDetail } from '@/types/purchase-order';
+import { useListUiCache } from '@/utils/list-ui-cache';
 import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
 
 const PAGE_SIZE = 50;
 
 type ViewMode = 'list' | 'card';
+
+type PurchaseOrdersListUi = {
+  viewMode: ViewMode;
+};
 
 type Column = {
   key: string;
@@ -295,6 +300,17 @@ export default function PurchaseOrdersScreen() {
   const [detail, setDetail] = useState<PurchaseOrderDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
+
+  const listUiSnapshot = useMemo<PurchaseOrdersListUi>(
+    () => ({ viewMode }),
+    [viewMode],
+  );
+
+  useListUiCache<PurchaseOrdersListUi>('purchase-orders', listUiSnapshot, saved => {
+    if (saved.viewMode === 'list' || saved.viewMode === 'card') {
+      setViewMode(saved.viewMode);
+    }
+  });
 
   const query = useModuleSearch('Search by number or vendor', !selectedId);
   const { setDetailHeader } = useSearch();
