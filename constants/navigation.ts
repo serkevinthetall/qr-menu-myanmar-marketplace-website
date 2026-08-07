@@ -61,6 +61,14 @@ const CUSTOMERS: NavItem = {
   description: 'Contacts, partners, and customer records.',
 };
 
+const CALL_LIST: NavItem = {
+  name: 'call-list',
+  label: 'Call List',
+  icon: 'phone-in-talk-outline',
+  title: 'Call List',
+  description: 'App install requests and call outcomes.',
+};
+
 const PRODUCTS: NavItem = {
   name: 'products',
   label: 'Product',
@@ -112,6 +120,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     children: [QUOTATION, SALE_ORDERS, ONLINE_ORDERS],
   },
   { type: 'item', item: CUSTOMERS },
+  { type: 'item', item: CALL_LIST },
   { type: 'item', item: PRODUCTS },
   { type: 'item', item: PURCHASE_ORDERS },
   {
