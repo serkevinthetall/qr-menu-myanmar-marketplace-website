@@ -10,11 +10,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NAV_ENTRIES, NavItem } from '@/constants/navigation';
 import { useAppOrderUnread } from '@/contexts/app-order-unread-context';
+import { ENABLE_APP_INSTALL_CALL_LIST, useCallListBadge } from '@/features/app-install';
 
 export function DrawerContent(props: DrawerContentComponentProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { unreadCount } = useAppOrderUnread();
+  const { notInstalledCount } = useCallListBadge();
   const activeRoute = props.state.routes[props.state.index]?.name;
   // Only toggled by user press — never auto-open on route change.
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
@@ -34,7 +36,13 @@ export function DrawerContent(props: DrawerContentComponentProps) {
   };
 
   const renderLeaf = (item: NavItem, nested = false) => {
-    const showBadge = item.name === 'online-orders' && unreadCount > 0;
+    const badgeCount =
+      item.name === 'online-orders'
+        ? unreadCount
+        : item.name === 'call-list' && ENABLE_APP_INSTALL_CALL_LIST
+          ? notInstalledCount
+          : 0;
+    const showBadge = badgeCount > 0;
     const row = (
       <View style={styles.leafRow}>
         <View style={styles.leafItem}>
@@ -47,7 +55,7 @@ export function DrawerContent(props: DrawerContentComponentProps) {
         </View>
         {showBadge ? (
           <Badge style={styles.navBadge} size={18}>
-            {unreadCount > 99 ? '99+' : unreadCount}
+            {badgeCount > 99 ? '99+' : badgeCount}
           </Badge>
         ) : null}
       </View>

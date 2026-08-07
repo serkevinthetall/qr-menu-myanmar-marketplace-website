@@ -9,6 +9,7 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
@@ -41,20 +42,208 @@ import {
   AppInstallRecord,
   AppInstallStatus,
 } from '@/features/app-install';
+import { useListUiCache } from '@/utils/list-ui-cache';
 
 const PAGE_SIZE = 50;
-/** Stable empty actions — inline `[]` re-triggers useFocusEffect every render. */
-const EMPTY_HEADER_ACTIONS: HeaderAction[] = [];
+
+type ViewMode = 'list' | 'grid';
+
+type CallListUi = {
+  viewMode: ViewMode;
+  statusFilter: AppInstallStatus | 'all';
+};
 
 function statusColor(status: AppInstallStatus): { bg: string; fg: string } {
   switch (status) {
     case 'installed':
       return { bg: 'rgba(16, 185, 129, 0.18)', fg: '#047857' };
     case 'not_installed':
-      return { bg: 'rgba(245, 158, 11, 0.2)', fg: '#B45309' };
     default:
-      return { bg: 'rgba(59, 130, 246, 0.16)', fg: '#1D4ED8' };
+      return { bg: 'rgba(245, 158, 11, 0.2)', fg: '#B45309' };
   }
+}
+
+function StatusChip({ item }: { item: AppInstallRecord }) {
+  const colors = statusColor(item.status);
+  return (
+    <View style={styles.badgeRow}>
+      <View style={[styles.badge, { backgroundColor: colors.bg }]}>
+        <Text style={{ color: colors.fg, fontWeight: '700', fontSize: 12 }}>
+          {item.statusLabel}
+        </Text>
+      </View>
+      {item.reasonLabel ? (
+        <Text style={styles.reasonHint} numberOfLines={1}>
+          {item.reasonLabel}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+function UpdateMenu({
+  item,
+  open,
+  busy,
+  onOpen,
+  onClose,
+  onStatus,
+  onNotInstalled,
+}: {
+  item: AppInstallRecord;
+  open: boolean;
+  busy: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onStatus: (status: AppInstallStatus) => void;
+  onNotInstalled: () => void;
+}) {
+  return (
+    <Menu
+      visible={open}
+      onDismiss={onClose}
+      anchor={
+        <Button
+          compact
+          mode="outlined"
+          loading={busy}
+          disabled={busy}
+          onPress={onOpen}
+          style={styles.updateBtn}
+          labelStyle={styles.updateBtnLabel}
+          contentStyle={styles.updateBtnContent}>
+          Update
+        </Button>
+      }>
+      <Menu.Item
+        onPress={() => {
+          onClose();
+          onNotInstalled();
+        }}
+        title="Not installed…"
+      />
+      <Menu.Item onPress={() => onStatus('installed')} title="Installed" />
+    </Menu>
+  );
+}
+
+function CallListRow({
+  item,
+  index,
+  menuOpen,
+  busy,
+  onOpenMenu,
+  onCloseMenu,
+  onStatus,
+  onNotInstalled,
+}: {
+  item: AppInstallRecord;
+  index: number;
+  menuOpen: boolean;
+  busy: boolean;
+  onOpenMenu: () => void;
+  onCloseMenu: () => void;
+  onStatus: (status: AppInstallStatus) => void;
+  onNotInstalled: () => void;
+}) {
+  const theme = useTheme();
+  const zebra = index % 2 === 1;
+
+  return (
+    <View
+      style={[
+        styles.listRow,
+        {
+          backgroundColor: zebra
+            ? theme.colors.surfaceVariant
+            : theme.colors.surface,
+          borderBottomColor: theme.colors.outlineVariant ?? theme.colors.outline,
+        },
+      ]}>
+      <View style={styles.listMain}>
+        <Text style={styles.listName} numberOfLines={1}>
+          {item.name || '—'}
+        </Text>
+        <Text
+          style={{ color: theme.colors.onSurfaceVariant, fontSize: 13 }}
+          numberOfLines={1}>
+          {item.phone || 'No phone'}
+          {item.township ? ` · ${item.township}` : ''}
+        </Text>
+      </View>
+      <View style={styles.listStatus}>
+        <StatusChip item={item} />
+      </View>
+      <UpdateMenu
+        item={item}
+        open={menuOpen}
+        busy={busy}
+        onOpen={onOpenMenu}
+        onClose={onCloseMenu}
+        onStatus={onStatus}
+        onNotInstalled={onNotInstalled}
+      />
+    </View>
+  );
+}
+
+function CallListCard({
+  item,
+  menuOpen,
+  busy,
+  onOpenMenu,
+  onCloseMenu,
+  onStatus,
+  onNotInstalled,
+}: {
+  item: AppInstallRecord;
+  menuOpen: boolean;
+  busy: boolean;
+  onOpenMenu: () => void;
+  onCloseMenu: () => void;
+  onStatus: (status: AppInstallStatus) => void;
+  onNotInstalled: () => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <View
+      style={[
+        styles.gridCard,
+        {
+          backgroundColor: theme.colors.surface,
+          borderColor: theme.colors.outline,
+        },
+      ]}>
+      <Text style={styles.name} numberOfLines={2}>
+        {item.name || '—'}
+      </Text>
+      <Text
+        style={{ color: theme.colors.onSurfaceVariant }}
+        numberOfLines={1}>
+        {item.phone || 'No phone'}
+      </Text>
+      {item.township ? (
+        <Text
+          style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}
+          numberOfLines={1}>
+          {item.township}
+        </Text>
+      ) : null}
+      <StatusChip item={item} />
+      <View style={styles.gridActions}>
+        <UpdateMenu
+          item={item}
+          open={menuOpen}
+          busy={busy}
+          onOpen={onOpenMenu}
+          onClose={onCloseMenu}
+          onStatus={onStatus}
+          onNotInstalled={onNotInstalled}
+        />
+      </View>
+    </View>
+  );
 }
 
 export default function CallListScreen() {
@@ -65,6 +254,7 @@ export default function CallListScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [statusFilter, setStatusFilter] = useState<AppInstallStatus | 'all'>(
     'all',
   );
@@ -73,10 +263,48 @@ export default function CallListScreen() {
   const [reasonFor, setReasonFor] = useState<AppInstallRecord | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
+  const listUiSnapshot = useMemo<CallListUi>(
+    () => ({ viewMode, statusFilter }),
+    [viewMode, statusFilter],
+  );
+
+  useListUiCache<CallListUi>('call-list', listUiSnapshot, saved => {
+    if (saved.viewMode === 'list' || saved.viewMode === 'grid') {
+      setViewMode(saved.viewMode);
+    }
+    if (
+      saved.statusFilter === 'all' ||
+      saved.statusFilter === 'not_installed' ||
+      saved.statusFilter === 'installed'
+    ) {
+      setStatusFilter(saved.statusFilter);
+    }
+  });
+
   const query = useModuleSearch(
     ENABLE_APP_INSTALL_CALL_LIST ? 'Search call list by name or phone' : '',
   );
-  useHeaderActions(EMPTY_HEADER_ACTIONS);
+
+  const toggleView = useCallback(() => {
+    setViewMode(prev => (prev === 'list' ? 'grid' : 'list'));
+  }, []);
+
+  const headerActions = useMemo<HeaderAction[]>(
+    () =>
+      ENABLE_APP_INSTALL_CALL_LIST
+        ? [
+            {
+              key: 'view',
+              icon:
+                viewMode === 'list' ? 'view-grid-outline' : 'format-list-bulleted',
+              onPress: toggleView,
+              accessibilityLabel: 'Toggle list or grid view',
+            },
+          ]
+        : [],
+    [viewMode, toggleView],
+  );
+  useHeaderActions(headerActions);
 
   const load = useCallback(async () => {
     if (!ENABLE_APP_INSTALL_CALL_LIST || !session?.token) return;
@@ -109,7 +337,7 @@ export default function CallListScreen() {
 
   useEffect(() => {
     setPage(1);
-  }, [query, statusFilter]);
+  }, [query, statusFilter, viewMode]);
 
   const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
@@ -118,8 +346,26 @@ export default function CallListScreen() {
     return items.slice(start, start + PAGE_SIZE);
   }, [items, safePage]);
 
+  const numColumns = useMemo(() => {
+    if (viewMode !== 'grid') return 1;
+    if (width >= 1200) return 3;
+    if (width >= 768) return 2;
+    return 1;
+  }, [viewMode, width]);
+
+  const cardWidth = useMemo(() => {
+    const horizontalPadding = 32;
+    const gap = 12;
+    const available = width - horizontalPadding - gap * (numColumns - 1);
+    return available / numColumns;
+  }, [width, numColumns]);
+
   const setStatus = useCallback(
-    async (item: AppInstallRecord, status: AppInstallStatus, reason?: AppInstallReason) => {
+    async (
+      item: AppInstallRecord,
+      status: AppInstallStatus,
+      reason?: AppInstallReason,
+    ) => {
       if (!session?.token) return;
       setBusyId(item.odooPartnerId);
       try {
@@ -142,6 +388,21 @@ export default function CallListScreen() {
       }
     },
     [session?.token],
+  );
+
+  const emptyLabel =
+    query.trim() || statusFilter !== 'all'
+      ? 'No matching call-list contacts.'
+      : 'No install call requests yet. Use Request on a Customer.';
+
+  const refreshControl = (
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={() => {
+        setRefreshing(true);
+        void load();
+      }}
+    />
   );
 
   if (!ENABLE_APP_INSTALL_CALL_LIST) {
@@ -183,97 +444,74 @@ export default function CallListScreen() {
         <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>
       ) : null}
 
-      <FlatList
-        data={paged}
-        keyExtractor={item => item.odooPartnerId}
-        contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              void load();
-            }}
-          />
-        }
-        ListEmptyComponent={
-          <Text style={styles.empty}>
-            {query.trim() || statusFilter !== 'all'
-              ? 'No matching call-list contacts.'
-              : 'No install call requests yet. Use Request on a Customer.'}
-          </Text>
-        }
-        renderItem={({ item }) => {
-          const colors = statusColor(item.status);
-          return (
+      {viewMode === 'list' ? (
+        paged.length === 0 ? (
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={styles.emptyWrap}
+            refreshControl={refreshControl}>
+            <Text style={styles.empty}>{emptyLabel}</Text>
+          </ScrollView>
+        ) : (
+          <View style={styles.flex}>
             <View
               style={[
-                styles.card,
-                {
-                  backgroundColor: theme.colors.surface,
-                  borderColor: theme.colors.outline,
-                  maxWidth: width > 900 ? 720 : undefined,
-                },
+                styles.listHeader,
+                { backgroundColor: theme.colors.primary },
               ]}>
-              <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
-                <Text style={styles.name} numberOfLines={1}>
-                  {item.name || '—'}
-                </Text>
-                <Text
-                  style={{ color: theme.colors.onSurfaceVariant }}
-                  numberOfLines={1}>
-                  {item.phone || 'No phone'}
-                  {item.township ? ` · ${item.township}` : ''}
-                </Text>
-                <View style={styles.badgeRow}>
-                  <View style={[styles.badge, { backgroundColor: colors.bg }]}>
-                    <Text style={{ color: colors.fg, fontWeight: '700', fontSize: 12 }}>
-                      {item.statusLabel}
-                    </Text>
-                  </View>
-                  {item.reasonLabel ? (
-                    <Text
-                      style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}
-                      numberOfLines={1}>
-                      {item.reasonLabel}
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-
-              <Menu
-                visible={menuForId === item.odooPartnerId}
-                onDismiss={() => setMenuForId(null)}
-                anchor={
-                  <Button
-                    compact
-                    mode="contained-tonal"
-                    loading={busyId === item.odooPartnerId}
-                    disabled={busyId === item.odooPartnerId}
-                    onPress={() => setMenuForId(item.odooPartnerId)}>
-                    Update
-                  </Button>
-                }>
-                <Menu.Item
-                  onPress={() => void setStatus(item, 'not_called')}
-                  title="Not called"
-                />
-                <Menu.Item
-                  onPress={() => {
-                    setMenuForId(null);
-                    setReasonFor(item);
-                  }}
-                  title="Not installed…"
-                />
-                <Menu.Item
-                  onPress={() => void setStatus(item, 'installed')}
-                  title="Installed"
-                />
-              </Menu>
+              <Text style={[styles.listHeaderText, { flex: 2.2 }]}>Name</Text>
+              <Text style={[styles.listHeaderText, { flex: 1.6 }]}>Status</Text>
+              <Text style={[styles.listHeaderText, { width: 88 }]}>Action</Text>
             </View>
-          );
-        }}
-      />
+            <ScrollView
+              style={styles.flex}
+              showsVerticalScrollIndicator={false}
+              refreshControl={refreshControl}>
+              {paged.map((item, index) => (
+                <CallListRow
+                  key={item.odooPartnerId}
+                  item={item}
+                  index={index}
+                  menuOpen={menuForId === item.odooPartnerId}
+                  busy={busyId === item.odooPartnerId}
+                  onOpenMenu={() => setMenuForId(item.odooPartnerId)}
+                  onCloseMenu={() => setMenuForId(null)}
+                  onStatus={status => {
+                    void setStatus(item, status);
+                  }}
+                  onNotInstalled={() => setReasonFor(item)}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        )
+      ) : (
+        <FlatList
+          key={`grid-${numColumns}`}
+          data={paged}
+          numColumns={numColumns}
+          keyExtractor={item => item.odooPartnerId}
+          contentContainerStyle={styles.gridList}
+          columnWrapperStyle={numColumns > 1 ? styles.gridRow : undefined}
+          refreshControl={refreshControl}
+          ListEmptyComponent={<Text style={styles.empty}>{emptyLabel}</Text>}
+          renderItem={({ item }) => (
+            <View style={{ width: numColumns > 1 ? cardWidth : '100%' }}>
+              <CallListCard
+                item={item}
+                menuOpen={menuForId === item.odooPartnerId}
+                busy={busyId === item.odooPartnerId}
+                onOpenMenu={() => setMenuForId(item.odooPartnerId)}
+                onCloseMenu={() => setMenuForId(null)}
+                onStatus={status => {
+                  void setStatus(item, status);
+                }}
+                onNotInstalled={() => setReasonFor(item)}
+              />
+            </View>
+          )}
+        />
+      )}
 
       <Pagination
         page={safePage}
@@ -318,6 +556,7 @@ export default function CallListScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  flex: { flex: 1 },
   center: {
     flex: 1,
     alignItems: 'center',
@@ -333,31 +572,9 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   chip: { marginRight: 0 },
-  list: {
-    padding: 16,
-    paddingBottom: 24,
-    gap: 10,
-  },
-  card: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 10,
-  },
-  name: { fontSize: 16, fontWeight: '800' },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
+  emptyWrap: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   empty: {
     textAlign: 'center',
@@ -367,6 +584,90 @@ const styles = StyleSheet.create({
   error: {
     paddingHorizontal: 16,
     paddingTop: 8,
+  },
+  listHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  listHeaderText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 8,
+    minHeight: 56,
+  },
+  listMain: {
+    flex: 2.2,
+    minWidth: 0,
+    gap: 2,
+  },
+  listName: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  listStatus: {
+    flex: 1.6,
+    minWidth: 0,
+  },
+  gridList: {
+    padding: 16,
+    paddingBottom: 24,
+  },
+  gridRow: {
+    gap: 12,
+    marginBottom: 12,
+  },
+  gridCard: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 14,
+    gap: 6,
+    marginBottom: 12,
+    minHeight: 148,
+  },
+  name: { fontSize: 16, fontWeight: '800' },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+    flexWrap: 'wrap',
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  reasonHint: {
+    fontSize: 12,
+    opacity: 0.75,
+    flexShrink: 1,
+  },
+  gridActions: {
+    marginTop: 'auto',
+    alignItems: 'flex-start',
+    paddingTop: 8,
+  },
+  updateBtn: {
+    borderRadius: 6,
+  },
+  updateBtnLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginVertical: 0,
+  },
+  updateBtnContent: {
+    height: 30,
   },
   reasonRow: {
     paddingVertical: 12,

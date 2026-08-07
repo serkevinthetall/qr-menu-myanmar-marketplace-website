@@ -1,5 +1,5 @@
 /** @temp-feature app-install-call-list */
-export type AppInstallStatus = 'not_called' | 'not_installed' | 'installed';
+export type AppInstallStatus = 'not_installed' | 'installed';
 
 export type AppInstallReason =
   | 'no_smartphone'
@@ -28,7 +28,6 @@ export const APP_INSTALL_STATUS_OPTIONS: {
   label: string;
 }[] = [
   { id: 'all', label: 'All' },
-  { id: 'not_called', label: 'Not called' },
   { id: 'not_installed', label: 'Not installed' },
   { id: 'installed', label: 'Installed' },
 ];

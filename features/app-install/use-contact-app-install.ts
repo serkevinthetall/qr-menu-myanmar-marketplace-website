@@ -59,7 +59,7 @@ export function useContactAppInstall(token: string | undefined) {
       try {
         const record = await requestAppInstall(token, id);
         setInstallMap(prev => ({ ...prev, [id]: record }));
-        setMessage('Added to Call List (Not called).');
+        setMessage('Added to Call List (Not installed).');
       } catch (err) {
         setMessage(
           err instanceof Error ? err.message : 'Failed to request app install.',
@@ -81,25 +81,6 @@ export function useContactAppInstall(token: string | undefined) {
         });
         setInstallMap(prev => ({ ...prev, [id]: record }));
         setMessage('Marked as Installed.');
-      } catch (err) {
-        setMessage(err instanceof Error ? err.message : 'Failed to update status.');
-      } finally {
-        setInstallBusyId(null);
-      }
-    },
-    [enabled, token],
-  );
-
-  const handleMarkNotCalled = useCallback(
-    async (id: string) => {
-      if (!enabled || !token) return;
-      setInstallBusyId(id);
-      try {
-        const record = await updateAppInstallStatus(token, id, {
-          status: 'not_called',
-        });
-        setInstallMap(prev => ({ ...prev, [id]: record }));
-        setMessage('Marked as Not called.');
       } catch (err) {
         setMessage(err instanceof Error ? err.message : 'Failed to update status.');
       } finally {
@@ -153,7 +134,6 @@ export function useContactAppInstall(token: string | undefined) {
     matchesInstallFilter,
     handleRequestInstall,
     handleMarkInstalled,
-    handleMarkNotCalled,
     handleMarkNotInstalled,
     confirmNotInstalledReason,
   };

@@ -7,6 +7,8 @@ import {
   AppInstallStatus,
 } from './types';
 
+export const CALL_LIST_BADGE_REFRESH_EVENT = 'qr-shop-call-list-badge-refresh';
+
 type ListResponse = {
   data: AppInstallRecord[];
   meta?: { count: number; status: AppInstallStatus | null };
@@ -15,6 +17,14 @@ type ListResponse = {
 type OneResponse = { data: AppInstallRecord; meta?: { created?: boolean } };
 
 type MapResponse = { data: Record<string, AppInstallRecord> };
+
+type BadgeResponse = { data: { notInstalledCount: number } };
+
+export function notifyCallListBadgeChanged() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(CALL_LIST_BADGE_REFRESH_EVENT));
+  }
+}
 
 export async function fetchAppInstallMap(
   token: string,
@@ -45,6 +55,13 @@ export async function fetchCallList(
   return response.data ?? [];
 }
 
+export async function fetchCallListNotInstalledCount(token: string): Promise<number> {
+  const response = await webApiRequest<BadgeResponse>('/app-installs/badge', {
+    token,
+  });
+  return Number(response.data?.notInstalledCount) || 0;
+}
+
 export async function requestAppInstall(
   token: string,
   partnerId: string,
@@ -53,6 +70,7 @@ export async function requestAppInstall(
     `/app-installs/${partnerId}/request`,
     { method: 'POST', token },
   );
+  notifyCallListBadgeChanged();
   return response.data;
 }
 
@@ -66,5 +84,6 @@ export async function updateAppInstallStatus(
     token,
     body,
   });
+  notifyCallListBadgeChanged();
   return response.data;
 }

@@ -11,6 +11,10 @@ import { NAV_ITEMS } from '@/constants/navigation';
 import { AppOrderUnreadProvider } from '@/contexts/app-order-unread-context';
 import { SearchProvider } from '@/contexts/search-context';
 import { useAppTheme } from '@/contexts/theme-context';
+import {
+  CallListBadgeProvider,
+  ENABLE_APP_INSTALL_CALL_LIST,
+} from '@/features/app-install';
 import { useResponsive } from '@/hooks/use-responsive';
 
 export const unstable_settings = {
@@ -45,28 +49,39 @@ export default function DrawerLayout() {
     [colors.drawerOverlay, isWeb, sidebarWidth, theme.colors, width],
   );
 
+  const drawerTree = (
+    <>
+      <OnlineOrderAlerts />
+      <Drawer
+        drawerContent={props => <DrawerContent {...props} />}
+        screenOptions={screenOptions}>
+        {NAV_ITEMS.map(item => (
+          <Drawer.Screen
+            key={item.name}
+            name={item.name}
+            options={{ title: item.title, drawerLabel: item.label }}
+          />
+        ))}
+        <Drawer.Screen
+          name="contact-create"
+          options={{
+            title: 'New Contact',
+            drawerItemStyle: { display: 'none' },
+          }}
+        />
+      </Drawer>
+    </>
+  );
+
   return (
     <SearchProvider>
       <AppOrderUnreadProvider>
-        <OnlineOrderAlerts />
-        <Drawer
-          drawerContent={props => <DrawerContent {...props} />}
-          screenOptions={screenOptions}>
-          {NAV_ITEMS.map(item => (
-            <Drawer.Screen
-              key={item.name}
-              name={item.name}
-              options={{ title: item.title, drawerLabel: item.label }}
-            />
-          ))}
-          <Drawer.Screen
-            name="contact-create"
-            options={{
-              title: 'New Contact',
-              drawerItemStyle: { display: 'none' },
-            }}
-          />
-        </Drawer>
+        {/* @temp-feature app-install-call-list */}
+        {ENABLE_APP_INSTALL_CALL_LIST ? (
+          <CallListBadgeProvider>{drawerTree}</CallListBadgeProvider>
+        ) : (
+          drawerTree
+        )}
       </AppOrderUnreadProvider>
     </SearchProvider>
   );

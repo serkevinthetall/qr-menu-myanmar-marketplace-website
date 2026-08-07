@@ -175,8 +175,6 @@ function appInstallColors(status?: AppInstallStatus): { bg: string; fg: string }
       return { bg: 'rgba(16, 185, 129, 0.18)', fg: '#047857' };
     case 'not_installed':
       return { bg: 'rgba(245, 158, 11, 0.2)', fg: '#B45309' };
-    case 'not_called':
-      return { bg: 'rgba(59, 130, 246, 0.16)', fg: '#1D4ED8' };
     default:
       return { bg: 'rgba(148, 163, 184, 0.2)', fg: '#475569' };
   }
@@ -195,7 +193,6 @@ function ContactRow({
   onRequestInstall,
   onMarkInstalled,
   onMarkNotInstalled,
-  onMarkNotCalled,
 }: {
   item: Customer;
   index: number;
@@ -209,7 +206,6 @@ function ContactRow({
   onRequestInstall?: (id: string) => void;
   onMarkInstalled?: (id: string) => void;
   onMarkNotInstalled?: (id: string) => void;
-  onMarkNotCalled?: (id: string) => void;
 }) {
   const theme = useTheme();
   const zebra = index % 2 === 1;
@@ -294,13 +290,6 @@ function ContactRow({
                       {install.statusLabel}
                     </Button>
                   }>
-                  <Menu.Item
-                    title="Not called"
-                    onPress={() => {
-                      setMenuOpen(false);
-                      onMarkNotCalled?.(item.id);
-                    }}
-                  />
                   <Menu.Item
                     title="Not installed…"
                     onPress={() => {
@@ -585,7 +574,6 @@ export default function CustomersScreen() {
       appInstall.enabled &&
       (saved.appInstallFilter === 'all' ||
         saved.appInstallFilter === 'none' ||
-        saved.appInstallFilter === 'not_called' ||
         saved.appInstallFilter === 'not_installed' ||
         saved.appInstallFilter === 'installed')
     ) {
@@ -981,11 +969,6 @@ export default function CustomersScreen() {
                   onMarkNotInstalled={
                     appInstall.enabled
                       ? appInstall.handleMarkNotInstalled
-                      : undefined
-                  }
-                  onMarkNotCalled={
-                    appInstall.enabled
-                      ? appInstall.handleMarkNotCalled
                       : undefined
                   }
                 />
