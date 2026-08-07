@@ -1,5 +1,7 @@
 /**
- * TEMPORARY FEATURE — App install Call List (MongoDB)
+ * TEMPORARY FEATURE — Call List (phone-app install follow-up, MongoDB)
+ *
+ * Independent of App Order (online-orders). No shared unread/notification state.
  *
  * Kill switch (hide UI immediately):
  *   EXPO_PUBLIC_ENABLE_APP_INSTALL_CALL_LIST=false

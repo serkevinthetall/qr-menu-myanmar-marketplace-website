@@ -83,8 +83,8 @@ const COLUMNS: Column[] = [
   { key: 'thisMonthPercent', label: 'Percentage', flex: 1.1, align: 'right' },
   { key: 'lastInvoiceDate', label: 'Last Invoice', flex: 1.1 },
   { key: 'expoPushToken', label: 'Expo Push', flex: 1.6 },
-  /** @temp-feature app-install-call-list */
-  { key: 'appInstall', label: 'App Install', flex: 2.4 },
+  /** @temp-feature app-install-call-list — Call List module (not App Order) */
+  { key: 'appInstall', label: 'Install Call', flex: 2.4 },
   { key: 'createQuotation', label: 'Create Quotation', flex: 2.6 },
 ];
 

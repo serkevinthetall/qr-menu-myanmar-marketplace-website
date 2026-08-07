@@ -64,12 +64,13 @@ const CUSTOMERS: NavItem = {
 };
 
 const CALL_LIST: NavItem = {
-  // @temp-feature app-install-call-list — delete this NavItem + NAV_ENTRIES entry when removing
+  // @temp-feature app-install-call-list — independent module (NOT App Order / online-orders)
   name: 'call-list',
   label: 'Call List',
   icon: 'phone-in-talk-outline',
   title: 'Call List',
-  description: 'App install requests and call outcomes.',
+  description:
+    'Phone-app install follow-up calls. Separate from App Order notifications.',
 };
 
 const PRODUCTS: NavItem = {
@@ -123,12 +124,12 @@ export const NAV_ENTRIES: NavEntry[] = [
     children: [QUOTATION, SALE_ORDERS, ONLINE_ORDERS],
   },
   { type: 'item', item: CUSTOMERS },
-  // @temp-feature app-install-call-list
+  { type: 'item', item: PRODUCTS },
+  { type: 'item', item: PURCHASE_ORDERS },
+  // @temp-feature app-install-call-list — own module, kept away from Orders / App Order
   ...(ENABLE_APP_INSTALL_CALL_LIST
     ? [{ type: 'item' as const, item: CALL_LIST }]
     : []),
-  { type: 'item', item: PRODUCTS },
-  { type: 'item', item: PURCHASE_ORDERS },
   {
     type: 'group',
     id: 'membership',

@@ -1,3 +1,9 @@
+/**
+ * @temp-feature app-install-call-list
+ *
+ * Standalone Call List module for phone-app install follow-ups.
+ * Does NOT use App Order / online-orders unread, alerts, or Redis read state.
+ */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
@@ -191,7 +197,7 @@ export default function CallListScreen() {
           <Text style={styles.empty}>
             {query.trim() || statusFilter !== 'all'
               ? 'No matching call-list contacts.'
-              : 'No app install requests yet. Use Request on a Contact.'}
+              : 'No install call requests yet. Use Request on a Customer.'}
           </Text>
         }
         renderItem={({ item }) => {

@@ -14,7 +14,7 @@ export function ContactAppInstallFilters({
   onChange: (next: AppInstallFilter) => void;
 }) {
   const options: { id: AppInstallFilter; label: string }[] = [
-    { id: 'all', label: 'All app' },
+    { id: 'all', label: 'All installs' },
     { id: 'none', label: 'Not requested' },
     ...APP_INSTALL_STATUS_OPTIONS.filter(
       (o): o is { id: AppInstallStatus; label: string } => o.id !== 'all',
