@@ -1,3 +1,5 @@
+import { ENABLE_APP_INSTALL_CALL_LIST } from '@/features/app-install';
+
 export type NavItem = {
   name: string;
   label: string;
@@ -62,6 +64,7 @@ const CUSTOMERS: NavItem = {
 };
 
 const CALL_LIST: NavItem = {
+  // @temp-feature app-install-call-list — delete this NavItem + NAV_ENTRIES entry when removing
   name: 'call-list',
   label: 'Call List',
   icon: 'phone-in-talk-outline',
@@ -120,7 +123,10 @@ export const NAV_ENTRIES: NavEntry[] = [
     children: [QUOTATION, SALE_ORDERS, ONLINE_ORDERS],
   },
   { type: 'item', item: CUSTOMERS },
-  { type: 'item', item: CALL_LIST },
+  // @temp-feature app-install-call-list
+  ...(ENABLE_APP_INSTALL_CALL_LIST
+    ? [{ type: 'item' as const, item: CALL_LIST }]
+    : []),
   { type: 'item', item: PRODUCTS },
   { type: 'item', item: PURCHASE_ORDERS },
   {

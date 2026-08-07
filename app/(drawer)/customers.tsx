@@ -14,11 +14,8 @@ import {
   Button,
   Card,
   Checkbox,
-  Chip,
-  Dialog,
   Divider,
   Menu,
-  Portal,
   Snackbar,
   Text,
   useTheme,
@@ -45,30 +42,26 @@ import {
 } from '@/contexts/search-context';
 import { useResponsive } from '@/hooks/use-responsive';
 import {
-  fetchAppInstallMap,
-  requestAppInstall,
-  updateAppInstallStatus,
-} from '@/services/app-installs';
+  ContactAppInstallFilters,
+  NotInstalledReasonDialog,
+  useContactAppInstall,
+  type AppInstallFilter,
+  type AppInstallRecord,
+  type AppInstallStatus,
+} from '@/features/app-install';
 import { fetchCustomerDetail, fetchCustomers, fetchTownships } from '@/services/customers';
-import {
-  APP_INSTALL_REASON_OPTIONS,
-  APP_INSTALL_STATUS_OPTIONS,
-  AppInstallReason,
-  AppInstallRecord,
-  AppInstallStatus,
-} from '@/types/app-install';
 import { Customer, CustomerDetail, Township } from '@/types/customer';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
 
 const PAGE_SIZE = 50;
 
 type ViewMode = 'list' | 'card';
-type AppInstallFilter = AppInstallStatus | 'all' | 'none';
 
 type CustomersListUi = {
   viewMode: ViewMode;
   contactFilters: ContactFilters;
   selectedIds: string[];
+  /** @temp-feature app-install-call-list */
   appInstallFilter: AppInstallFilter;
 };
 
@@ -90,6 +83,7 @@ const COLUMNS: Column[] = [
   { key: 'thisMonthPercent', label: 'Percentage', flex: 1.1, align: 'right' },
   { key: 'lastInvoiceDate', label: 'Last Invoice', flex: 1.1 },
   { key: 'expoPushToken', label: 'Expo Push', flex: 1.6 },
+  /** @temp-feature app-install-call-list */
   { key: 'appInstall', label: 'App Install', flex: 2.4 },
   { key: 'createQuotation', label: 'Create Quotation', flex: 2.6 },
 ];
@@ -192,6 +186,7 @@ function ContactRow({
   item,
   index,
   selected,
+  columns,
   install,
   busy,
   onToggle,
@@ -205,15 +200,16 @@ function ContactRow({
   item: Customer;
   index: number;
   selected: boolean;
+  columns: Column[];
   install?: AppInstallRecord;
   busy?: boolean;
   onToggle: (id: string) => void;
   onOpen: (id: string) => void;
   onCreateQuotation: (id: string) => void;
-  onRequestInstall: (id: string) => void;
-  onMarkInstalled: (id: string) => void;
-  onMarkNotInstalled: (id: string) => void;
-  onMarkNotCalled: (id: string) => void;
+  onRequestInstall?: (id: string) => void;
+  onMarkInstalled?: (id: string) => void;
+  onMarkNotInstalled?: (id: string) => void;
+  onMarkNotCalled?: (id: string) => void;
 }) {
   const theme = useTheme();
   const zebra = index % 2 === 1;
@@ -239,7 +235,7 @@ function ContactRow({
           onPress={() => onToggle(item.id)}
         />
       </View>
-      {COLUMNS.map(col => {
+      {columns.map(col => {
         if (col.key === 'name') {
           return (
             <Pressable
@@ -302,21 +298,21 @@ function ContactRow({
                     title="Not called"
                     onPress={() => {
                       setMenuOpen(false);
-                      onMarkNotCalled(item.id);
+                      onMarkNotCalled?.(item.id);
                     }}
                   />
                   <Menu.Item
                     title="Not installed…"
                     onPress={() => {
                       setMenuOpen(false);
-                      onMarkNotInstalled(item.id);
+                      onMarkNotInstalled?.(item.id);
                     }}
                   />
                   <Menu.Item
                     title="Installed"
                     onPress={() => {
                       setMenuOpen(false);
-                      onMarkInstalled(item.id);
+                      onMarkInstalled?.(item.id);
                     }}
                   />
                 </Menu>
@@ -327,7 +323,7 @@ function ContactRow({
                   icon="cellphone-arrow-down"
                   loading={busy}
                   disabled={busy}
-                  onPress={() => onRequestInstall(item.id)}
+                  onPress={() => onRequestInstall?.(item.id)}
                   style={styles.rowActionBtn}
                   labelStyle={styles.rowActionLabel}
                   contentStyle={styles.rowActionContent}>
@@ -378,9 +374,11 @@ function ContactRow({
 
 function TableHeader({
   status,
+  columns,
   onToggleAll,
 }: {
   status: 'checked' | 'unchecked' | 'indeterminate';
+  columns: Column[];
   onToggleAll: () => void;
 }) {
   const theme = useTheme();
@@ -402,7 +400,7 @@ function TableHeader({
           uncheckedColor={theme.colors.onPrimary}
         />
       </View>
-      {COLUMNS.map(col => (
+      {columns.map(col => (
         <View key={col.key} style={[styles.cell, { flex: col.flex }]}>
           <Text
             variant="labelMedium"
@@ -533,22 +531,26 @@ export default function CustomersScreen() {
   const [detail, setDetail] = useState<CustomerDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
-  const [installMap, setInstallMap] = useState<Record<string, AppInstallRecord>>(
-    {},
+
+  // @temp-feature app-install-call-list — remove this hook when dropping the campaign
+  const appInstall = useContactAppInstall(session?.token);
+
+  const tableColumns = useMemo(
+    () =>
+      appInstall.enabled
+        ? COLUMNS
+        : COLUMNS.filter(col => col.key !== 'appInstall'),
+    [appInstall.enabled],
   );
-  const [appInstallFilter, setAppInstallFilter] =
-    useState<AppInstallFilter>('all');
-  const [installBusyId, setInstallBusyId] = useState<string | null>(null);
-  const [reasonForId, setReasonForId] = useState<string | null>(null);
 
   const listUiSnapshot = useMemo<CustomersListUi>(
     () => ({
       viewMode,
       contactFilters,
       selectedIds: [...selectedIds],
-      appInstallFilter,
+      appInstallFilter: appInstall.appInstallFilter,
     }),
-    [viewMode, contactFilters, selectedIds, appInstallFilter],
+    [viewMode, contactFilters, selectedIds, appInstall.appInstallFilter],
   );
 
   useListUiCache<CustomersListUi>('customers', listUiSnapshot, saved => {
@@ -565,13 +567,14 @@ export default function CustomersScreen() {
       setSelectedIds(asIdSet(saved.selectedIds));
     }
     if (
-      saved.appInstallFilter === 'all' ||
-      saved.appInstallFilter === 'none' ||
-      saved.appInstallFilter === 'not_called' ||
-      saved.appInstallFilter === 'not_installed' ||
-      saved.appInstallFilter === 'installed'
+      appInstall.enabled &&
+      (saved.appInstallFilter === 'all' ||
+        saved.appInstallFilter === 'none' ||
+        saved.appInstallFilter === 'not_called' ||
+        saved.appInstallFilter === 'not_installed' ||
+        saved.appInstallFilter === 'installed')
     ) {
-      setAppInstallFilter(saved.appInstallFilter);
+      appInstall.setAppInstallFilter(saved.appInstallFilter);
     }
   });
 
@@ -593,34 +596,12 @@ export default function CustomersScreen() {
   const filterPanel = useMemo(
     () => (
       <View style={{ gap: 8 }}>
-        <View
-          style={{
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            gap: 8,
-            justifyContent: 'center',
-            paddingHorizontal: 12,
-          }}>
-          {(
-            [
-              { id: 'all' as const, label: 'All app' },
-              { id: 'none' as const, label: 'Not requested' },
-              ...APP_INSTALL_STATUS_OPTIONS.filter(
-                (o): o is { id: AppInstallStatus; label: string } =>
-                  o.id !== 'all',
-              ),
-            ] satisfies { id: AppInstallFilter; label: string }[]
-          ).map(opt => (
-            <Chip
-              key={opt.id}
-              compact
-              selected={appInstallFilter === opt.id}
-              onPress={() => setAppInstallFilter(opt.id)}
-            >
-              {opt.label}
-            </Chip>
-          ))}
-        </View>
+        {appInstall.enabled ? (
+          <ContactAppInstallFilters
+            value={appInstall.appInstallFilter}
+            onChange={appInstall.setAppInstallFilter}
+          />
+        ) : null}
         <ContactFilterBar
           filters={contactFilters}
           townships={townships}
@@ -628,7 +609,13 @@ export default function CustomersScreen() {
         />
       </View>
     ),
-    [contactFilters, townships, appInstallFilter],
+    [
+      contactFilters,
+      townships,
+      appInstall.enabled,
+      appInstall.appInstallFilter,
+      appInstall.setAppInstallFilter,
+    ],
   );
 
   useModuleFilters(filterPanel);
@@ -756,15 +743,7 @@ export default function CustomersScreen() {
       if (!matchesContactFilters(customer, contactFilters)) {
         return false;
       }
-      const install = installMap[customer.id];
-      if (appInstallFilter === 'none' && install) {
-        return false;
-      }
-      if (
-        appInstallFilter !== 'all' &&
-        appInstallFilter !== 'none' &&
-        install?.status !== appInstallFilter
-      ) {
+      if (!appInstall.matchesInstallFilter(customer.id)) {
         return false;
       }
       if (!term) {
@@ -776,14 +755,14 @@ export default function CustomersScreen() {
         customer.phone.toLowerCase().includes(term)
       );
     });
-  }, [customers, query, contactFilters, installMap, appInstallFilter]);
+  }, [customers, query, contactFilters, appInstall.matchesInstallFilter]);
 
   const pageCount = Math.max(1, Math.ceil(filteredCustomers.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
 
   useEffect(() => {
     setPage(1);
-  }, [query, viewMode, contactFilters, appInstallFilter]);
+  }, [query, viewMode, contactFilters, appInstall.appInstallFilter]);
 
   const pagedCustomers = useMemo(
     () => filteredCustomers.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
@@ -850,101 +829,18 @@ export default function CustomersScreen() {
       setError('');
       const data = await fetchCustomers(session.token);
       setCustomers(data);
-      try {
-        // Full map is small (call-list rows only); avoids huge ?ids= query strings.
-        const map = await fetchAppInstallMap(session.token);
-        setInstallMap(map);
-      } catch {
-        // Mongo may be unavailable locally; keep contacts usable.
-        setInstallMap({});
-      }
+      await appInstall.loadInstallMap();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load contacts.');
     }
-  }, [session?.token]);
+  }, [session?.token, appInstall.loadInstallMap]);
 
-  const handleRequestInstall = useCallback(
-    async (id: string) => {
-      if (!session?.token) return;
-      setInstallBusyId(id);
-      try {
-        const record = await requestAppInstall(session.token, id);
-        setInstallMap(prev => ({ ...prev, [id]: record }));
-        setSnackbar('Added to Call List (Not called).');
-      } catch (err) {
-        setSnackbar(
-          err instanceof Error ? err.message : 'Failed to request app install.',
-        );
-      } finally {
-        setInstallBusyId(null);
-      }
-    },
-    [session?.token],
-  );
-
-  const handleMarkInstalled = useCallback(
-    async (id: string) => {
-      if (!session?.token) return;
-      setInstallBusyId(id);
-      try {
-        const record = await updateAppInstallStatus(session.token, id, {
-          status: 'installed',
-        });
-        setInstallMap(prev => ({ ...prev, [id]: record }));
-        setSnackbar('Marked as Installed.');
-      } catch (err) {
-        setSnackbar(err instanceof Error ? err.message : 'Failed to update status.');
-      } finally {
-        setInstallBusyId(null);
-      }
-    },
-    [session?.token],
-  );
-
-  const handleMarkNotCalled = useCallback(
-    async (id: string) => {
-      if (!session?.token) return;
-      setInstallBusyId(id);
-      try {
-        const record = await updateAppInstallStatus(session.token, id, {
-          status: 'not_called',
-        });
-        setInstallMap(prev => ({ ...prev, [id]: record }));
-        setSnackbar('Marked as Not called.');
-      } catch (err) {
-        setSnackbar(err instanceof Error ? err.message : 'Failed to update status.');
-      } finally {
-        setInstallBusyId(null);
-      }
-    },
-    [session?.token],
-  );
-
-  const handleMarkNotInstalled = useCallback((id: string) => {
-    setReasonForId(id);
-  }, []);
-
-  const confirmNotInstalledReason = useCallback(
-    async (reason: AppInstallReason) => {
-      if (!session?.token || !reasonForId) return;
-      const id = reasonForId;
-      setInstallBusyId(id);
-      try {
-        const record = await updateAppInstallStatus(session.token, id, {
-          status: 'not_installed',
-          reason,
-        });
-        setInstallMap(prev => ({ ...prev, [id]: record }));
-        setSnackbar('Marked as Not installed.');
-        setReasonForId(null);
-      } catch (err) {
-        setSnackbar(err instanceof Error ? err.message : 'Failed to update status.');
-      } finally {
-        setInstallBusyId(null);
-      }
-    },
-    [session?.token, reasonForId],
-  );
+  useEffect(() => {
+    if (appInstall.message) {
+      setSnackbar(appInstall.message);
+      appInstall.setMessage('');
+    }
+  }, [appInstall.message, appInstall.setMessage]);
 
   useEffect(() => {
     setLoading(true);
@@ -1023,14 +919,18 @@ export default function CustomersScreen() {
             <Text style={styles.empty}>
               {query.trim() ||
               hasActiveContactFilters(contactFilters) ||
-              appInstallFilter !== 'all'
+              (appInstall.enabled && appInstall.appInstallFilter !== 'all')
                 ? 'No contacts match your search or filters.'
                 : 'No contacts found in Odoo.'}
             </Text>
           </ScrollView>
         ) : (
           <View style={styles.tableScroll}>
-            <TableHeader status={headerStatus} onToggleAll={toggleAllOnPage} />
+            <TableHeader
+              status={headerStatus}
+              columns={tableColumns}
+              onToggleAll={toggleAllOnPage}
+            />
             <ScrollView
               style={styles.listBody}
               showsVerticalScrollIndicator={false}
@@ -1043,15 +943,36 @@ export default function CustomersScreen() {
                   item={item}
                   index={index}
                   selected={selectedIds.has(item.id)}
-                  install={installMap[item.id]}
-                  busy={installBusyId === item.id}
+                  columns={tableColumns}
+                  install={
+                    appInstall.enabled
+                      ? appInstall.installMap[item.id]
+                      : undefined
+                  }
+                  busy={appInstall.installBusyId === item.id}
                   onToggle={toggleOne}
                   onOpen={openDetail}
                   onCreateQuotation={navigateToCreateQuotation}
-                  onRequestInstall={handleRequestInstall}
-                  onMarkInstalled={handleMarkInstalled}
-                  onMarkNotInstalled={handleMarkNotInstalled}
-                  onMarkNotCalled={handleMarkNotCalled}
+                  onRequestInstall={
+                    appInstall.enabled
+                      ? appInstall.handleRequestInstall
+                      : undefined
+                  }
+                  onMarkInstalled={
+                    appInstall.enabled
+                      ? appInstall.handleMarkInstalled
+                      : undefined
+                  }
+                  onMarkNotInstalled={
+                    appInstall.enabled
+                      ? appInstall.handleMarkNotInstalled
+                      : undefined
+                  }
+                  onMarkNotCalled={
+                    appInstall.enabled
+                      ? appInstall.handleMarkNotCalled
+                      : undefined
+                  }
                 />
               ))}
             </ScrollView>
@@ -1082,7 +1003,7 @@ export default function CustomersScreen() {
             <Text style={styles.empty}>
               {query.trim() ||
               hasActiveContactFilters(contactFilters) ||
-              appInstallFilter !== 'all'
+              (appInstall.enabled && appInstall.appInstallFilter !== 'all')
                 ? 'No contacts match your search or filters.'
                 : 'No contacts found in Odoo.'}
             </Text>
@@ -1099,30 +1020,15 @@ export default function CustomersScreen() {
         centerLabel={`${customers.length} from Odoo`}
       />
 
-      <Portal>
-        <Dialog visible={Boolean(reasonForId)} onDismiss={() => setReasonForId(null)}>
-          <Dialog.Title>Why not installed?</Dialog.Title>
-          <Dialog.Content>
-            {APP_INSTALL_REASON_OPTIONS.map(opt => (
-              <Pressable
-                key={opt.id}
-                onPress={() => {
-                  void confirmNotInstalledReason(opt.id);
-                }}
-                style={{
-                  paddingVertical: 12,
-                  borderBottomWidth: StyleSheet.hairlineWidth,
-                  borderBottomColor: theme.colors.outlineVariant,
-                }}>
-                <Text style={{ fontWeight: '600' }}>{opt.label}</Text>
-              </Pressable>
-            ))}
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setReasonForId(null)}>Cancel</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      {appInstall.enabled ? (
+        <NotInstalledReasonDialog
+          visible={Boolean(appInstall.reasonForId)}
+          onDismiss={() => appInstall.setReasonForId(null)}
+          onSelect={reason => {
+            void appInstall.confirmNotInstalledReason(reason);
+          }}
+        />
+      ) : null}
 
       <Snackbar
         visible={!!snackbar}

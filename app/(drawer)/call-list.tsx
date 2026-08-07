@@ -25,16 +25,15 @@ import {
 } from '@/contexts/search-context';
 import { useResponsive } from '@/hooks/use-responsive';
 import {
-  fetchCallList,
-  updateAppInstallStatus,
-} from '@/services/app-installs';
-import {
   APP_INSTALL_REASON_OPTIONS,
   APP_INSTALL_STATUS_OPTIONS,
+  ENABLE_APP_INSTALL_CALL_LIST,
+  fetchCallList,
+  updateAppInstallStatus,
   AppInstallReason,
   AppInstallRecord,
   AppInstallStatus,
-} from '@/types/app-install';
+} from '@/features/app-install';
 
 const PAGE_SIZE = 50;
 
@@ -65,11 +64,13 @@ export default function CallListScreen() {
   const [reasonFor, setReasonFor] = useState<AppInstallRecord | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const query = useModuleSearch('Search call list by name or phone');
+  const query = useModuleSearch(
+    ENABLE_APP_INSTALL_CALL_LIST ? 'Search call list by name or phone' : '',
+  );
   useHeaderActions([]);
 
   const load = useCallback(async () => {
-    if (!session?.token) return;
+    if (!ENABLE_APP_INSTALL_CALL_LIST || !session?.token) return;
     setError('');
     try {
       const data = await fetchCallList(session.token, {
@@ -86,6 +87,10 @@ export default function CallListScreen() {
   }, [session?.token, statusFilter, query]);
 
   useEffect(() => {
+    if (!ENABLE_APP_INSTALL_CALL_LIST) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const timer = setTimeout(() => {
       void load();
@@ -129,6 +134,17 @@ export default function CallListScreen() {
     },
     [session?.token],
   );
+
+  if (!ENABLE_APP_INSTALL_CALL_LIST) {
+    return (
+      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
+        <Text variant="titleMedium">Call List is turned off</Text>
+        <Text style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center' }}>
+          Temporary feature flag EXPO_PUBLIC_ENABLE_APP_INSTALL_CALL_LIST is false.
+        </Text>
+      </View>
+    );
+  }
 
   if (loading) {
     return (
