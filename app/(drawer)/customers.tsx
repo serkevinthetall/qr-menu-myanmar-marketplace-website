@@ -319,12 +319,19 @@ function ContactRow({
               ) : (
                 <Button
                   compact
-                  mode="contained-tonal"
+                  mode="outlined"
                   icon="cellphone-arrow-down"
                   loading={busy}
                   disabled={busy}
                   onPress={() => onRequestInstall?.(item.id)}
-                  style={styles.rowActionBtn}
+                  style={[
+                    styles.rowActionBtn,
+                    {
+                      borderColor: theme.colors.outline,
+                      backgroundColor: theme.colors.surface,
+                    },
+                  ]}
+                  textColor={theme.colors.primary}
                   labelStyle={styles.rowActionLabel}
                   contentStyle={styles.rowActionContent}>
                   Request
@@ -339,10 +346,18 @@ function ContactRow({
             <View key={col.key} style={[styles.cell, styles.actionCell, { flex: col.flex }]}>
               <Button
                 compact
-                mode="contained-tonal"
+                mode="outlined"
                 icon="file-document-plus-outline"
                 onPress={() => onCreateQuotation(item.id)}
-                style={styles.rowActionBtn}
+                style={[
+                  styles.rowActionBtn,
+                  styles.rowActionBtnPrimary,
+                  {
+                    borderColor: theme.colors.primary,
+                    backgroundColor: theme.colors.surface,
+                  },
+                ]}
+                textColor={theme.colors.primary}
                 labelStyle={styles.rowActionLabel}
                 contentStyle={styles.rowActionContent}>
                 Create Quotation
@@ -1104,17 +1119,23 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   rowActionBtn: {
-    borderRadius: 8,
+    borderRadius: 6,
     minWidth: 0,
+    borderWidth: 1,
+  },
+  rowActionBtnPrimary: {
+    borderWidth: 1.5,
   },
   rowActionContent: {
-    height: 32,
-    paddingHorizontal: 2,
+    height: 30,
+    paddingHorizontal: 6,
   },
   rowActionLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    marginHorizontal: 0,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.1,
+    marginVertical: 0,
+    marginHorizontal: 4,
   },
   listContent: {
     paddingHorizontal: 16,
