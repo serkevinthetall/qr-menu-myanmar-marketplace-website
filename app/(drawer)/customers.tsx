@@ -296,21 +296,21 @@ function ContactRow({
                     title="Not installed…"
                     onPress={() => {
                       setMenuOpen(false);
-                      onMarkNotInstalled?.(item.id);
+                      setTimeout(() => onMarkNotInstalled?.(item.id), 0);
                     }}
                   />
                   <Menu.Item
                     title="Installed"
                     onPress={() => {
                       setMenuOpen(false);
-                      onMarkInstalled?.(item.id);
+                      setTimeout(() => onMarkInstalled?.(item.id), 0);
                     }}
                   />
                   <Menu.Item
                     title="Remove from list"
                     onPress={() => {
                       setMenuOpen(false);
-                      onRemoveFromCallList?.(item.id);
+                      setTimeout(() => onRemoveFromCallList?.(item.id), 0);
                     }}
                   />
                 </Menu>

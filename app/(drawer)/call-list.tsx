@@ -83,7 +83,6 @@ function StatusChip({ item }: { item: AppInstallRecord }) {
 }
 
 function UpdateMenu({
-  item,
   open,
   busy,
   onOpen,
@@ -92,7 +91,6 @@ function UpdateMenu({
   onNotInstalled,
   onRemove,
 }: {
-  item: AppInstallRecord;
   open: boolean;
   busy: boolean;
   onOpen: () => void;
@@ -101,8 +99,15 @@ function UpdateMenu({
   onNotInstalled: () => void;
   onRemove: () => void;
 }) {
+  /** Paper Menu on web often dismisses before onPress finishes — defer work. */
+  const runAfterClose = (action: () => void) => {
+    onClose();
+    setTimeout(action, 0);
+  };
+
   return (
     <Menu
+      key={open ? 'open' : 'closed'}
       visible={open}
       onDismiss={onClose}
       anchor={
@@ -119,18 +124,15 @@ function UpdateMenu({
         </Button>
       }>
       <Menu.Item
-        onPress={() => {
-          onClose();
-          onNotInstalled();
-        }}
+        onPress={() => runAfterClose(onNotInstalled)}
         title="Not installed…"
       />
-      <Menu.Item onPress={() => onStatus('installed')} title="Installed" />
       <Menu.Item
-        onPress={() => {
-          onClose();
-          onRemove();
-        }}
+        onPress={() => runAfterClose(() => onStatus('installed'))}
+        title="Installed"
+      />
+      <Menu.Item
+        onPress={() => runAfterClose(onRemove)}
         title="Remove from list"
       />
     </Menu>
@@ -186,16 +188,27 @@ function CallListRow({
       <View style={styles.listStatus}>
         <StatusChip item={item} />
       </View>
-      <UpdateMenu
-        item={item}
-        open={menuOpen}
-        busy={busy}
-        onOpen={onOpenMenu}
-        onClose={onCloseMenu}
-        onStatus={onStatus}
-        onNotInstalled={onNotInstalled}
-        onRemove={onRemove}
-      />
+      <View style={styles.listActions}>
+        <UpdateMenu
+          open={menuOpen}
+          busy={busy}
+          onOpen={onOpenMenu}
+          onClose={onCloseMenu}
+          onStatus={onStatus}
+          onNotInstalled={onNotInstalled}
+          onRemove={onRemove}
+        />
+        <Button
+          compact
+          mode="text"
+          disabled={busy}
+          onPress={onRemove}
+          textColor={theme.colors.error}
+          labelStyle={styles.updateBtnLabel}
+          contentStyle={styles.updateBtnContent}>
+          Remove
+        </Button>
+      </View>
     </View>
   );
 }
@@ -248,7 +261,6 @@ function CallListCard({
       <StatusChip item={item} />
       <View style={styles.gridActions}>
         <UpdateMenu
-          item={item}
           open={menuOpen}
           busy={busy}
           onOpen={onOpenMenu}
@@ -257,6 +269,16 @@ function CallListCard({
           onNotInstalled={onNotInstalled}
           onRemove={onRemove}
         />
+        <Button
+          compact
+          mode="text"
+          disabled={busy}
+          onPress={onRemove}
+          textColor={theme.colors.error}
+          labelStyle={styles.updateBtnLabel}
+          contentStyle={styles.updateBtnContent}>
+          Remove
+        </Button>
       </View>
     </View>
   );
@@ -409,19 +431,23 @@ export default function CallListScreen() {
   const removeItem = useCallback(
     async (item: AppInstallRecord) => {
       if (!session?.token) return;
-      setBusyId(item.odooPartnerId);
+      const id = item.odooPartnerId;
+      setMenuForId(null);
+      setBusyId(id);
+      setError('');
+      // Optimistic: drop from UI immediately so the click feels instant.
+      setItems(prev => prev.filter(row => row.odooPartnerId !== id));
       try {
-        await removeFromCallList(session.token, item.odooPartnerId);
-        setItems(prev =>
-          prev.filter(row => row.odooPartnerId !== item.odooPartnerId),
-        );
+        await removeFromCallList(session.token, id);
       } catch (err) {
+        setItems(prev =>
+          prev.some(row => row.odooPartnerId === id) ? prev : [item, ...prev],
+        );
         setError(
           err instanceof Error ? err.message : 'Failed to remove from call list.',
         );
       } finally {
         setBusyId(null);
-        setMenuForId(null);
       }
     },
     [session?.token],
@@ -498,7 +524,7 @@ export default function CallListScreen() {
               ]}>
               <Text style={[styles.listHeaderText, { flex: 2.2 }]}>Name</Text>
               <Text style={[styles.listHeaderText, { flex: 1.6 }]}>Status</Text>
-              <Text style={[styles.listHeaderText, { width: 88 }]}>Action</Text>
+              <Text style={[styles.listHeaderText, { width: 168 }]}>Action</Text>
             </View>
             <ScrollView
               style={styles.flex}
@@ -662,6 +688,13 @@ const styles = StyleSheet.create({
     flex: 1.6,
     minWidth: 0,
   },
+  listActions: {
+    width: 168,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 2,
+  },
   gridList: {
     padding: 16,
     paddingBottom: 24,
@@ -698,7 +731,10 @@ const styles = StyleSheet.create({
   },
   gridActions: {
     marginTop: 'auto',
-    alignItems: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
     paddingTop: 8,
   },
   updateBtn: {
