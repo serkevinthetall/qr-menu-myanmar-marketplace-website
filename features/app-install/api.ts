@@ -87,3 +87,14 @@ export async function updateAppInstallStatus(
   notifyCallListBadgeChanged();
   return response.data;
 }
+
+export async function removeFromCallList(
+  token: string,
+  partnerId: string,
+): Promise<void> {
+  await webApiRequest<{ data: { odooPartnerId: string; removed: boolean } }>(
+    `/app-installs/${partnerId}`,
+    { method: 'DELETE', token },
+  );
+  notifyCallListBadgeChanged();
+}

@@ -12,6 +12,7 @@ export {
   fetchCallList,
   fetchCallListNotInstalledCount,
   notifyCallListBadgeChanged,
+  removeFromCallList,
   requestAppInstall,
   updateAppInstallStatus,
 } from './api';

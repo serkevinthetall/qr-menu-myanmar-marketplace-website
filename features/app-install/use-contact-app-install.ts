@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 
 import {
   fetchAppInstallMap,
+  removeFromCallList,
   requestAppInstall,
   updateAppInstallStatus,
 } from './api';
@@ -98,6 +99,29 @@ export function useContactAppInstall(token: string | undefined) {
     [enabled],
   );
 
+  const handleRemoveFromCallList = useCallback(
+    async (id: string) => {
+      if (!enabled || !token) return;
+      setInstallBusyId(id);
+      try {
+        await removeFromCallList(token, id);
+        setInstallMap(prev => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+        setMessage('Removed from Call List.');
+      } catch (err) {
+        setMessage(
+          err instanceof Error ? err.message : 'Failed to remove from Call List.',
+        );
+      } finally {
+        setInstallBusyId(null);
+      }
+    },
+    [enabled, token],
+  );
+
   const confirmNotInstalledReason = useCallback(
     async (reason: AppInstallReason) => {
       if (!enabled || !token || !reasonForId) return;
@@ -135,6 +159,7 @@ export function useContactAppInstall(token: string | undefined) {
     handleRequestInstall,
     handleMarkInstalled,
     handleMarkNotInstalled,
+    handleRemoveFromCallList,
     confirmNotInstalledReason,
   };
 }

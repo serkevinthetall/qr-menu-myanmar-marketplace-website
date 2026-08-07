@@ -37,6 +37,7 @@ import {
   APP_INSTALL_STATUS_OPTIONS,
   ENABLE_APP_INSTALL_CALL_LIST,
   fetchCallList,
+  removeFromCallList,
   updateAppInstallStatus,
   AppInstallReason,
   AppInstallRecord,
@@ -89,6 +90,7 @@ function UpdateMenu({
   onClose,
   onStatus,
   onNotInstalled,
+  onRemove,
 }: {
   item: AppInstallRecord;
   open: boolean;
@@ -97,6 +99,7 @@ function UpdateMenu({
   onClose: () => void;
   onStatus: (status: AppInstallStatus) => void;
   onNotInstalled: () => void;
+  onRemove: () => void;
 }) {
   return (
     <Menu
@@ -123,6 +126,13 @@ function UpdateMenu({
         title="Not installed…"
       />
       <Menu.Item onPress={() => onStatus('installed')} title="Installed" />
+      <Menu.Item
+        onPress={() => {
+          onClose();
+          onRemove();
+        }}
+        title="Remove from list"
+      />
     </Menu>
   );
 }
@@ -136,6 +146,7 @@ function CallListRow({
   onCloseMenu,
   onStatus,
   onNotInstalled,
+  onRemove,
 }: {
   item: AppInstallRecord;
   index: number;
@@ -145,6 +156,7 @@ function CallListRow({
   onCloseMenu: () => void;
   onStatus: (status: AppInstallStatus) => void;
   onNotInstalled: () => void;
+  onRemove: () => void;
 }) {
   const theme = useTheme();
   const zebra = index % 2 === 1;
@@ -182,6 +194,7 @@ function CallListRow({
         onClose={onCloseMenu}
         onStatus={onStatus}
         onNotInstalled={onNotInstalled}
+        onRemove={onRemove}
       />
     </View>
   );
@@ -195,6 +208,7 @@ function CallListCard({
   onCloseMenu,
   onStatus,
   onNotInstalled,
+  onRemove,
 }: {
   item: AppInstallRecord;
   menuOpen: boolean;
@@ -203,6 +217,7 @@ function CallListCard({
   onCloseMenu: () => void;
   onStatus: (status: AppInstallStatus) => void;
   onNotInstalled: () => void;
+  onRemove: () => void;
 }) {
   const theme = useTheme();
 
@@ -240,6 +255,7 @@ function CallListCard({
           onClose={onCloseMenu}
           onStatus={onStatus}
           onNotInstalled={onNotInstalled}
+          onRemove={onRemove}
         />
       </View>
     </View>
@@ -390,6 +406,27 @@ export default function CallListScreen() {
     [session?.token],
   );
 
+  const removeItem = useCallback(
+    async (item: AppInstallRecord) => {
+      if (!session?.token) return;
+      setBusyId(item.odooPartnerId);
+      try {
+        await removeFromCallList(session.token, item.odooPartnerId);
+        setItems(prev =>
+          prev.filter(row => row.odooPartnerId !== item.odooPartnerId),
+        );
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : 'Failed to remove from call list.',
+        );
+      } finally {
+        setBusyId(null);
+        setMenuForId(null);
+      }
+    },
+    [session?.token],
+  );
+
   const emptyLabel =
     query.trim() || statusFilter !== 'all'
       ? 'No matching call-list contacts.'
@@ -480,6 +517,9 @@ export default function CallListScreen() {
                     void setStatus(item, status);
                   }}
                   onNotInstalled={() => setReasonFor(item)}
+                  onRemove={() => {
+                    void removeItem(item);
+                  }}
                 />
               ))}
             </ScrollView>
@@ -507,6 +547,9 @@ export default function CallListScreen() {
                   void setStatus(item, status);
                 }}
                 onNotInstalled={() => setReasonFor(item)}
+                onRemove={() => {
+                  void removeItem(item);
+                }}
               />
             </View>
           )}

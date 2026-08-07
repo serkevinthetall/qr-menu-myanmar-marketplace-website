@@ -193,6 +193,7 @@ function ContactRow({
   onRequestInstall,
   onMarkInstalled,
   onMarkNotInstalled,
+  onRemoveFromCallList,
 }: {
   item: Customer;
   index: number;
@@ -206,6 +207,7 @@ function ContactRow({
   onRequestInstall?: (id: string) => void;
   onMarkInstalled?: (id: string) => void;
   onMarkNotInstalled?: (id: string) => void;
+  onRemoveFromCallList?: (id: string) => void;
 }) {
   const theme = useTheme();
   const zebra = index % 2 === 1;
@@ -302,6 +304,13 @@ function ContactRow({
                     onPress={() => {
                       setMenuOpen(false);
                       onMarkInstalled?.(item.id);
+                    }}
+                  />
+                  <Menu.Item
+                    title="Remove from list"
+                    onPress={() => {
+                      setMenuOpen(false);
+                      onRemoveFromCallList?.(item.id);
                     }}
                   />
                 </Menu>
@@ -969,6 +978,11 @@ export default function CustomersScreen() {
                   onMarkNotInstalled={
                     appInstall.enabled
                       ? appInstall.handleMarkNotInstalled
+                      : undefined
+                  }
+                  onRemoveFromCallList={
+                    appInstall.enabled
+                      ? appInstall.handleRemoveFromCallList
                       : undefined
                   }
                 />
