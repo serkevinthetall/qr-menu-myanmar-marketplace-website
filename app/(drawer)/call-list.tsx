@@ -26,6 +26,7 @@ import {
 import { Pagination } from '@/components/ui/Pagination';
 import { useAuth } from '@/contexts/auth-context';
 import {
+  HeaderAction,
   useHeaderActions,
   useModuleSearch,
 } from '@/contexts/search-context';
@@ -42,6 +43,8 @@ import {
 } from '@/features/app-install';
 
 const PAGE_SIZE = 50;
+/** Stable empty actions — inline `[]` re-triggers useFocusEffect every render. */
+const EMPTY_HEADER_ACTIONS: HeaderAction[] = [];
 
 function statusColor(status: AppInstallStatus): { bg: string; fg: string } {
   switch (status) {
@@ -73,7 +76,7 @@ export default function CallListScreen() {
   const query = useModuleSearch(
     ENABLE_APP_INSTALL_CALL_LIST ? 'Search call list by name or phone' : '',
   );
-  useHeaderActions([]);
+  useHeaderActions(EMPTY_HEADER_ACTIONS);
 
   const load = useCallback(async () => {
     if (!ENABLE_APP_INSTALL_CALL_LIST || !session?.token) return;
