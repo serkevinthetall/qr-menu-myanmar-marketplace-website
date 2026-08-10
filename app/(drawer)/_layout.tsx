@@ -1,5 +1,6 @@
+import { DrawerHeaderProps } from '@react-navigation/drawer';
 import { Drawer } from 'expo-router/drawer';
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Platform } from 'react-native';
 import { useTheme } from 'react-native-paper';
 
@@ -21,23 +22,28 @@ export const unstable_settings = {
   initialRouteName: 'overview',
 };
 
+/**
+ * React Navigation Drawer calls `options.header(props)` as a plain function
+ * inside `routes.map`. Passing `AppHeader` there runs its hooks in DrawerView
+ * and throws React #310 when another lazy screen mounts.
+ * This wrapper must only return an element — no hooks.
+ */
+function renderDrawerHeader(props: DrawerHeaderProps) {
+  'use no memo';
+  return <AppHeader {...props} />;
+}
+
 export default function DrawerLayout() {
+  'use no memo';
   const { sidebarWidth } = useResponsive();
   const { mode } = useAppTheme();
   const theme = useTheme();
   const colors = AppColors[mode];
   const isWeb = Platform.OS === 'web';
 
-  // Keep a stable header renderer (avoids remounts) while still rendering
-  // inside Paper/Search providers — `header: AppHeader` breaks useTheme on web.
-  const renderHeader = useCallback(
-    (props: React.ComponentProps<typeof AppHeader>) => <AppHeader {...props} />,
-    [],
-  );
-
   const screenOptions = useMemo(
     () => ({
-      header: renderHeader,
+      header: renderDrawerHeader,
       drawerType: isWeb ? ('slide' as const) : ('front' as const),
       drawerStyle: {
         width: sidebarWidth,
@@ -52,7 +58,7 @@ export default function DrawerLayout() {
       overlayColor: isWeb ? 'transparent' : colors.drawerOverlay,
       drawerStatusBarAnimation: 'slide' as const,
     }),
-    [colors.drawerOverlay, isWeb, renderHeader, sidebarWidth, theme.colors],
+    [colors.drawerOverlay, isWeb, sidebarWidth, theme.colors],
   );
 
   const drawerTree = (
