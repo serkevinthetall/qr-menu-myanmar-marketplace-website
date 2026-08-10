@@ -27,7 +27,8 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
   const {
     visible,
     placeholder,
-    query,
+    inputQuery,
+    setInputQuery,
     setQuery,
     actions,
     filtersEnabled,
@@ -50,6 +51,8 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
     setPrintMenuVisible(false);
     detailHeader?.onPrint?.(format);
   };
+
+  const showNotifBadge = unreadCount > 0;
 
   return (
     <Appbar.Header
@@ -83,22 +86,27 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
                 onPress={() => navigation.toggleDrawer()}
                 accessibilityLabel="Open menu"
               />
-              {unreadCount > 0 ? (
-                <View style={styles.notifWrap}>
-                  <IconButton
-                    icon="bell-outline"
-                    iconColor={colors.onPrimary}
-                    containerColor="transparent"
-                    rippleColor={colors.headerRipple}
-                    size={22}
-                    onPress={() => navigation.navigate('online-orders')}
-                    accessibilityLabel={`App Order notifications, ${unreadCount} unread`}
-                  />
+              <View
+                style={[
+                  styles.notifWrap,
+                  !showNotifBadge ? styles.notifWrapHidden : null,
+                ]}
+                pointerEvents={showNotifBadge ? 'auto' : 'none'}>
+                <IconButton
+                  icon="bell-outline"
+                  iconColor={colors.onPrimary}
+                  containerColor="transparent"
+                  rippleColor={colors.headerRipple}
+                  size={22}
+                  onPress={() => navigation.navigate('online-orders')}
+                  accessibilityLabel={`App Order notifications, ${unreadCount} unread`}
+                />
+                {showNotifBadge ? (
                   <Badge style={styles.notifBadge} size={16}>
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </Badge>
-                </View>
-              ) : null}
+                ) : null}
+              </View>
             </>
           )}
 
@@ -106,24 +114,24 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
             <View style={[styles.searchBox, { backgroundColor: colors.searchBg }]}>
               <Icon source="magnify" size={20} color={colors.searchIcon} />
               <TextInput
-                key="module-search-input"
-                value={query}
-                onChangeText={setQuery}
+                value={inputQuery}
+                onChangeText={setInputQuery}
                 placeholder={placeholder}
                 placeholderTextColor={colors.searchPlaceholder}
                 style={[styles.searchInput, { color: colors.searchText }]}
                 returnKeyType="search"
                 autoCorrect={false}
                 autoCapitalize="none"
+                blurOnSubmit={false}
                 underlineColorAndroid="transparent"
               />
               <Pressable
                 onPress={() => setQuery('')}
                 hitSlop={8}
-                disabled={query.length === 0}
+                disabled={inputQuery.length === 0}
                 style={[
                   styles.clearButton,
-                  query.length === 0 ? styles.clearButtonHidden : null,
+                  inputQuery.length === 0 ? styles.clearButtonHidden : null,
                 ]}
                 accessibilityLabel="Clear search">
                 <Icon source="close" size={18} color={colors.searchIcon} />
@@ -332,6 +340,9 @@ const styles = StyleSheet.create({
     position: 'relative',
     justifyContent: 'center',
     marginLeft: -6,
+  },
+  notifWrapHidden: {
+    opacity: 0,
   },
   notifBadge: {
     position: 'absolute',

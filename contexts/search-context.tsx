@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useTransition,
 } from 'react';
 
 import { PrintFormat } from '@/utils/print-quotation';
@@ -38,6 +39,9 @@ export type DetailHeader = {
 type SearchContextValue = {
   query: string;
   setQuery: (value: string) => void;
+  /** Immediate header input value; may lead the deferred `query` used for filtering. */
+  inputQuery: string;
+  setInputQuery: (value: string) => void;
   placeholder: string;
   visible: boolean;
   enableSearch: (placeholder: string) => void;
@@ -64,7 +68,8 @@ const SearchContext = createContext<SearchContextValue | null>(null);
  * on while it is focused (via `useModuleSearch` / `useHeaderActions`).
  */
 export function SearchProvider({ children }: { children: ReactNode }) {
-  const [query, setQuery] = useState('');
+  const [query, setQueryState] = useState('');
+  const [inputQuery, setInputQueryState] = useState('');
   const [placeholder, setPlaceholder] = useState('Search');
   const [visible, setVisible] = useState(false);
   const [actions, setActions] = useState<HeaderAction[]>([]);
@@ -72,6 +77,19 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   const [filtersEnabled, setFiltersEnabled] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [filterPanel, setFilterPanel] = useState<ReactNode | null>(null);
+  const [, startFilterTransition] = useTransition();
+
+  const setInputQuery = useCallback((value: string) => {
+    setInputQueryState(value);
+    startFilterTransition(() => {
+      setQueryState(value);
+    });
+  }, [startFilterTransition]);
+
+  const setQuery = useCallback((value: string) => {
+    setInputQueryState(value);
+    setQueryState(value);
+  }, []);
 
   const enableSearch = useCallback((nextPlaceholder: string) => {
     setPlaceholder(nextPlaceholder);
@@ -80,7 +98,8 @@ export function SearchProvider({ children }: { children: ReactNode }) {
 
   const disableSearch = useCallback(() => {
     setVisible(false);
-    setQuery('');
+    setInputQueryState('');
+    setQueryState('');
     setFiltersEnabled(false);
     setFiltersExpanded(false);
     setFilterPanel(null);
@@ -107,6 +126,8 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     () => ({
       query,
       setQuery,
+      inputQuery,
+      setInputQuery,
       placeholder,
       visible,
       enableSearch,
@@ -126,12 +147,14 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     }),
     [
       query,
+      setQuery,
+      inputQuery,
+      setInputQuery,
       placeholder,
       visible,
       enableSearch,
       disableSearch,
       detailHeader,
-      setDetailHeader,
       actions,
       filtersEnabled,
       filtersExpanded,
@@ -160,9 +183,7 @@ export function useOptionalSearch() {
 
 /**
  * Enables the navbar search bar while the calling screen is focused and
- * returns the current query for local filtering.
- *
- * Placeholder updates do not clear the query (avoids wiping text mid-typing).
+ * returns the deferred query for local filtering.
  */
 export function useModuleSearch(placeholder: string, enabled = true) {
   const { query, enableSearch, disableSearch } = useSearch();
@@ -191,17 +212,27 @@ export function useModuleSearch(placeholder: string, enabled = true) {
 
 /**
  * Registers module-specific action buttons in the navbar while the calling
- * screen is focused. Pass a memoized `actions` array so it stays stable.
+ * screen is focused.
+ *
+ * Actions are applied via ref + effect so unstable array identities (common
+ * when callbacks close over `router`) do not re-fire useFocusEffect cleanup,
+ * which remounts header controls and steals search focus on web.
  */
 export function useHeaderActions(actions: HeaderAction[]) {
   const { setActions } = useSearch();
+  const actionsRef = useRef(actions);
+  actionsRef.current = actions;
 
   useFocusEffect(
     useCallback(() => {
-      setActions(actions);
+      setActions(actionsRef.current);
       return () => setActions([]);
-    }, [setActions, actions]),
+    }, [setActions]),
   );
+
+  useEffect(() => {
+    setActions(actions);
+  }, [actions, setActions]);
 }
 
 /**
@@ -211,15 +242,17 @@ export function useHeaderActions(actions: HeaderAction[]) {
 export function useModuleFilters(panel: ReactNode, enabled = true) {
   const { enableFilters, unregisterFilters, setFilterPanel, filtersEnabled } =
     useSearch();
+  const panelRef = useRef(panel);
+  panelRef.current = panel;
 
   useFocusEffect(
     useCallback(() => {
       if (enabled) {
-        enableFilters(panel);
-      } else {
-        unregisterFilters();
+        enableFilters(panelRef.current);
+        return () => unregisterFilters();
       }
-      return () => unregisterFilters();
+      unregisterFilters();
+      return undefined;
     }, [enabled, enableFilters, unregisterFilters]),
   );
 

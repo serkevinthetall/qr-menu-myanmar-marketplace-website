@@ -1,6 +1,6 @@
 import { Drawer } from 'expo-router/drawer';
 import { useMemo } from 'react';
-import { Platform, useWindowDimensions } from 'react-native';
+import { Platform } from 'react-native';
 import { useTheme } from 'react-native-paper';
 
 import { AppHeader } from '@/components/layout/AppHeader';
@@ -23,7 +23,6 @@ export const unstable_settings = {
 
 export default function DrawerLayout() {
   const { sidebarWidth } = useResponsive();
-  const { width } = useWindowDimensions();
   const { mode } = useAppTheme();
   const theme = useTheme();
   const colors = AppColors[mode];
@@ -31,7 +30,7 @@ export default function DrawerLayout() {
 
   const screenOptions = useMemo(
     () => ({
-      header: (props: Parameters<typeof AppHeader>[0]) => <AppHeader {...props} />,
+      header: AppHeader,
       drawerType: isWeb ? ('slide' as const) : ('front' as const),
       drawerStyle: {
         width: sidebarWidth,
@@ -46,7 +45,7 @@ export default function DrawerLayout() {
       overlayColor: isWeb ? 'transparent' : colors.drawerOverlay,
       drawerStatusBarAnimation: 'slide' as const,
     }),
-    [colors.drawerOverlay, isWeb, sidebarWidth, theme.colors, width],
+    [colors.drawerOverlay, isWeb, sidebarWidth, theme.colors],
   );
 
   const drawerTree = (

@@ -970,6 +970,7 @@ export default function CustomersScreen() {
           <ScrollView
             style={styles.tableScroll}
             contentContainerStyle={styles.tableEmptyContent}
+            keyboardShouldPersistTaps="handled"
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }>
@@ -991,6 +992,7 @@ export default function CustomersScreen() {
             <ScrollView
               style={styles.listBody}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
               refreshControl={
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
               }>
@@ -1045,6 +1047,7 @@ export default function CustomersScreen() {
           numColumns={numColumns}
           keyExtractor={item => item.id}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
