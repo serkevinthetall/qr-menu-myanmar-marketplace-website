@@ -110,6 +110,25 @@ export function useContactAppInstall(token: string | undefined) {
     [enabled, token],
   );
 
+  const handleMarkPleaseComeAndInstall = useCallback(
+    async (id: string) => {
+      if (!enabled || !token) return;
+      setInstallBusyId(id);
+      try {
+        const record = await updateAppInstallStatus(token, id, {
+          status: 'please_come_and_install',
+        });
+        setInstallMap(prev => ({ ...prev, [id]: record }));
+        setMessage('Marked as Please come and install.');
+      } catch (err) {
+        setMessage(err instanceof Error ? err.message : 'Failed to update status.');
+      } finally {
+        setInstallBusyId(null);
+      }
+    },
+    [enabled, token],
+  );
+
   const handleMarkNew = useCallback(
     async (id: string) => {
       if (!enabled || !token) return;
@@ -197,6 +216,7 @@ export function useContactAppInstall(token: string | undefined) {
     handleRequestInstall,
     handleMarkInstalled,
     handleMarkWaiting,
+    handleMarkPleaseComeAndInstall,
     handleMarkNew,
     handleMarkNotInstalled,
     handleRemoveFromCallList,

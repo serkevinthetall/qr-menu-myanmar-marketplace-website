@@ -212,6 +212,8 @@ function appInstallColors(status?: AppInstallStatus): { bg: string; fg: string }
       return { bg: 'rgba(16, 185, 129, 0.18)', fg: '#047857' };
     case 'waiting':
       return { bg: 'rgba(59, 130, 246, 0.16)', fg: '#1D4ED8' };
+    case 'please_come_and_install':
+      return { bg: 'rgba(168, 85, 247, 0.16)', fg: '#7E22CE' };
     case 'new':
       return { bg: 'rgba(20, 184, 166, 0.18)', fg: '#0F766E' };
     case 'not_installed':
@@ -235,6 +237,7 @@ function ContactRow({
   onMarkInstalled,
   onMarkNotInstalled,
   onMarkWaiting,
+  onMarkPleaseComeAndInstall,
   onMarkNew,
   onRemoveFromCallList,
 }: {
@@ -251,6 +254,7 @@ function ContactRow({
   onMarkInstalled?: (id: string) => void;
   onMarkNotInstalled?: (id: string) => void;
   onMarkWaiting?: (id: string) => void;
+  onMarkPleaseComeAndInstall?: (id: string) => void;
   onMarkNew?: (id: string) => void;
   onRemoveFromCallList?: (id: string) => void;
 }) {
@@ -356,6 +360,13 @@ function ContactRow({
                     onPress={() => {
                       setMenuOpen(false);
                       setTimeout(() => onMarkWaiting?.(item.id), 0);
+                    }}
+                  />
+                  <Menu.Item
+                    title="Please come and install"
+                    onPress={() => {
+                      setMenuOpen(false);
+                      setTimeout(() => onMarkPleaseComeAndInstall?.(item.id), 0);
                     }}
                   />
                   <Menu.Item
@@ -640,11 +651,12 @@ export default function CustomersScreen() {
     }
     if (
       appInstall.enabled &&
-      (saved.appInstallFilter === 'all' ||
+      (        saved.appInstallFilter === 'all' ||
         saved.appInstallFilter === 'none' ||
         saved.appInstallFilter === 'new' ||
         saved.appInstallFilter === 'not_installed' ||
         saved.appInstallFilter === 'waiting' ||
+        saved.appInstallFilter === 'please_come_and_install' ||
         saved.appInstallFilter === 'installed')
     ) {
       appInstall.setAppInstallFilter(saved.appInstallFilter);
@@ -1041,6 +1053,11 @@ export default function CustomersScreen() {
                   }
                   onMarkWaiting={
                     appInstall.enabled ? appInstall.handleMarkWaiting : undefined
+                  }
+                  onMarkPleaseComeAndInstall={
+                    appInstall.enabled
+                      ? appInstall.handleMarkPleaseComeAndInstall
+                      : undefined
                   }
                   onMarkNew={
                     appInstall.enabled ? appInstall.handleMarkNew : undefined

@@ -1,5 +1,10 @@
 /** @temp-feature app-install-call-list */
-export type AppInstallStatus = 'new' | 'not_installed' | 'waiting' | 'installed';
+export type AppInstallStatus =
+  | 'new'
+  | 'not_installed'
+  | 'waiting'
+  | 'please_come_and_install'
+  | 'installed';
 
 export type AppInstallReason =
   | 'no_smartphone'
@@ -31,6 +36,7 @@ export const APP_INSTALL_STATUS_OPTIONS: {
   { id: 'new', label: 'New' },
   { id: 'not_installed', label: 'Not installed' },
   { id: 'waiting', label: 'Waiting' },
+  { id: 'please_come_and_install', label: 'Please come and install' },
   { id: 'installed', label: 'Installed' },
 ];
 
