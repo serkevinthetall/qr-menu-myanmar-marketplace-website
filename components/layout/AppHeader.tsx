@@ -106,22 +106,28 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
             <View style={[styles.searchBox, { backgroundColor: colors.searchBg }]}>
               <Icon source="magnify" size={20} color={colors.searchIcon} />
               <TextInput
+                key="module-search-input"
                 value={query}
                 onChangeText={setQuery}
                 placeholder={placeholder}
                 placeholderTextColor={colors.searchPlaceholder}
                 style={[styles.searchInput, { color: colors.searchText }]}
                 returnKeyType="search"
+                autoCorrect={false}
+                autoCapitalize="none"
                 underlineColorAndroid="transparent"
               />
-              {query.length > 0 ? (
-                <Pressable
-                  onPress={() => setQuery('')}
-                  hitSlop={8}
-                  style={styles.clearButton}>
-                  <Icon source="close" size={18} color={colors.searchIcon} />
-                </Pressable>
-              ) : null}
+              <Pressable
+                onPress={() => setQuery('')}
+                hitSlop={8}
+                disabled={query.length === 0}
+                style={[
+                  styles.clearButton,
+                  query.length === 0 ? styles.clearButtonHidden : null,
+                ]}
+                accessibilityLabel="Clear search">
+                <Icon source="close" size={18} color={colors.searchIcon} />
+              </Pressable>
               {filtersEnabled ? (
                 <Pressable
                   onPress={toggleFilters}
@@ -412,6 +418,10 @@ const styles = StyleSheet.create({
   clearButton: {
     padding: 2,
     borderRadius: 12,
+  },
+  clearButtonHidden: {
+    opacity: 0,
+    pointerEvents: 'none',
   },
   filterToggle: {
     padding: 2,

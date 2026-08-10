@@ -52,6 +52,7 @@ import {
 import { fetchCustomerDetail, fetchCustomers, fetchTownships } from '@/services/customers';
 import { Customer, CustomerDetail, Township } from '@/types/customer';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
+import { normalizeMyanmarPhone } from '@/utils/myanmar-phone';
 
 const PAGE_SIZE = 50;
 
@@ -96,6 +97,42 @@ const MONTHS = [
 function toSafeNumber(value: unknown): number {
   const num = Number(value ?? 0);
   return Number.isFinite(num) ? num : 0;
+}
+
+function digitsOnly(value: string): string {
+  return String(value ?? '').replace(/\D/g, '');
+}
+
+function matchesContactSearch(customer: Customer, term: string): boolean {
+  const needle = term.trim().toLowerCase();
+  if (!needle) {
+    return true;
+  }
+
+  if (customer.name.toLowerCase().includes(needle)) {
+    return true;
+  }
+  if (customer.township.toLowerCase().includes(needle)) {
+    return true;
+  }
+  if (customer.phone.toLowerCase().includes(needle)) {
+    return true;
+  }
+
+  const needleDigits = digitsOnly(needle);
+  if (needleDigits.length >= 3) {
+    const phoneDigits = digitsOnly(customer.phone);
+    if (phoneDigits.includes(needleDigits)) {
+      return true;
+    }
+    const normalizedPhone = normalizeMyanmarPhone(customer.phone);
+    const normalizedNeedle = normalizeMyanmarPhone(needle);
+    if (normalizedNeedle && normalizedPhone.includes(normalizedNeedle)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function formatMoney(value: unknown) {
@@ -602,7 +639,7 @@ export default function CustomersScreen() {
     }
   });
 
-  const query = useModuleSearch('Search contacts by name', !detailId);
+  const query = useModuleSearch('Search contacts by name or phone', !detailId);
   const { setDetailHeader } = useSearch();
 
   const townships = useMemo(() => {
@@ -773,11 +810,7 @@ export default function CustomersScreen() {
       if (!term) {
         return true;
       }
-      return (
-        customer.name.toLowerCase().includes(term) ||
-        customer.township.toLowerCase().includes(term) ||
-        customer.phone.toLowerCase().includes(term)
-      );
+      return matchesContactSearch(customer, term);
     });
   }, [customers, query, contactFilters, appInstall.matchesInstallFilter]);
 

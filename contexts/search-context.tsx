@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -160,20 +161,30 @@ export function useOptionalSearch() {
 /**
  * Enables the navbar search bar while the calling screen is focused and
  * returns the current query for local filtering.
+ *
+ * Placeholder updates do not clear the query (avoids wiping text mid-typing).
  */
 export function useModuleSearch(placeholder: string, enabled = true) {
   const { query, enableSearch, disableSearch } = useSearch();
+  const placeholderRef = useRef(placeholder);
+  placeholderRef.current = placeholder;
 
   useFocusEffect(
     useCallback(() => {
       if (enabled) {
-        enableSearch(placeholder);
-      } else {
-        disableSearch();
+        enableSearch(placeholderRef.current);
+        return () => disableSearch();
       }
-      return () => disableSearch();
-    }, [placeholder, enabled, enableSearch, disableSearch]),
+      disableSearch();
+      return undefined;
+    }, [enabled, enableSearch, disableSearch]),
   );
+
+  useEffect(() => {
+    if (enabled) {
+      enableSearch(placeholder);
+    }
+  }, [placeholder, enabled, enableSearch]);
 
   return query;
 }
