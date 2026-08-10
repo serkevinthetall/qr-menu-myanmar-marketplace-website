@@ -18,7 +18,7 @@ type OneResponse = { data: AppInstallRecord; meta?: { created?: boolean } };
 
 type MapResponse = { data: Record<string, AppInstallRecord> };
 
-type BadgeResponse = { data: { notInstalledCount: number } };
+type BadgeResponse = { data: { newCount?: number; notInstalledCount?: number } };
 
 export function notifyCallListBadgeChanged() {
   if (typeof window !== 'undefined') {
@@ -55,11 +55,15 @@ export async function fetchCallList(
   return response.data ?? [];
 }
 
-export async function fetchCallListNotInstalledCount(token: string): Promise<number> {
+export async function fetchCallListNewCount(token: string): Promise<number> {
   const response = await webApiRequest<BadgeResponse>('/app-installs/badge', {
     token,
   });
-  return Number(response.data?.notInstalledCount) || 0;
+  return (
+    Number(response.data?.newCount) ||
+    Number(response.data?.notInstalledCount) ||
+    0
+  );
 }
 
 export async function requestAppInstall(

@@ -212,6 +212,8 @@ function appInstallColors(status?: AppInstallStatus): { bg: string; fg: string }
       return { bg: 'rgba(16, 185, 129, 0.18)', fg: '#047857' };
     case 'waiting':
       return { bg: 'rgba(59, 130, 246, 0.16)', fg: '#1D4ED8' };
+    case 'new':
+      return { bg: 'rgba(20, 184, 166, 0.18)', fg: '#0F766E' };
     case 'not_installed':
       return { bg: 'rgba(245, 158, 11, 0.2)', fg: '#B45309' };
     default:
@@ -233,6 +235,7 @@ function ContactRow({
   onMarkInstalled,
   onMarkNotInstalled,
   onMarkWaiting,
+  onMarkNew,
   onRemoveFromCallList,
 }: {
   item: Customer;
@@ -248,6 +251,7 @@ function ContactRow({
   onMarkInstalled?: (id: string) => void;
   onMarkNotInstalled?: (id: string) => void;
   onMarkWaiting?: (id: string) => void;
+  onMarkNew?: (id: string) => void;
   onRemoveFromCallList?: (id: string) => void;
 }) {
   const theme = useTheme();
@@ -333,6 +337,13 @@ function ContactRow({
                       {install.statusLabel}
                     </Button>
                   }>
+                  <Menu.Item
+                    title="New"
+                    onPress={() => {
+                      setMenuOpen(false);
+                      setTimeout(() => onMarkNew?.(item.id), 0);
+                    }}
+                  />
                   <Menu.Item
                     title="Not installed…"
                     onPress={() => {
@@ -631,6 +642,7 @@ export default function CustomersScreen() {
       appInstall.enabled &&
       (saved.appInstallFilter === 'all' ||
         saved.appInstallFilter === 'none' ||
+        saved.appInstallFilter === 'new' ||
         saved.appInstallFilter === 'not_installed' ||
         saved.appInstallFilter === 'waiting' ||
         saved.appInstallFilter === 'installed')
@@ -1029,6 +1041,9 @@ export default function CustomersScreen() {
                   }
                   onMarkWaiting={
                     appInstall.enabled ? appInstall.handleMarkWaiting : undefined
+                  }
+                  onMarkNew={
+                    appInstall.enabled ? appInstall.handleMarkNew : undefined
                   }
                   onRemoveFromCallList={
                     appInstall.enabled

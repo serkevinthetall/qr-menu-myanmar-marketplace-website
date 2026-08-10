@@ -16,7 +16,7 @@ export function DrawerContent(props: DrawerContentComponentProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { unreadCount } = useAppOrderUnread();
-  const { notInstalledCount } = useCallListBadge();
+  const { newCount } = useCallListBadge();
   const activeRoute = props.state.routes[props.state.index]?.name;
   // Only toggled by user press — never auto-open on route change.
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
@@ -40,7 +40,7 @@ export function DrawerContent(props: DrawerContentComponentProps) {
       item.name === 'online-orders'
         ? unreadCount
         : item.name === 'call-list' && ENABLE_APP_INSTALL_CALL_LIST
-          ? notInstalledCount
+          ? newCount
           : 0;
     const showBadge = badgeCount > 0;
     const row = (

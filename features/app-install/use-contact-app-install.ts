@@ -60,7 +60,7 @@ export function useContactAppInstall(token: string | undefined) {
       try {
         const record = await requestAppInstall(token, id);
         setInstallMap(prev => ({ ...prev, [id]: record }));
-        setMessage('Added to Call List (Not installed).');
+        setMessage('Added to Call List (New).');
       } catch (err) {
         setMessage(
           err instanceof Error ? err.message : 'Failed to request app install.',
@@ -101,6 +101,25 @@ export function useContactAppInstall(token: string | undefined) {
         });
         setInstallMap(prev => ({ ...prev, [id]: record }));
         setMessage('Marked as Waiting.');
+      } catch (err) {
+        setMessage(err instanceof Error ? err.message : 'Failed to update status.');
+      } finally {
+        setInstallBusyId(null);
+      }
+    },
+    [enabled, token],
+  );
+
+  const handleMarkNew = useCallback(
+    async (id: string) => {
+      if (!enabled || !token) return;
+      setInstallBusyId(id);
+      try {
+        const record = await updateAppInstallStatus(token, id, {
+          status: 'new',
+        });
+        setInstallMap(prev => ({ ...prev, [id]: record }));
+        setMessage('Marked as New.');
       } catch (err) {
         setMessage(err instanceof Error ? err.message : 'Failed to update status.');
       } finally {
@@ -178,6 +197,7 @@ export function useContactAppInstall(token: string | undefined) {
     handleRequestInstall,
     handleMarkInstalled,
     handleMarkWaiting,
+    handleMarkNew,
     handleMarkNotInstalled,
     handleRemoveFromCallList,
     confirmNotInstalledReason,

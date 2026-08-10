@@ -10,7 +10,7 @@ export {
   CALL_LIST_BADGE_REFRESH_EVENT,
   fetchAppInstallMap,
   fetchCallList,
-  fetchCallListNotInstalledCount,
+  fetchCallListNewCount,
   notifyCallListBadgeChanged,
   removeFromCallList,
   requestAppInstall,

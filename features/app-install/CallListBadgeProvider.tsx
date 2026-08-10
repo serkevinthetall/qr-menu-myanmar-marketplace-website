@@ -13,13 +13,13 @@ import { useAuth } from '@/contexts/auth-context';
 
 import {
   CALL_LIST_BADGE_REFRESH_EVENT,
-  fetchCallListNotInstalledCount,
+  fetchCallListNewCount,
 } from './api';
 import { ENABLE_APP_INSTALL_CALL_LIST } from './enabled';
 
 type CallListBadgeContextValue = {
-  notInstalledCount: number;
-  refreshNotInstalledCount: () => Promise<void>;
+  newCount: number;
+  refreshNewCount: () => Promise<void>;
 };
 
 const CallListBadgeContext = createContext<CallListBadgeContextValue | null>(
@@ -34,16 +34,16 @@ export function CallListBadgeProvider({
   children: React.ReactNode;
 }) {
   const { session, isAuthenticated } = useAuth();
-  const [notInstalledCount, setNotInstalledCount] = useState(0);
+  const [newCount, setNewCount] = useState(0);
 
-  const refreshNotInstalledCount = useCallback(async () => {
+  const refreshNewCount = useCallback(async () => {
     if (!ENABLE_APP_INSTALL_CALL_LIST || !session?.token || !isAuthenticated) {
-      setNotInstalledCount(0);
+      setNewCount(0);
       return;
     }
     try {
-      const count = await fetchCallListNotInstalledCount(session.token);
-      setNotInstalledCount(count);
+      const count = await fetchCallListNewCount(session.token);
+      setNewCount(count);
     } catch {
       // Keep last known count on transient errors.
     }
@@ -56,17 +56,17 @@ export function CallListBadgeProvider({
       !isAuthenticated ||
       !session?.token
     ) {
-      setNotInstalledCount(0);
+      setNewCount(0);
       return;
     }
 
-    void refreshNotInstalledCount();
+    void refreshNewCount();
     const timer = setInterval(() => {
-      void refreshNotInstalledCount();
+      void refreshNewCount();
     }, POLL_MS);
 
     const onRefresh = () => {
-      void refreshNotInstalledCount();
+      void refreshNewCount();
     };
     if (typeof window !== 'undefined') {
       window.addEventListener(CALL_LIST_BADGE_REFRESH_EVENT, onRefresh);
@@ -78,11 +78,11 @@ export function CallListBadgeProvider({
         window.removeEventListener(CALL_LIST_BADGE_REFRESH_EVENT, onRefresh);
       }
     };
-  }, [isAuthenticated, session?.token, refreshNotInstalledCount]);
+  }, [isAuthenticated, session?.token, refreshNewCount]);
 
   const value = useMemo(
-    () => ({ notInstalledCount, refreshNotInstalledCount }),
-    [notInstalledCount, refreshNotInstalledCount],
+    () => ({ newCount, refreshNewCount }),
+    [newCount, refreshNewCount],
   );
 
   return (
@@ -96,8 +96,8 @@ export function useCallListBadge(): CallListBadgeContextValue {
   const ctx = useContext(CallListBadgeContext);
   if (!ctx) {
     return {
-      notInstalledCount: 0,
-      refreshNotInstalledCount: async () => undefined,
+      newCount: 0,
+      refreshNewCount: async () => undefined,
     };
   }
   return ctx;

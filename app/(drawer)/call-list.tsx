@@ -61,6 +61,8 @@ function statusColor(status: AppInstallStatus): { bg: string; fg: string } {
       return { bg: 'rgba(16, 185, 129, 0.18)', fg: '#047857' };
     case 'waiting':
       return { bg: 'rgba(59, 130, 246, 0.16)', fg: '#1D4ED8' };
+    case 'new':
+      return { bg: 'rgba(20, 184, 166, 0.18)', fg: '#0F766E' };
     case 'not_installed':
     default:
       return { bg: 'rgba(245, 158, 11, 0.2)', fg: '#B45309' };
@@ -126,6 +128,10 @@ function UpdateMenu({
           Update
         </Button>
       }>
+      <Menu.Item
+        onPress={() => runAfterClose(() => onStatus('new'))}
+        title="New"
+      />
       <Menu.Item
         onPress={() => runAfterClose(onNotInstalled)}
         title="Not installed…"
@@ -319,6 +325,7 @@ export default function CallListScreen() {
     }
     if (
       saved.statusFilter === 'all' ||
+      saved.statusFilter === 'new' ||
       saved.statusFilter === 'not_installed' ||
       saved.statusFilter === 'waiting' ||
       saved.statusFilter === 'installed'
