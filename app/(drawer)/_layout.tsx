@@ -1,5 +1,5 @@
 import { Drawer } from 'expo-router/drawer';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Platform } from 'react-native';
 import { useTheme } from 'react-native-paper';
 
@@ -28,9 +28,16 @@ export default function DrawerLayout() {
   const colors = AppColors[mode];
   const isWeb = Platform.OS === 'web';
 
+  // Keep a stable header renderer (avoids remounts) while still rendering
+  // inside Paper/Search providers — `header: AppHeader` breaks useTheme on web.
+  const renderHeader = useCallback(
+    (props: React.ComponentProps<typeof AppHeader>) => <AppHeader {...props} />,
+    [],
+  );
+
   const screenOptions = useMemo(
     () => ({
-      header: AppHeader,
+      header: renderHeader,
       drawerType: isWeb ? ('slide' as const) : ('front' as const),
       drawerStyle: {
         width: sidebarWidth,
@@ -45,7 +52,7 @@ export default function DrawerLayout() {
       overlayColor: isWeb ? 'transparent' : colors.drawerOverlay,
       drawerStatusBarAnimation: 'slide' as const,
     }),
-    [colors.drawerOverlay, isWeb, sidebarWidth, theme.colors],
+    [colors.drawerOverlay, isWeb, renderHeader, sidebarWidth, theme.colors],
   );
 
   const drawerTree = (
