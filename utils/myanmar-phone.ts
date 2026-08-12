@@ -39,6 +39,25 @@ export function lastPhoneDigits(phone: string, count: number): string {
   return normalized.substring(normalized.length - count);
 }
 
+/** Build a dialable `tel:` URI (Myanmar local → +95…). */
+export function toTelUri(phone: string): string {
+  const normalized = normalizeMyanmarPhone(phone);
+  if (!normalized) {
+    return '';
+  }
+
+  let international = normalized;
+  if (normalized.startsWith('+')) {
+    international = normalized;
+  } else if (normalized.startsWith('0')) {
+    international = `+95${normalized.slice(1)}`;
+  } else if (/^\d+$/.test(normalized)) {
+    international = `+${normalized}`;
+  }
+
+  return `tel:${international}`;
+}
+
 export function validateMyanmarPhone(number: string, fieldName = 'ဖုန်းနံပါတ်'): string {
   if (!number) {
     throw new Error(`${fieldName} ဖြည့်ရန်လိုအပ်ပါသည်။`);

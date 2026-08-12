@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
+  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -40,11 +41,12 @@ import {
   fetchCallList,
   removeFromCallList,
   updateAppInstallStatus,
-  AppInstallReason,
-  AppInstallRecord,
-  AppInstallStatus,
+  type AppInstallReason,
+  type AppInstallRecord,
+  type AppInstallStatus,
 } from '@/features/app-install';
 import { useListUiCache } from '@/utils/list-ui-cache';
+import { toTelUri } from '@/utils/myanmar-phone';
 
 const PAGE_SIZE = 50;
 
@@ -69,6 +71,47 @@ function statusColor(status: AppInstallStatus): { bg: string; fg: string } {
     default:
       return { bg: 'rgba(245, 158, 11, 0.2)', fg: '#B45309' };
   }
+}
+
+function PhoneCallLink({
+  phone,
+  style,
+}: {
+  phone: string;
+  style?: object;
+}) {
+  const theme = useTheme();
+  const trimmed = phone.trim();
+
+  if (!trimmed) {
+    return (
+      <Text style={[{ color: theme.colors.onSurfaceVariant }, style]}>
+        No phone
+      </Text>
+    );
+  }
+
+  const telUri = toTelUri(trimmed);
+  return (
+    <Text
+      accessibilityRole="link"
+      accessibilityLabel={`Call ${trimmed}`}
+      onPress={() => {
+        if (!telUri) return;
+        void Linking.openURL(telUri);
+      }}
+      style={[
+        {
+          color: theme.colors.primary,
+          textDecorationLine: 'underline',
+          fontWeight: '600',
+        },
+        style,
+      ]}
+      numberOfLines={1}>
+      {trimmed}
+    </Text>
+  );
 }
 
 function StatusChip({ item }: { item: AppInstallRecord }) {
@@ -197,12 +240,17 @@ function CallListRow({
         <Text style={styles.listName} numberOfLines={1}>
           {item.name || '—'}
         </Text>
-        <Text
-          style={{ color: theme.colors.onSurfaceVariant, fontSize: 13 }}
-          numberOfLines={1}>
-          {item.phone || 'No phone'}
-          {item.township ? ` · ${item.township}` : ''}
-        </Text>
+        <View style={styles.listMetaRow}>
+          <PhoneCallLink phone={item.phone} style={{ fontSize: 13 }} />
+          {item.township ? (
+            <Text
+              style={{ color: theme.colors.onSurfaceVariant, fontSize: 13 }}
+              numberOfLines={1}>
+              {' · '}
+              {item.township}
+            </Text>
+          ) : null}
+        </View>
       </View>
       <View style={styles.listStatus}>
         <StatusChip item={item} />
@@ -265,11 +313,7 @@ function CallListCard({
       <Text style={styles.name} numberOfLines={2}>
         {item.name || '—'}
       </Text>
-      <Text
-        style={{ color: theme.colors.onSurfaceVariant }}
-        numberOfLines={1}>
-        {item.phone || 'No phone'}
-      </Text>
+      <PhoneCallLink phone={item.phone} />
       {item.township ? (
         <Text
           style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}
@@ -723,6 +767,12 @@ const styles = StyleSheet.create({
   listName: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  listMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    minWidth: 0,
   },
   listStatus: {
     flex: 1.6,
