@@ -52,6 +52,7 @@ import { SaleOrder, SaleOrderDetail } from '@/types/sale-order';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
 import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
 import { ONLINE_ORDERS_REFRESH_EVENT } from '@/utils/online-order-alerts-preference';
+import { groupOrdersByMonthDay } from '@/utils/order-date-groups';
 import { PrintFormat } from '@/utils/print-quotation';
 
 const PAGE_SIZE = 50;
@@ -62,6 +63,8 @@ type ReadFilter = 'all' | 'unread' | 'read';
 type OnlineOrdersListUi = {
   viewMode: ViewMode;
   readFilter: ReadFilter;
+  /** Odoo-style Order Date: Month > Day grouping (list view). */
+  groupByOrderDate: boolean;
   orderFilters: SaleOrderFilters;
   selectedIds: string[];
 };
@@ -107,6 +110,70 @@ function StatusBadge({ status }: { status: string }) {
         {label}
       </Text>
     </View>
+  );
+}
+
+function formatGroupMoney(value: number): string {
+  return `${value.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function OrderDateGroupHeader({
+  label,
+  count,
+  total,
+  collapsed,
+  depth,
+  onToggle,
+}: {
+  label: string;
+  count: number;
+  total: number;
+  collapsed: boolean;
+  depth: 0 | 1;
+  onToggle: () => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <Pressable
+      onPress={onToggle}
+      style={({ hovered }) => [
+        styles.groupHeader,
+        depth === 0 ? styles.groupHeaderMonth : styles.groupHeaderDay,
+        {
+          backgroundColor: hovered
+            ? theme.colors.primaryContainer
+            : depth === 0
+              ? theme.colors.surfaceVariant
+              : theme.colors.surface,
+          borderBottomColor: theme.colors.outlineVariant ?? theme.colors.outline,
+          paddingLeft: depth === 0 ? 10 : 28,
+        },
+      ]}>
+      <Icon
+        source={collapsed ? 'chevron-right' : 'chevron-down'}
+        size={20}
+        color={theme.colors.onSurfaceVariant}
+      />
+      <Text
+        style={[
+          styles.groupHeaderLabel,
+          depth === 0 ? styles.groupHeaderLabelMonth : null,
+          { color: theme.colors.onSurface },
+        ]}
+        numberOfLines={1}>
+        {label}
+      </Text>
+      <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 13 }}>
+        {count}
+      </Text>
+      <Text style={[styles.groupHeaderTotal, { color: theme.colors.primary }]}>
+        {formatGroupMoney(total)}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -431,6 +498,8 @@ export default function OnlineOrdersScreen() {
   const [error, setError] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [readFilter, setReadFilter] = useState<ReadFilter>('all');
+  const [groupByOrderDate, setGroupByOrderDate] = useState(true);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -450,10 +519,11 @@ export default function OnlineOrdersScreen() {
     () => ({
       viewMode,
       readFilter,
+      groupByOrderDate,
       orderFilters,
       selectedIds: [...selectedIds],
     }),
-    [viewMode, readFilter, orderFilters, selectedIds],
+    [viewMode, readFilter, groupByOrderDate, orderFilters, selectedIds],
   );
 
   useListUiCache<OnlineOrdersListUi>('online-orders', listUiSnapshot, saved => {
@@ -466,6 +536,9 @@ export default function OnlineOrdersScreen() {
       saved.readFilter === 'read'
     ) {
       setReadFilter(saved.readFilter);
+    }
+    if (typeof saved.groupByOrderDate === 'boolean') {
+      setGroupByOrderDate(saved.groupByOrderDate);
     }
     if (saved.orderFilters && typeof saved.orderFilters === 'object') {
       setOrderFilters({
@@ -502,11 +575,20 @@ export default function OnlineOrdersScreen() {
               {opt.label}
             </Chip>
           ))}
+          <Chip
+            compact
+            selected={groupByOrderDate}
+            onPress={() => setGroupByOrderDate(prev => !prev)}
+            icon={groupByOrderDate ? 'calendar-month' : 'calendar-blank'}
+            style={styles.readFilterChip}
+          >
+            Group by date
+          </Chip>
         </View>
         <SaleOrderFilterBar filters={orderFilters} onChange={setOrderFilters} />
       </View>
     ),
-    [orderFilters, readFilter],
+    [orderFilters, readFilter, groupByOrderDate],
   );
 
   useModuleFilters(filterPanel, !selectedId);
@@ -678,6 +760,12 @@ export default function OnlineOrdersScreen() {
     [items, orderFilters, readFilter],
   );
 
+  const showDateGroups = viewMode === 'list' && groupByOrderDate;
+  const monthGroups = useMemo(
+    () => (showDateGroups ? groupOrdersByMonthDay(filtered) : []),
+    [showDateGroups, filtered],
+  );
+
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
   const filtersActive = hasActiveSaleOrderFilters(orderFilters);
@@ -692,12 +780,27 @@ export default function OnlineOrdersScreen() {
 
   useEffect(() => {
     setPage(1);
-  }, [query, viewMode, orderFilters, readFilter]);
+  }, [query, viewMode, orderFilters, readFilter, groupByOrderDate]);
 
   const paged = useMemo(
-    () => filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
-    [filtered, safePage],
+    () =>
+      showDateGroups
+        ? filtered
+        : filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filtered, safePage, showDateGroups],
   );
+
+  const toggleGroupCollapsed = useCallback((key: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
 
   const selectedOnPage = paged.reduce(
     (count, order) => count + (selectedIds.has(order.id) ? 1 : 0),
@@ -835,17 +938,67 @@ export default function OnlineOrdersScreen() {
               refreshControl={
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
               }>
-              {paged.map((item, index) => (
-                <SaleOrderRow
-                  key={item.id}
-                  item={item}
-                  index={index}
-                  selected={selectedIds.has(item.id)}
-                  onToggle={toggleOne}
-                  onOpen={openDetail}
-                  onToggleRead={toggleRead}
-                />
-              ))}
+              {showDateGroups
+                ? monthGroups.map(month => {
+                    const monthCollapsed = collapsedGroups.has(`m:${month.key}`);
+                    return (
+                      <View key={month.key}>
+                        <OrderDateGroupHeader
+                          label={month.label}
+                          count={month.count}
+                          total={month.total}
+                          collapsed={monthCollapsed}
+                          depth={0}
+                          onToggle={() => toggleGroupCollapsed(`m:${month.key}`)}
+                        />
+                        {!monthCollapsed
+                          ? month.days.map(day => {
+                              const dayCollapsed = collapsedGroups.has(
+                                `d:${day.key}`,
+                              );
+                              return (
+                                <View key={day.key}>
+                                  <OrderDateGroupHeader
+                                    label={day.label}
+                                    count={day.count}
+                                    total={day.total}
+                                    collapsed={dayCollapsed}
+                                    depth={1}
+                                    onToggle={() =>
+                                      toggleGroupCollapsed(`d:${day.key}`)
+                                    }
+                                  />
+                                  {!dayCollapsed
+                                    ? day.orders.map((item, index) => (
+                                        <SaleOrderRow
+                                          key={item.id}
+                                          item={item}
+                                          index={index}
+                                          selected={selectedIds.has(item.id)}
+                                          onToggle={toggleOne}
+                                          onOpen={openDetail}
+                                          onToggleRead={toggleRead}
+                                        />
+                                      ))
+                                    : null}
+                                </View>
+                              );
+                            })
+                          : null}
+                      </View>
+                    );
+                  })
+                : paged.map((item, index) => (
+                    <SaleOrderRow
+                      key={item.id}
+                      item={item}
+                      index={index}
+                      selected={selectedIds.has(item.id)}
+                      onToggle={toggleOne}
+                      onOpen={openDetail}
+                      onToggleRead={toggleRead}
+                    />
+                  ))}
             </ScrollView>
           </View>
         )
@@ -886,15 +1039,24 @@ export default function OnlineOrdersScreen() {
         />
       )}
 
-      <Pagination
-        page={safePage}
-        pageCount={pageCount}
-        total={filtered.length}
-        pageSize={PAGE_SIZE}
-        onChange={setPage}
-        centerLabel={`${filtered.length} from Odoo`}
-        itemLabel="order"
-      />
+      {showDateGroups ? (
+        <View style={styles.groupedFooter}>
+          <Text style={{ opacity: 0.7 }}>
+            {filtered.length} order{filtered.length === 1 ? '' : 's'} · Grouped by
+            Order Date (Month {'>'} Day)
+          </Text>
+        </View>
+      ) : (
+        <Pagination
+          page={safePage}
+          pageCount={pageCount}
+          total={filtered.length}
+          pageSize={PAGE_SIZE}
+          onChange={setPage}
+          centerLabel={`${filtered.length} from Odoo`}
+          itemLabel="order"
+        />
+      )}
     </View>
   );
 }
@@ -914,6 +1076,39 @@ const styles = StyleSheet.create({
   },
   listBody: {
     flex: 1,
+  },
+  groupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingRight: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    minHeight: 44,
+  },
+  groupHeaderMonth: {},
+  groupHeaderDay: {},
+  groupHeaderLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    minWidth: 0,
+  },
+  groupHeaderLabelMonth: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  groupHeaderTotal: {
+    fontSize: 13,
+    fontWeight: '700',
+    minWidth: 88,
+    textAlign: 'right',
+  },
+  groupedFooter: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.08)',
   },
   tableEmptyContent: {
     flexGrow: 1,
