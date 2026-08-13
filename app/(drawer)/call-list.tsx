@@ -148,6 +148,7 @@ function UpdateMenu({
   onClose,
   onStatus,
   onNotInstalled,
+  onWaiting,
   onRemove,
 }: {
   open: boolean;
@@ -156,6 +157,7 @@ function UpdateMenu({
   onClose: () => void;
   onStatus: (status: AppInstallStatus) => void;
   onNotInstalled: () => void;
+  onWaiting: () => void;
   onRemove: () => void;
 }) {
   /** Paper Menu on web often dismisses before onPress finishes — defer work. */
@@ -191,8 +193,8 @@ function UpdateMenu({
         title="Not installed…"
       />
       <Menu.Item
-        onPress={() => runAfterClose(() => onStatus('waiting'))}
-        title="Waiting"
+        onPress={() => runAfterClose(onWaiting)}
+        title="Waiting…"
       />
       <Menu.Item
         onPress={() => runAfterClose(() => onStatus('please_come_and_install'))}
@@ -219,6 +221,7 @@ function CallListRow({
   onCloseMenu,
   onStatus,
   onNotInstalled,
+  onWaiting,
   onRemove,
 }: {
   item: AppInstallRecord;
@@ -229,6 +232,7 @@ function CallListRow({
   onCloseMenu: () => void;
   onStatus: (status: AppInstallStatus) => void;
   onNotInstalled: () => void;
+  onWaiting: () => void;
   onRemove: () => void;
 }) {
   const theme = useTheme();
@@ -280,6 +284,7 @@ function CallListRow({
           onClose={onCloseMenu}
           onStatus={onStatus}
           onNotInstalled={onNotInstalled}
+          onWaiting={onWaiting}
           onRemove={onRemove}
         />
         <Button
@@ -305,6 +310,7 @@ function CallListCard({
   onCloseMenu,
   onStatus,
   onNotInstalled,
+  onWaiting,
   onRemove,
 }: {
   item: AppInstallRecord;
@@ -314,6 +320,7 @@ function CallListCard({
   onCloseMenu: () => void;
   onStatus: (status: AppInstallStatus) => void;
   onNotInstalled: () => void;
+  onWaiting: () => void;
   onRemove: () => void;
 }) {
   const theme = useTheme();
@@ -354,6 +361,7 @@ function CallListCard({
           onClose={onCloseMenu}
           onStatus={onStatus}
           onNotInstalled={onNotInstalled}
+          onWaiting={onWaiting}
           onRemove={onRemove}
         />
         <Button
@@ -387,9 +395,11 @@ export default function CallListScreen() {
     ...EMPTY_APP_USER_LIST_DATE_FILTERS,
   });
   const [otherReasonNote, setOtherReasonNote] = useState('');
+  const [waitingNote, setWaitingNote] = useState('');
   const [page, setPage] = useState(1);
   const [menuForId, setMenuForId] = useState<string | null>(null);
   const [reasonFor, setReasonFor] = useState<AppInstallRecord | null>(null);
+  const [waitingFor, setWaitingFor] = useState<AppInstallRecord | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const listUiSnapshot = useMemo<CallListUi>(
@@ -593,7 +603,9 @@ export default function CallListScreen() {
           ),
         );
         setReasonFor(null);
+        setWaitingFor(null);
         setOtherReasonNote('');
+        setWaitingNote('');
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to update status.');
       } finally {
@@ -708,6 +720,7 @@ export default function CallListScreen() {
                     void setStatus(item, status);
                   }}
                   onNotInstalled={() => setReasonFor(item)}
+                  onWaiting={() => setWaitingFor(item)}
                   onRemove={() => {
                     void removeItem(item);
                   }}
@@ -738,6 +751,7 @@ export default function CallListScreen() {
                   void setStatus(item, status);
                 }}
                 onNotInstalled={() => setReasonFor(item)}
+                onWaiting={() => setWaitingFor(item)}
                 onRemove={() => {
                   void removeItem(item);
                 }}
@@ -816,6 +830,48 @@ export default function CallListScreen() {
                 setOtherReasonNote('');
               }}>
               Cancel
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        <Dialog
+          visible={Boolean(waitingFor)}
+          onDismiss={() => {
+            setWaitingFor(null);
+            setWaitingNote('');
+          }}>
+          <Dialog.Title>Waiting note</Dialog.Title>
+          <Dialog.Content>
+            <Text style={{ marginBottom: 12, color: theme.colors.onSurfaceVariant }}>
+              Type why {waitingFor?.name || 'this contact'} is waiting.
+            </Text>
+            <TextInput
+              mode="outlined"
+              dense
+              value={waitingNote}
+              onChangeText={setWaitingNote}
+              placeholder="Enter waiting note…"
+              autoFocus
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button
+              onPress={() => {
+                setWaitingFor(null);
+                setWaitingNote('');
+              }}>
+              Cancel
+            </Button>
+            <Button
+              mode="contained"
+              disabled={!waitingNote.trim() || !waitingFor}
+              onPress={() => {
+                if (!waitingFor) return;
+                const note = waitingNote.trim();
+                if (!note) return;
+                void setStatus(waitingFor, 'waiting', undefined, note);
+              }}>
+              Save
             </Button>
           </Dialog.Actions>
         </Dialog>

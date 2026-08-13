@@ -24,6 +24,7 @@ export function useContactAppInstall(token: string | undefined) {
     useState<AppInstallFilter>('all');
   const [installBusyId, setInstallBusyId] = useState<string | null>(null);
   const [reasonForId, setReasonForId] = useState<string | null>(null);
+  const [waitingForId, setWaitingForId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
 
   const loadInstallMap = useCallback(async () => {
@@ -92,22 +93,33 @@ export function useContactAppInstall(token: string | undefined) {
   );
 
   const handleMarkWaiting = useCallback(
-    async (id: string) => {
-      if (!enabled || !token) return;
+    (id: string) => {
+      if (!enabled) return;
+      setWaitingForId(id);
+    },
+    [enabled],
+  );
+
+  const confirmWaitingNote = useCallback(
+    async (note: string) => {
+      if (!enabled || !token || !waitingForId) return;
+      const id = waitingForId;
       setInstallBusyId(id);
       try {
         const record = await updateAppInstallStatus(token, id, {
           status: 'waiting',
+          reasonNote: note,
         });
         setInstallMap(prev => ({ ...prev, [id]: record }));
         setMessage('Marked as Waiting.');
+        setWaitingForId(null);
       } catch (err) {
         setMessage(err instanceof Error ? err.message : 'Failed to update status.');
       } finally {
         setInstallBusyId(null);
       }
     },
-    [enabled, token],
+    [enabled, token, waitingForId],
   );
 
   const handleMarkPleaseComeAndInstall = useCallback(
@@ -210,6 +222,8 @@ export function useContactAppInstall(token: string | undefined) {
     installBusyId,
     reasonForId,
     setReasonForId,
+    waitingForId,
+    setWaitingForId,
     message,
     setMessage,
     loadInstallMap,
@@ -217,6 +231,7 @@ export function useContactAppInstall(token: string | undefined) {
     handleRequestInstall,
     handleMarkInstalled,
     handleMarkWaiting,
+    confirmWaitingNote,
     handleMarkPleaseComeAndInstall,
     handleMarkNew,
     handleMarkNotInstalled,

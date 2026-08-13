@@ -44,6 +44,7 @@ import { useResponsive } from '@/hooks/use-responsive';
 import {
   ContactAppInstallFilters,
   NotInstalledReasonDialog,
+  WaitingNoteDialog,
   useContactAppInstall,
   type AppInstallFilter,
   type AppInstallRecord,
@@ -356,7 +357,7 @@ function ContactRow({
                     }}
                   />
                   <Menu.Item
-                    title="Waiting"
+                    title="Waiting…"
                     onPress={() => {
                       setMenuOpen(false);
                       setTimeout(() => onMarkWaiting?.(item.id), 0);
@@ -1121,6 +1122,21 @@ export default function CustomersScreen() {
           onDismiss={() => appInstall.setReasonForId(null)}
           onSelect={(reason, reasonNote) => {
             void appInstall.confirmNotInstalledReason(reason, reasonNote);
+          }}
+        />
+      ) : null}
+
+      {appInstall.enabled ? (
+        <WaitingNoteDialog
+          visible={Boolean(appInstall.waitingForId)}
+          contactName={
+            appInstall.waitingForId
+              ? customers.find(c => c.id === appInstall.waitingForId)?.name
+              : undefined
+          }
+          onDismiss={() => appInstall.setWaitingForId(null)}
+          onSave={note => {
+            void appInstall.confirmWaitingNote(note);
           }}
         />
       ) : null}

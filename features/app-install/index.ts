@@ -32,6 +32,7 @@ export {
   type AppInstallFilter,
 } from './ContactAppInstallFilters';
 export { NotInstalledReasonDialog } from './NotInstalledReasonDialog';
+export { WaitingNoteDialog } from './WaitingNoteDialog';
 export { useContactAppInstall } from './use-contact-app-install';
 export {
   CallListBadgeProvider,
