@@ -21,6 +21,8 @@ export type AppInstallRecord = {
   status: AppInstallStatus;
   statusLabel: string;
   reason: AppInstallReason | null;
+  /** Free-text when reason is `other`. */
+  reasonNote?: string;
   reasonLabel: string;
   requestedAt: string | null;
   updatedAt: string | null;
@@ -49,3 +51,38 @@ export const APP_INSTALL_REASON_OPTIONS: {
   { id: 'will_install_later', label: 'Will install later' },
   { id: 'other', label: 'Other' },
 ];
+
+export type AppUserListDateFilters = {
+  startDate: string;
+  endDate: string;
+};
+
+export const EMPTY_APP_USER_LIST_DATE_FILTERS: AppUserListDateFilters = {
+  startDate: '',
+  endDate: '',
+};
+
+export function hasAppUserListDateFilters(filters: AppUserListDateFilters): boolean {
+  return Boolean(filters.startDate || filters.endDate);
+}
+
+/** Compare created/requested ISO timestamps to YYYY-MM-DD range. */
+export function matchesAppUserListDateFilters(
+  requestedAt: string | null | undefined,
+  filters: AppUserListDateFilters,
+): boolean {
+  if (!filters.startDate && !filters.endDate) {
+    return true;
+  }
+  const day = String(requestedAt ?? '').trim().slice(0, 10);
+  if (!day) {
+    return false;
+  }
+  if (filters.startDate && day < filters.startDate) {
+    return false;
+  }
+  if (filters.endDate && day > filters.endDate) {
+    return false;
+  }
+  return true;
+}

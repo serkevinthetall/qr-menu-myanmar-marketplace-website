@@ -66,11 +66,11 @@ const CUSTOMERS: NavItem = {
 const CALL_LIST: NavItem = {
   // @temp-feature app-install-call-list — independent module (NOT App Order / online-orders)
   name: 'call-list',
-  label: 'Call List',
+  label: 'App User List',
   icon: 'phone-in-talk-outline',
-  title: 'Call List',
+  title: 'App User List',
   description:
-    'Phone-app install follow-up calls. Separate from App Order notifications.',
+    'App install follow-ups for contacts. Separate from App Order notifications.',
 };
 
 const PRODUCTS: NavItem = {

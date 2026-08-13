@@ -377,7 +377,7 @@ function ContactRow({
                     }}
                   />
                   <Menu.Item
-                    title="Remove from list"
+                    title="Remove from App User List"
                     onPress={() => {
                       setMenuOpen(false);
                       setTimeout(() => onRemoveFromCallList?.(item.id), 0);
@@ -1119,8 +1119,8 @@ export default function CustomersScreen() {
         <NotInstalledReasonDialog
           visible={Boolean(appInstall.reasonForId)}
           onDismiss={() => appInstall.setReasonForId(null)}
-          onSelect={reason => {
-            void appInstall.confirmNotInstalledReason(reason);
+          onSelect={(reason, reasonNote) => {
+            void appInstall.confirmNotInstalledReason(reason, reasonNote);
           }}
         />
       ) : null}

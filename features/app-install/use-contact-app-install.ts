@@ -60,7 +60,7 @@ export function useContactAppInstall(token: string | undefined) {
       try {
         const record = await requestAppInstall(token, id);
         setInstallMap(prev => ({ ...prev, [id]: record }));
-        setMessage('Added to Call List (New).');
+        setMessage('Added to App User List (New).');
       } catch (err) {
         setMessage(
           err instanceof Error ? err.message : 'Failed to request app install.',
@@ -167,10 +167,10 @@ export function useContactAppInstall(token: string | undefined) {
           delete next[id];
           return next;
         });
-        setMessage('Removed from Call List.');
+        setMessage('Removed from App User List.');
       } catch (err) {
         setMessage(
-          err instanceof Error ? err.message : 'Failed to remove from Call List.',
+          err instanceof Error ? err.message : 'Failed to remove from App User List.',
         );
       } finally {
         setInstallBusyId(null);
@@ -180,7 +180,7 @@ export function useContactAppInstall(token: string | undefined) {
   );
 
   const confirmNotInstalledReason = useCallback(
-    async (reason: AppInstallReason) => {
+    async (reason: AppInstallReason, reasonNote?: string) => {
       if (!enabled || !token || !reasonForId) return;
       const id = reasonForId;
       setInstallBusyId(id);
@@ -188,6 +188,7 @@ export function useContactAppInstall(token: string | undefined) {
         const record = await updateAppInstallStatus(token, id, {
           status: 'not_installed',
           reason,
+          reasonNote,
         });
         setInstallMap(prev => ({ ...prev, [id]: record }));
         setMessage('Marked as Not installed.');

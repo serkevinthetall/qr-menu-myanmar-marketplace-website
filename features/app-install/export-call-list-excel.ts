@@ -55,6 +55,6 @@ export function exportCallListExcel(items: AppInstallRecord[]): boolean {
   return exportToXlsx(
     callListExportFilename(items.length),
     buildCallListExportRows(items),
-    'Call List',
+    'App User List',
   );
 }

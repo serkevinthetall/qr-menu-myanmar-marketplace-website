@@ -22,30 +22,38 @@ import {
   Menu,
   Portal,
   Text,
+  TextInput,
   useTheme,
 } from 'react-native-paper';
 
+import { CalendarField } from '@/components/ui/CalendarField';
 import { Pagination } from '@/components/ui/Pagination';
 import { useAuth } from '@/contexts/auth-context';
 import {
   HeaderAction,
   useHeaderActions,
+  useModuleFilters,
   useModuleSearch,
 } from '@/contexts/search-context';
 import { useResponsive } from '@/hooks/use-responsive';
 import {
   APP_INSTALL_REASON_OPTIONS,
   APP_INSTALL_STATUS_OPTIONS,
+  EMPTY_APP_USER_LIST_DATE_FILTERS,
   ENABLE_APP_INSTALL_CALL_LIST,
   exportCallListExcel,
   fetchCallList,
+  hasAppUserListDateFilters,
+  matchesAppUserListDateFilters,
   removeFromCallList,
   updateAppInstallStatus,
   type AppInstallReason,
   type AppInstallRecord,
   type AppInstallStatus,
+  type AppUserListDateFilters,
 } from '@/features/app-install';
 import { useListUiCache } from '@/utils/list-ui-cache';
+import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
 import { toTelUri } from '@/utils/myanmar-phone';
 
 const PAGE_SIZE = 50;
@@ -55,6 +63,7 @@ type ViewMode = 'list' | 'grid';
 type CallListUi = {
   viewMode: ViewMode;
   statusFilter: AppInstallStatus | 'all';
+  dateFilters: AppUserListDateFilters;
 };
 
 function statusColor(status: AppInstallStatus): { bg: string; fg: string } {
@@ -195,7 +204,7 @@ function UpdateMenu({
       />
       <Menu.Item
         onPress={() => runAfterClose(onRemove)}
-        title="Remove from list"
+        title="Remove from App User List"
       />
     </Menu>
   );
@@ -251,6 +260,14 @@ function CallListRow({
             </Text>
           ) : null}
         </View>
+        {item.requestedAt ? (
+          <Text
+            style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}
+            numberOfLines={1}>
+            Created{' '}
+            {formatMyanmarDateTime(item.requestedAt) || item.requestedAt}
+          </Text>
+        ) : null}
       </View>
       <View style={styles.listStatus}>
         <StatusChip item={item} />
@@ -321,6 +338,13 @@ function CallListCard({
           {item.township}
         </Text>
       ) : null}
+      {item.requestedAt ? (
+        <Text
+          style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}
+          numberOfLines={1}>
+          Created {formatMyanmarDateTime(item.requestedAt) || item.requestedAt}
+        </Text>
+      ) : null}
       <StatusChip item={item} />
       <View style={styles.gridActions}>
         <UpdateMenu
@@ -359,14 +383,18 @@ export default function CallListScreen() {
   const [statusFilter, setStatusFilter] = useState<AppInstallStatus | 'all'>(
     'all',
   );
+  const [dateFilters, setDateFilters] = useState<AppUserListDateFilters>({
+    ...EMPTY_APP_USER_LIST_DATE_FILTERS,
+  });
+  const [otherReasonNote, setOtherReasonNote] = useState('');
   const [page, setPage] = useState(1);
   const [menuForId, setMenuForId] = useState<string | null>(null);
   const [reasonFor, setReasonFor] = useState<AppInstallRecord | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const listUiSnapshot = useMemo<CallListUi>(
-    () => ({ viewMode, statusFilter }),
-    [viewMode, statusFilter],
+    () => ({ viewMode, statusFilter, dateFilters }),
+    [viewMode, statusFilter, dateFilters],
   );
 
   useListUiCache<CallListUi>('call-list', listUiSnapshot, saved => {
@@ -383,50 +411,69 @@ export default function CallListScreen() {
     ) {
       setStatusFilter(saved.statusFilter);
     }
+    if (saved.dateFilters && typeof saved.dateFilters === 'object') {
+      setDateFilters({
+        ...EMPTY_APP_USER_LIST_DATE_FILTERS,
+        ...saved.dateFilters,
+      });
+    }
   });
 
   const query = useModuleSearch(
-    ENABLE_APP_INSTALL_CALL_LIST ? 'Search call list by name or phone' : '',
+    ENABLE_APP_INSTALL_CALL_LIST
+      ? 'Search App User List by name or phone'
+      : '',
   );
+
+  const filterPanel = useMemo(
+    () => (
+      <View style={styles.headerFilterPanel}>
+        <View style={styles.headerFilterChips}>
+          {APP_INSTALL_STATUS_OPTIONS.map(opt => (
+            <Chip
+              key={opt.id}
+              compact
+              selected={statusFilter === opt.id}
+              onPress={() => setStatusFilter(opt.id)}
+              style={styles.chip}>
+              {opt.label}
+            </Chip>
+          ))}
+        </View>
+        <View style={styles.headerFilterDates}>
+          <View style={styles.dateField}>
+            <CalendarField
+              compact
+              variant="header"
+              value={dateFilters.startDate}
+              onChange={startDate =>
+                setDateFilters(prev => ({ ...prev, startDate }))
+              }
+              placeholder="Created from"
+            />
+          </View>
+          <View style={styles.dateField}>
+            <CalendarField
+              compact
+              variant="header"
+              value={dateFilters.endDate}
+              onChange={endDate =>
+                setDateFilters(prev => ({ ...prev, endDate }))
+              }
+              placeholder="Created to"
+            />
+          </View>
+        </View>
+      </View>
+    ),
+    [statusFilter, dateFilters],
+  );
+
+  useModuleFilters(filterPanel, ENABLE_APP_INSTALL_CALL_LIST);
 
   const toggleView = useCallback(() => {
     setViewMode(prev => (prev === 'list' ? 'grid' : 'list'));
   }, []);
-
-  const exportExcel = useCallback(() => {
-    if (items.length === 0) {
-      setError('Nothing to export. Adjust filters or add Call List contacts.');
-      return;
-    }
-    setError('');
-    const ok = exportCallListExcel(items);
-    if (!ok) {
-      setError('Excel export is only available on web.');
-    }
-  }, [items]);
-
-  const headerActions = useMemo<HeaderAction[]>(
-    () =>
-      ENABLE_APP_INSTALL_CALL_LIST
-        ? [
-            {
-              key: 'view',
-              icon:
-                viewMode === 'list' ? 'view-grid-outline' : 'format-list-bulleted',
-              onPress: toggleView,
-              accessibilityLabel: 'Toggle list or grid view',
-            },
-            {
-              key: 'excel',
-              icon: 'microsoft-excel',
-              onPress: exportExcel,
-              accessibilityLabel: 'Export call list to Excel',
-            },
-          ]
-        : [],
-    [viewMode, toggleView, exportExcel],
-  );
-  useHeaderActions(headerActions);
 
   const load = useCallback(async () => {
     if (!ENABLE_APP_INSTALL_CALL_LIST || !session?.token) return;
@@ -438,7 +485,7 @@ export default function CallListScreen() {
       });
       setItems(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load call list.');
+      setError(err instanceof Error ? err.message : 'Failed to load App User List.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -459,14 +506,57 @@ export default function CallListScreen() {
 
   useEffect(() => {
     setPage(1);
-  }, [query, statusFilter, viewMode]);
+  }, [query, statusFilter, viewMode, dateFilters]);
 
-  const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const visibleItems = useMemo(
+    () =>
+      items.filter(item =>
+        matchesAppUserListDateFilters(item.requestedAt, dateFilters),
+      ),
+    [items, dateFilters],
+  );
+
+  const exportExcel = useCallback(() => {
+    if (visibleItems.length === 0) {
+      setError('Nothing to export. Adjust filters or add App User List contacts.');
+      return;
+    }
+    setError('');
+    const ok = exportCallListExcel(visibleItems);
+    if (!ok) {
+      setError('Excel export is only available on web.');
+    }
+  }, [visibleItems]);
+
+  const headerActions = useMemo<HeaderAction[]>(
+    () =>
+      ENABLE_APP_INSTALL_CALL_LIST
+        ? [
+            {
+              key: 'view',
+              icon:
+                viewMode === 'list' ? 'view-grid-outline' : 'format-list-bulleted',
+              onPress: toggleView,
+              accessibilityLabel: 'Toggle list or grid view',
+            },
+            {
+              key: 'excel',
+              icon: 'microsoft-excel',
+              onPress: exportExcel,
+              accessibilityLabel: 'Export App User List to Excel',
+            },
+          ]
+        : [],
+    [viewMode, toggleView, exportExcel],
+  );
+  useHeaderActions(headerActions);
+
+  const pageCount = Math.max(1, Math.ceil(visibleItems.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
   const paged = useMemo(() => {
     const start = (safePage - 1) * PAGE_SIZE;
-    return items.slice(start, start + PAGE_SIZE);
-  }, [items, safePage]);
+    return visibleItems.slice(start, start + PAGE_SIZE);
+  }, [visibleItems, safePage]);
 
   const numColumns = useMemo(() => {
     if (viewMode !== 'grid') return 1;
@@ -487,6 +577,7 @@ export default function CallListScreen() {
       item: AppInstallRecord,
       status: AppInstallStatus,
       reason?: AppInstallReason,
+      reasonNote?: string,
     ) => {
       if (!session?.token) return;
       setBusyId(item.odooPartnerId);
@@ -494,7 +585,7 @@ export default function CallListScreen() {
         const updated = await updateAppInstallStatus(
           session.token,
           item.odooPartnerId,
-          { status, reason },
+          { status, reason, reasonNote },
         );
         setItems(prev =>
           prev.map(row =>
@@ -502,6 +593,7 @@ export default function CallListScreen() {
           ),
         );
         setReasonFor(null);
+        setOtherReasonNote('');
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to update status.');
       } finally {
@@ -528,7 +620,7 @@ export default function CallListScreen() {
           prev.some(row => row.odooPartnerId === id) ? prev : [item, ...prev],
         );
         setError(
-          err instanceof Error ? err.message : 'Failed to remove from call list.',
+          err instanceof Error ? err.message : 'Failed to remove from App User List.',
         );
       } finally {
         setBusyId(null);
@@ -538,9 +630,11 @@ export default function CallListScreen() {
   );
 
   const emptyLabel =
-    query.trim() || statusFilter !== 'all'
-      ? 'No matching call-list contacts.'
-      : 'No install call requests yet. Use Request on a Customer.';
+    query.trim() ||
+    statusFilter !== 'all' ||
+    hasAppUserListDateFilters(dateFilters)
+      ? 'No matching App User List contacts.'
+      : 'No install requests yet. Use Request on a Customer.';
 
   const refreshControl = (
     <RefreshControl
@@ -555,7 +649,7 @@ export default function CallListScreen() {
   if (!ENABLE_APP_INSTALL_CALL_LIST) {
     return (
       <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
-        <Text variant="titleMedium">Call List is turned off</Text>
+        <Text variant="titleMedium">App User List is turned off</Text>
         <Text style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center' }}>
           Temporary feature flag EXPO_PUBLIC_ENABLE_APP_INSTALL_CALL_LIST is false.
         </Text>
@@ -567,26 +661,13 @@ export default function CallListScreen() {
     return (
       <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator />
-        <Text style={{ marginTop: 12 }}>Loading call list...</Text>
+        <Text style={{ marginTop: 12 }}>Loading App User List...</Text>
       </View>
     );
   }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.filterRow}>
-        {APP_INSTALL_STATUS_OPTIONS.map(opt => (
-          <Chip
-            key={opt.id}
-            compact
-            selected={statusFilter === opt.id}
-            onPress={() => setStatusFilter(opt.id)}
-            style={styles.chip}>
-            {opt.label}
-          </Chip>
-        ))}
-      </View>
-
       {error ? (
         <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>
       ) : null}
@@ -669,37 +750,73 @@ export default function CallListScreen() {
       <Pagination
         page={safePage}
         pageCount={pageCount}
-        total={items.length}
+        total={visibleItems.length}
         pageSize={PAGE_SIZE}
         onChange={setPage}
-        centerLabel={`${items.length} contacts`}
+        centerLabel={`${visibleItems.length} contacts`}
         itemLabel="contact"
       />
 
       <Portal>
-        <Dialog visible={Boolean(reasonFor)} onDismiss={() => setReasonFor(null)}>
+        <Dialog
+          visible={Boolean(reasonFor)}
+          onDismiss={() => {
+            setReasonFor(null);
+            setOtherReasonNote('');
+          }}>
           <Dialog.Title>Why not installed?</Dialog.Title>
           <Dialog.Content>
             <Text style={{ marginBottom: 12, color: theme.colors.onSurfaceVariant }}>
               Choose a reason for {reasonFor?.name || 'this contact'}.
             </Text>
-            {APP_INSTALL_REASON_OPTIONS.map(opt => (
-              <Pressable
-                key={opt.id}
+            {APP_INSTALL_REASON_OPTIONS.filter(opt => opt.id !== 'other').map(
+              opt => (
+                <Pressable
+                  key={opt.id}
+                  onPress={() => {
+                    if (!reasonFor) return;
+                    void setStatus(reasonFor, 'not_installed', opt.id);
+                  }}
+                  style={[
+                    styles.reasonRow,
+                    { borderBottomColor: theme.colors.outlineVariant },
+                  ]}>
+                  <Text style={{ fontWeight: '600' }}>{opt.label}</Text>
+                </Pressable>
+              ),
+            )}
+            <View style={{ marginTop: 12, gap: 8 }}>
+              <Text style={{ color: theme.colors.onSurfaceVariant }}>
+                Other — type the reason
+              </Text>
+              <TextInput
+                mode="outlined"
+                dense
+                value={otherReasonNote}
+                onChangeText={setOtherReasonNote}
+                placeholder="Enter reason…"
+              />
+              <Button
+                mode="contained"
+                disabled={!otherReasonNote.trim() || !reasonFor}
                 onPress={() => {
                   if (!reasonFor) return;
-                  void setStatus(reasonFor, 'not_installed', opt.id);
-                }}
-                style={[
-                  styles.reasonRow,
-                  { borderBottomColor: theme.colors.outlineVariant },
-                ]}>
-                <Text style={{ fontWeight: '600' }}>{opt.label}</Text>
-              </Pressable>
-            ))}
+                  const note = otherReasonNote.trim();
+                  if (!note) return;
+                  void setStatus(reasonFor, 'not_installed', 'other', note);
+                }}>
+                Save Other reason
+              </Button>
+            </View>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setReasonFor(null)}>Cancel</Button>
+            <Button
+              onPress={() => {
+                setReasonFor(null);
+                setOtherReasonNote('');
+              }}>
+              Cancel
+            </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -723,6 +840,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 4,
+  },
+  headerFilterPanel: {
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    alignItems: 'center',
+    width: '100%',
+  },
+  headerFilterChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+    width: '100%',
+  },
+  headerFilterDates: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+    width: '100%',
+  },
+  dateField: {
+    minWidth: 130,
+    maxWidth: 170,
   },
   chip: { marginRight: 0 },
   emptyWrap: {

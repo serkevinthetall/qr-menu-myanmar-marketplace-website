@@ -81,7 +81,11 @@ export async function requestAppInstall(
 export async function updateAppInstallStatus(
   token: string,
   partnerId: string,
-  body: { status: AppInstallStatus; reason?: AppInstallReason },
+  body: {
+    status: AppInstallStatus;
+    reason?: AppInstallReason;
+    reasonNote?: string;
+  },
 ): Promise<AppInstallRecord> {
   const response = await webApiRequest<OneResponse>(`/app-installs/${partnerId}`, {
     method: 'PUT',
