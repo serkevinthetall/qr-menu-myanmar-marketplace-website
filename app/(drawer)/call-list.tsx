@@ -39,6 +39,7 @@ import { useResponsive } from '@/hooks/use-responsive';
 import {
   APP_INSTALL_REASON_OPTIONS,
   APP_INSTALL_STATUS_OPTIONS,
+  APP_USER_LIST_DATE_PERIOD_OPTIONS,
   EMPTY_APP_USER_LIST_DATE_FILTERS,
   ENABLE_APP_INSTALL_CALL_LIST,
   exportCallListExcel,
@@ -493,9 +494,16 @@ export default function CallListScreen() {
       setStatusFilter(saved.statusFilter);
     }
     if (saved.dateFilters && typeof saved.dateFilters === 'object') {
+      const period =
+        saved.dateFilters.period === 'today' ||
+        saved.dateFilters.period === 'week' ||
+        saved.dateFilters.period === 'month'
+          ? saved.dateFilters.period
+          : '';
       setDateFilters({
         ...EMPTY_APP_USER_LIST_DATE_FILTERS,
         ...saved.dateFilters,
+        period,
       });
     }
   });
@@ -509,6 +517,7 @@ export default function CallListScreen() {
   const filterPanel = useMemo(
     () => (
       <View style={styles.headerFilterPanel}>
+        <Text style={styles.filterSectionLabel}>Status</Text>
         <View style={styles.headerFilterChips}>
           {APP_INSTALL_STATUS_OPTIONS.map(opt => (
             <Chip
@@ -521,6 +530,40 @@ export default function CallListScreen() {
             </Chip>
           ))}
         </View>
+
+        <Text style={styles.filterSectionLabel}>Created date</Text>
+        <View style={styles.headerFilterChips}>
+          {APP_USER_LIST_DATE_PERIOD_OPTIONS.map(opt => {
+            const selected =
+              opt.id === 'all'
+                ? !dateFilters.period &&
+                  !dateFilters.startDate &&
+                  !dateFilters.endDate
+                : dateFilters.period === opt.id &&
+                  !dateFilters.startDate &&
+                  !dateFilters.endDate;
+            return (
+              <Chip
+                key={opt.id}
+                compact
+                selected={selected}
+                onPress={() => {
+                  if (opt.id === 'all') {
+                    setDateFilters({ ...EMPTY_APP_USER_LIST_DATE_FILTERS });
+                    return;
+                  }
+                  setDateFilters({
+                    period: opt.id,
+                    startDate: '',
+                    endDate: '',
+                  });
+                }}
+                style={styles.chip}>
+                {opt.label}
+              </Chip>
+            );
+          })}
+        </View>
         <View style={styles.headerFilterDates}>
           <View style={styles.dateField}>
             <CalendarField
@@ -528,9 +571,13 @@ export default function CallListScreen() {
               variant="header"
               value={dateFilters.startDate}
               onChange={startDate =>
-                setDateFilters(prev => ({ ...prev, startDate }))
+                setDateFilters(prev => ({
+                  ...prev,
+                  startDate,
+                  period: '',
+                }))
               }
-              placeholder="Created from"
+              placeholder="From"
             />
           </View>
           <View style={styles.dateField}>
@@ -539,9 +586,13 @@ export default function CallListScreen() {
               variant="header"
               value={dateFilters.endDate}
               onChange={endDate =>
-                setDateFilters(prev => ({ ...prev, endDate }))
+                setDateFilters(prev => ({
+                  ...prev,
+                  endDate,
+                  period: '',
+                }))
               }
-              placeholder="Created to"
+              placeholder="To"
             />
           </View>
         </View>
@@ -974,6 +1025,14 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     alignItems: 'center',
     width: '100%',
+  },
+  filterSectionLabel: {
+    width: '100%',
+    fontSize: 12,
+    fontWeight: '700',
+    opacity: 0.7,
+    textAlign: 'center',
+    letterSpacing: 0.3,
   },
   headerFilterChips: {
     flexDirection: 'row',

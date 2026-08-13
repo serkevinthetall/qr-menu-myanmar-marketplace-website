@@ -19,6 +19,7 @@ export {
 export {
   APP_INSTALL_REASON_OPTIONS,
   APP_INSTALL_STATUS_OPTIONS,
+  APP_USER_LIST_DATE_PERIOD_OPTIONS,
   EMPTY_APP_USER_LIST_DATE_FILTERS,
   hasAppUserListDateFilters,
   matchesAppUserListDateFilters,
@@ -26,6 +27,7 @@ export {
   type AppInstallRecord,
   type AppInstallStatus,
   type AppUserListDateFilters,
+  type AppUserListDatePeriod,
 } from './types';
 export {
   ContactAppInstallFilters,

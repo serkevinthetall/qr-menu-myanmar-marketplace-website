@@ -56,36 +56,121 @@ export const APP_INSTALL_REASON_OPTIONS: {
   { id: 'other', label: 'Other' },
 ];
 
+export type AppUserListDatePeriod = '' | 'today' | 'week' | 'month';
+
+export const APP_USER_LIST_DATE_PERIOD_OPTIONS: {
+  id: AppUserListDatePeriod | 'all';
+  label: string;
+}[] = [
+  { id: 'all', label: 'All dates' },
+  { id: 'today', label: 'Today' },
+  { id: 'week', label: 'This week' },
+  { id: 'month', label: 'This month' },
+];
+
 export type AppUserListDateFilters = {
+  period: AppUserListDatePeriod;
   startDate: string;
   endDate: string;
 };
 
 export const EMPTY_APP_USER_LIST_DATE_FILTERS: AppUserListDateFilters = {
+  period: '',
   startDate: '',
   endDate: '',
 };
 
-export function hasAppUserListDateFilters(filters: AppUserListDateFilters): boolean {
-  return Boolean(filters.startDate || filters.endDate);
+function toISO(date: Date): string {
+  const pad = (n: number) => (n < 10 ? `0${n}` : String(n));
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-/** Compare created/requested ISO timestamps to YYYY-MM-DD range. */
+function todayDate(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+function startOfWeek(date: Date): Date {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+function endOfWeek(date: Date): Date {
+  const start = startOfWeek(date);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  return end;
+}
+
+function getPresetCreatedRange(
+  period: AppUserListDatePeriod,
+): { from: string; to: string } | null {
+  if (!period) {
+    return null;
+  }
+  const today = todayDate();
+  switch (period) {
+    case 'today':
+      return { from: toISO(today), to: toISO(today) };
+    case 'week':
+      return { from: toISO(startOfWeek(today)), to: toISO(endOfWeek(today)) };
+    case 'month': {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1);
+      const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      return { from: toISO(start), to: toISO(end) };
+    }
+    default:
+      return null;
+  }
+}
+
+export function getAppUserListCreatedDateRange(
+  filters: AppUserListDateFilters,
+): { from: string; to: string } | null {
+  const { startDate, endDate, period } = filters;
+
+  if (startDate && endDate) {
+    return startDate <= endDate
+      ? { from: startDate, to: endDate }
+      : { from: endDate, to: startDate };
+  }
+
+  if (period) {
+    return getPresetCreatedRange(period);
+  }
+
+  if (!startDate && !endDate) {
+    return null;
+  }
+
+  if (startDate) {
+    return { from: startDate, to: startDate };
+  }
+
+  return { from: endDate, to: endDate };
+}
+
+export function hasAppUserListDateFilters(filters: AppUserListDateFilters): boolean {
+  return Boolean(filters.period || filters.startDate || filters.endDate);
+}
+
+/** Compare created/requested ISO timestamps to period or custom YYYY-MM-DD range. */
 export function matchesAppUserListDateFilters(
   requestedAt: string | null | undefined,
   filters: AppUserListDateFilters,
 ): boolean {
-  if (!filters.startDate && !filters.endDate) {
+  const range = getAppUserListCreatedDateRange(filters);
+  if (!range) {
     return true;
   }
   const day = String(requestedAt ?? '').trim().slice(0, 10);
   if (!day) {
     return false;
   }
-  if (filters.startDate && day < filters.startDate) {
-    return false;
-  }
-  if (filters.endDate && day > filters.endDate) {
+  if (day < range.from || day > range.to) {
     return false;
   }
   return true;
