@@ -250,9 +250,33 @@ function CallListRow({
         },
       ]}>
       <View style={styles.listMain}>
-        <Text style={styles.listName} numberOfLines={1}>
-          {item.name || '—'}
-        </Text>
+        <View style={styles.nameWithBadge}>
+          <Text style={styles.listName} numberOfLines={1}>
+            {item.name || '—'}
+          </Text>
+          {(item.appOrderCount ?? 0) > 0 ? (
+            <View
+              style={[
+                styles.appOrderBadge,
+                { backgroundColor: theme.colors.primaryContainer },
+              ]}
+              accessibilityLabel={`${item.appOrderCount} app order${
+                item.appOrderCount === 1 ? '' : 's'
+              }${
+                item.lastAppOrderNumber
+                  ? `, last ${item.lastAppOrderNumber}`
+                  : ''
+              }`}>
+              <Text
+                style={[
+                  styles.appOrderBadgeText,
+                  { color: theme.colors.onPrimaryContainer },
+                ]}>
+                {item.appOrderCount}
+              </Text>
+            </View>
+          ) : null}
+        </View>
         <View style={styles.listMetaRow}>
           <PhoneCallLink phone={item.phone} style={{ fontSize: 13 }} />
           {item.township ? (
@@ -264,6 +288,21 @@ function CallListRow({
             </Text>
           ) : null}
         </View>
+        {(item.appOrderCount ?? 0) > 0 &&
+        (item.lastAppOrderNumber || item.lastAppOrderDate) ? (
+          <Text
+            style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}
+            numberOfLines={1}>
+            App Order{' '}
+            {item.lastAppOrderNumber || '—'}
+            {item.lastAppOrderDate
+              ? ` · ${
+                  formatMyanmarDateTime(item.lastAppOrderDate) ||
+                  item.lastAppOrderDate
+                }`
+              : ''}
+          </Text>
+        ) : null}
         {item.requestedAt ? (
           <Text
             style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}
@@ -334,15 +373,47 @@ function CallListCard({
           borderColor: theme.colors.outline,
         },
       ]}>
-      <Text style={styles.name} numberOfLines={2}>
-        {item.name || '—'}
-      </Text>
+      <View style={styles.nameWithBadge}>
+        <Text style={[styles.name, { flexShrink: 1 }]} numberOfLines={2}>
+          {item.name || '—'}
+        </Text>
+        {(item.appOrderCount ?? 0) > 0 ? (
+          <View
+            style={[
+              styles.appOrderBadge,
+              { backgroundColor: theme.colors.primaryContainer },
+            ]}>
+            <Text
+              style={[
+                styles.appOrderBadgeText,
+                { color: theme.colors.onPrimaryContainer },
+              ]}>
+              {item.appOrderCount}
+            </Text>
+          </View>
+        ) : null}
+      </View>
       <PhoneCallLink phone={item.phone} />
       {item.township ? (
         <Text
           style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}
           numberOfLines={1}>
           {item.township}
+        </Text>
+      ) : null}
+      {(item.appOrderCount ?? 0) > 0 &&
+      (item.lastAppOrderNumber || item.lastAppOrderDate) ? (
+        <Text
+          style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}
+          numberOfLines={1}>
+          App Order{' '}
+          {item.lastAppOrderNumber || '—'}
+          {item.lastAppOrderDate
+            ? ` · ${
+                formatMyanmarDateTime(item.lastAppOrderDate) ||
+                item.lastAppOrderDate
+              }`
+            : ''}
         </Text>
       ) : null}
       {item.requestedAt ? (
@@ -965,6 +1036,26 @@ const styles = StyleSheet.create({
   listName: {
     fontSize: 15,
     fontWeight: '700',
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  nameWithBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minWidth: 0,
+  },
+  appOrderBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appOrderBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
   },
   listMetaRow: {
     flexDirection: 'row',

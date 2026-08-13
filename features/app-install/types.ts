@@ -28,6 +28,10 @@ export type AppInstallRecord = {
   updatedAt: string | null;
   updatedByEmail: string;
   updatedByName: string;
+  /** How many App Orders this partner has (0 if none). */
+  appOrderCount?: number;
+  lastAppOrderNumber?: string;
+  lastAppOrderDate?: string;
 };
 
 export const APP_INSTALL_STATUS_OPTIONS: {
