@@ -10,12 +10,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NAV_ENTRIES, NavItem } from '@/constants/navigation';
 import { useAppOrderUnread } from '@/contexts/app-order-unread-context';
+import { useMemberRequestBadge } from '@/contexts/member-request-badge-context';
 import { ENABLE_APP_INSTALL_CALL_LIST, useCallListBadge } from '@/features/app-install';
 
 export function DrawerContent(props: DrawerContentComponentProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { unreadCount } = useAppOrderUnread();
+  const { requestedCount } = useMemberRequestBadge();
   const { newCount } = useCallListBadge();
   const activeRoute = props.state.routes[props.state.index]?.name;
   // Only toggled by user press — never auto-open on route change.
@@ -39,9 +41,11 @@ export function DrawerContent(props: DrawerContentComponentProps) {
     const badgeCount =
       item.name === 'online-orders'
         ? unreadCount
-        : item.name === 'call-list' && ENABLE_APP_INSTALL_CALL_LIST
-          ? newCount
-          : 0;
+        : item.name === 'member-requests'
+          ? requestedCount
+          : item.name === 'call-list' && ENABLE_APP_INSTALL_CALL_LIST
+            ? newCount
+            : 0;
     const showBadge = badgeCount > 0;
     const row = (
       <View style={styles.leafRow}>
@@ -111,7 +115,14 @@ export function DrawerContent(props: DrawerContentComponentProps) {
           );
           const expanded = Boolean(openGroups[entry.id]);
           const showGroupBadge =
-            entry.id === 'orders' && unreadCount > 0 && !expanded;
+            (entry.id === 'orders' && unreadCount > 0 && !expanded) ||
+            (entry.id === 'membership' && requestedCount > 0 && !expanded);
+          const groupBadgeCount =
+            entry.id === 'orders'
+              ? unreadCount
+              : entry.id === 'membership'
+                ? requestedCount
+                : 0;
 
           return (
             <View key={entry.id}>
@@ -156,7 +167,7 @@ export function DrawerContent(props: DrawerContentComponentProps) {
                 </Text>
                 {showGroupBadge ? (
                   <Badge style={styles.groupBadge} size={18}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
+                    {groupBadgeCount > 99 ? '99+' : groupBadgeCount}
                   </Badge>
                 ) : null}
                 <Icon

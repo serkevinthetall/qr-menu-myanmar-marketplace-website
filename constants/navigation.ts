@@ -105,6 +105,14 @@ const MEMBERSHIP_COUPONS: NavItem = {
   description: 'Membership coupon tickets (x_membership_coupon_ti).',
 };
 
+const MEMBER_REQUESTS: NavItem = {
+  name: 'member-requests',
+  label: 'Member Request',
+  icon: 'account-star-outline',
+  title: 'Member Request',
+  description: 'Membership applications (x_membership_applicati).',
+};
+
 const SETTINGS: NavItem = {
   name: 'settings',
   label: 'Settings',
@@ -135,7 +143,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     id: 'membership',
     label: 'Membership',
     icon: 'account-badge-outline',
-    children: [MEMBERSHIPS, MEMBERSHIP_COUPONS],
+    children: [MEMBER_REQUESTS, MEMBERSHIPS, MEMBERSHIP_COUPONS],
   },
   { type: 'item', item: SETTINGS },
 ];

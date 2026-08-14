@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppOrderUnread } from '@/contexts/app-order-unread-context';
+import { useMemberRequestBadge } from '@/contexts/member-request-badge-context';
 import { useSearch } from '@/contexts/search-context';
 import { useAppColors } from '@/hooks/use-app-colors';
 import { useResponsive } from '@/hooks/use-responsive';
@@ -24,6 +25,7 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
   const { isMobile } = useResponsive();
   const insets = useSafeAreaInsets();
   const { unreadCount } = useAppOrderUnread();
+  const { requestedCount } = useMemberRequestBadge();
   const {
     visible,
     placeholder,
@@ -53,6 +55,7 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
   };
 
   const showNotifBadge = unreadCount > 0;
+  const showMemberBadge = requestedCount > 0;
 
   return (
     <Appbar.Header
@@ -104,6 +107,27 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
                 {showNotifBadge ? (
                   <Badge style={styles.notifBadge} size={16}>
                     {unreadCount > 99 ? '99+' : unreadCount}
+                  </Badge>
+                ) : null}
+              </View>
+              <View
+                style={[
+                  styles.notifWrap,
+                  !showMemberBadge ? styles.notifWrapHidden : null,
+                ]}
+                pointerEvents={showMemberBadge ? 'auto' : 'none'}>
+                <IconButton
+                  icon="account-star-outline"
+                  iconColor={colors.onPrimary}
+                  containerColor="transparent"
+                  rippleColor={colors.headerRipple}
+                  size={22}
+                  onPress={() => navigation.navigate('member-requests')}
+                  accessibilityLabel={`Member requests, ${requestedCount} requested`}
+                />
+                {showMemberBadge ? (
+                  <Badge style={styles.notifBadge} size={16}>
+                    {requestedCount > 99 ? '99+' : requestedCount}
                   </Badge>
                 ) : null}
               </View>

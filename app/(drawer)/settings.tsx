@@ -49,7 +49,7 @@ export default function SettingsScreen() {
         if (!next) {
           writeOnlineOrderAlertsEnabled(false);
           setAlertsEnabled(false);
-          setSnack('App Order notifications turned off.');
+          setSnack('Order & member notifications turned off.');
           return;
         }
 
@@ -66,7 +66,7 @@ export default function SettingsScreen() {
         writeOnlineOrderAlertsEnabled(true);
         setAlertsEnabled(true);
         playOnlineOrderAlertSound();
-        setSnack('App Order notifications on — test sound played.');
+        setSnack('Notifications on — test sound played.');
       } finally {
         setBusy(false);
       }
@@ -141,8 +141,8 @@ export default function SettingsScreen() {
           <List.Section>
             <List.Subheader>Notifications</List.Subheader>
             <List.Item
-              title="App Order notifications"
-              description="Play a sound when a new App Order arrives (Quotation Sent or Salesperson Administrator)."
+              title="Order & member notifications"
+              description="Play a sound when a new App Order or Member Request arrives."
               left={props => <List.Icon {...props} icon="bell-ring-outline" />}
               right={() => (
                 <Switch

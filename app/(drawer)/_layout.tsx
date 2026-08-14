@@ -6,10 +6,12 @@ import { useTheme } from 'react-native-paper';
 
 import { AppHeader } from '@/components/layout/AppHeader';
 import { DrawerContent } from '@/components/layout/DrawerContent';
+import { MemberRequestAlerts } from '@/components/layout/MemberRequestAlerts';
 import { OnlineOrderAlerts } from '@/components/layout/OnlineOrderAlerts';
 import { AppColors } from '@/constants/colors';
 import { NAV_ITEMS } from '@/constants/navigation';
 import { AppOrderUnreadProvider } from '@/contexts/app-order-unread-context';
+import { MemberRequestBadgeProvider } from '@/contexts/member-request-badge-context';
 import { SearchProvider } from '@/contexts/search-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import {
@@ -64,6 +66,7 @@ export default function DrawerLayout() {
   const drawerTree = (
     <>
       <OnlineOrderAlerts />
+      <MemberRequestAlerts />
       <Drawer
         drawerContent={props => <DrawerContent {...props} />}
         screenOptions={screenOptions}>
@@ -88,12 +91,14 @@ export default function DrawerLayout() {
   return (
     <SearchProvider>
       <AppOrderUnreadProvider>
-        {/* @temp-feature app-install-call-list */}
-        {ENABLE_APP_INSTALL_CALL_LIST ? (
-          <CallListBadgeProvider>{drawerTree}</CallListBadgeProvider>
-        ) : (
-          drawerTree
-        )}
+        <MemberRequestBadgeProvider>
+          {/* @temp-feature app-install-call-list */}
+          {ENABLE_APP_INSTALL_CALL_LIST ? (
+            <CallListBadgeProvider>{drawerTree}</CallListBadgeProvider>
+          ) : (
+            drawerTree
+          )}
+        </MemberRequestBadgeProvider>
       </AppOrderUnreadProvider>
     </SearchProvider>
   );
