@@ -213,6 +213,8 @@ function appInstallColors(status?: AppInstallStatus): { bg: string; fg: string }
       return { bg: 'rgba(16, 185, 129, 0.18)', fg: '#047857' };
     case 'waiting':
       return { bg: 'rgba(59, 130, 246, 0.16)', fg: '#1D4ED8' };
+    case 'not_pick_up':
+      return { bg: 'rgba(244, 63, 94, 0.16)', fg: '#BE123C' };
     case 'please_come_and_install':
       return { bg: 'rgba(168, 85, 247, 0.16)', fg: '#7E22CE' };
     case 'new':
@@ -239,6 +241,7 @@ function ContactRow({
   onMarkNotInstalled,
   onMarkWaiting,
   onMarkPleaseComeAndInstall,
+  onMarkNotPickUp,
   onMarkNew,
   onRemoveFromCallList,
 }: {
@@ -255,6 +258,7 @@ function ContactRow({
   onMarkInstalled?: (id: string) => void;
   onMarkNotInstalled?: (id: string) => void;
   onMarkWaiting?: (id: string) => void;
+  onMarkNotPickUp?: (id: string) => void;
   onMarkPleaseComeAndInstall?: (id: string) => void;
   onMarkNew?: (id: string) => void;
   onRemoveFromCallList?: (id: string) => void;
@@ -364,7 +368,14 @@ function ContactRow({
                     }}
                   />
                   <Menu.Item
-                    title="Please come and install"
+                    title="Not pick up"
+                    onPress={() => {
+                      setMenuOpen(false);
+                      setTimeout(() => onMarkNotPickUp?.(item.id), 0);
+                    }}
+                  />
+                  <Menu.Item
+                    title="Onsite install"
                     onPress={() => {
                       setMenuOpen(false);
                       setTimeout(() => onMarkPleaseComeAndInstall?.(item.id), 0);
@@ -657,6 +668,7 @@ export default function CustomersScreen() {
         saved.appInstallFilter === 'new' ||
         saved.appInstallFilter === 'not_installed' ||
         saved.appInstallFilter === 'waiting' ||
+        saved.appInstallFilter === 'not_pick_up' ||
         saved.appInstallFilter === 'please_come_and_install' ||
         saved.appInstallFilter === 'installed')
     ) {
@@ -1054,6 +1066,9 @@ export default function CustomersScreen() {
                   }
                   onMarkWaiting={
                     appInstall.enabled ? appInstall.handleMarkWaiting : undefined
+                  }
+                  onMarkNotPickUp={
+                    appInstall.enabled ? appInstall.handleMarkNotPickUp : undefined
                   }
                   onMarkPleaseComeAndInstall={
                     appInstall.enabled

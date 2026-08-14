@@ -73,6 +73,8 @@ function statusColor(status: AppInstallStatus): { bg: string; fg: string } {
       return { bg: 'rgba(16, 185, 129, 0.18)', fg: '#047857' };
     case 'waiting':
       return { bg: 'rgba(59, 130, 246, 0.16)', fg: '#1D4ED8' };
+    case 'not_pick_up':
+      return { bg: 'rgba(244, 63, 94, 0.16)', fg: '#BE123C' };
     case 'please_come_and_install':
       return { bg: 'rgba(168, 85, 247, 0.16)', fg: '#7E22CE' };
     case 'new':
@@ -198,8 +200,12 @@ function UpdateMenu({
         title="Waiting…"
       />
       <Menu.Item
+        onPress={() => runAfterClose(() => onStatus('not_pick_up'))}
+        title="Not pick up"
+      />
+      <Menu.Item
         onPress={() => runAfterClose(() => onStatus('please_come_and_install'))}
-        title="Please come and install"
+        title="Onsite install"
       />
       <Menu.Item
         onPress={() => runAfterClose(() => onStatus('installed'))}
@@ -489,6 +495,7 @@ export default function CallListScreen() {
       saved.statusFilter === 'new' ||
       saved.statusFilter === 'not_installed' ||
       saved.statusFilter === 'waiting' ||
+      saved.statusFilter === 'not_pick_up' ||
       saved.statusFilter === 'please_come_and_install' ||
       saved.statusFilter === 'installed'
     ) {

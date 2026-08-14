@@ -122,6 +122,25 @@ export function useContactAppInstall(token: string | undefined) {
     [enabled, token, waitingForId],
   );
 
+  const handleMarkNotPickUp = useCallback(
+    async (id: string) => {
+      if (!enabled || !token) return;
+      setInstallBusyId(id);
+      try {
+        const record = await updateAppInstallStatus(token, id, {
+          status: 'not_pick_up',
+        });
+        setInstallMap(prev => ({ ...prev, [id]: record }));
+        setMessage('Marked as Not pick up.');
+      } catch (err) {
+        setMessage(err instanceof Error ? err.message : 'Failed to update status.');
+      } finally {
+        setInstallBusyId(null);
+      }
+    },
+    [enabled, token],
+  );
+
   const handleMarkPleaseComeAndInstall = useCallback(
     async (id: string) => {
       if (!enabled || !token) return;
@@ -131,7 +150,7 @@ export function useContactAppInstall(token: string | undefined) {
           status: 'please_come_and_install',
         });
         setInstallMap(prev => ({ ...prev, [id]: record }));
-        setMessage('Marked as Please come and install.');
+        setMessage('Marked as Onsite install.');
       } catch (err) {
         setMessage(err instanceof Error ? err.message : 'Failed to update status.');
       } finally {
@@ -232,6 +251,7 @@ export function useContactAppInstall(token: string | undefined) {
     handleMarkInstalled,
     handleMarkWaiting,
     confirmWaitingNote,
+    handleMarkNotPickUp,
     handleMarkPleaseComeAndInstall,
     handleMarkNew,
     handleMarkNotInstalled,
