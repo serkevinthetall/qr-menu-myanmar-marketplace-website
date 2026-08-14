@@ -1,4 +1,5 @@
 import { DrawerHeaderProps } from '@react-navigation/drawer';
+import { Href, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import {
@@ -16,16 +17,58 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppOrderUnread } from '@/contexts/app-order-unread-context';
 import { useMemberRequestBadge } from '@/contexts/member-request-badge-context';
 import { useSearch } from '@/contexts/search-context';
+import {
+  ENABLE_APP_INSTALL_CALL_LIST,
+  useCallListBadge,
+} from '@/features/app-install';
 import { useAppColors } from '@/hooks/use-app-colors';
 import { useResponsive } from '@/hooks/use-responsive';
+
+function HeaderShortcut({
+  icon,
+  label,
+  count,
+  onPress,
+  iconColor,
+  rippleColor,
+}: {
+  icon: string;
+  label: string;
+  count: number;
+  onPress: () => void;
+  iconColor: string;
+  rippleColor: string;
+}) {
+  const showBadge = count > 0;
+  return (
+    <View style={styles.notifWrap}>
+      <IconButton
+        icon={icon}
+        iconColor={iconColor}
+        containerColor="transparent"
+        rippleColor={rippleColor}
+        size={22}
+        onPress={onPress}
+        accessibilityLabel={showBadge ? `${label}, ${count}` : label}
+      />
+      {showBadge ? (
+        <Badge style={styles.notifBadge} size={16}>
+          {count > 99 ? '99+' : count}
+        </Badge>
+      ) : null}
+    </View>
+  );
+}
 
 export function AppHeader({ navigation, options }: DrawerHeaderProps) {
   const theme = useTheme();
   const colors = useAppColors();
   const { isMobile } = useResponsive();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { unreadCount } = useAppOrderUnread();
   const { requestedCount } = useMemberRequestBadge();
+  const { newCount } = useCallListBadge();
   const {
     visible,
     placeholder,
@@ -54,8 +97,9 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
     detailHeader?.onPrint?.(format);
   };
 
-  const showNotifBadge = unreadCount > 0;
-  const showMemberBadge = requestedCount > 0;
+  const go = (path: string) => {
+    router.push(path as Href);
+  };
 
   return (
     <Appbar.Header
@@ -89,48 +133,32 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
                 onPress={() => navigation.toggleDrawer()}
                 accessibilityLabel="Open menu"
               />
-              <View
-                style={[
-                  styles.notifWrap,
-                  !showNotifBadge ? styles.notifWrapHidden : null,
-                ]}
-                pointerEvents={showNotifBadge ? 'auto' : 'none'}>
-                <IconButton
-                  icon="bell-outline"
+              <HeaderShortcut
+                icon="bell-outline"
+                label="App Order"
+                count={unreadCount}
+                iconColor={colors.onPrimary}
+                rippleColor={colors.headerRipple}
+                onPress={() => go('/online-orders')}
+              />
+              {ENABLE_APP_INSTALL_CALL_LIST ? (
+                <HeaderShortcut
+                  icon="phone-in-talk-outline"
+                  label="App User List"
+                  count={newCount}
                   iconColor={colors.onPrimary}
-                  containerColor="transparent"
                   rippleColor={colors.headerRipple}
-                  size={22}
-                  onPress={() => navigation.navigate('online-orders')}
-                  accessibilityLabel={`App Order notifications, ${unreadCount} unread`}
+                  onPress={() => go('/call-list')}
                 />
-                {showNotifBadge ? (
-                  <Badge style={styles.notifBadge} size={16}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Badge>
-                ) : null}
-              </View>
-              <View
-                style={[
-                  styles.notifWrap,
-                  !showMemberBadge ? styles.notifWrapHidden : null,
-                ]}
-                pointerEvents={showMemberBadge ? 'auto' : 'none'}>
-                <IconButton
-                  icon="account-star-outline"
-                  iconColor={colors.onPrimary}
-                  containerColor="transparent"
-                  rippleColor={colors.headerRipple}
-                  size={22}
-                  onPress={() => navigation.navigate('member-requests')}
-                  accessibilityLabel={`Member requests, ${requestedCount} requested`}
-                />
-                {showMemberBadge ? (
-                  <Badge style={styles.notifBadge} size={16}>
-                    {requestedCount > 99 ? '99+' : requestedCount}
-                  </Badge>
-                ) : null}
-              </View>
+              ) : null}
+              <HeaderShortcut
+                icon="account-badge-outline"
+                label="Member Request"
+                count={requestedCount}
+                iconColor={colors.onPrimary}
+                rippleColor={colors.headerRipple}
+                onPress={() => go('/member-requests')}
+              />
             </>
           )}
 
@@ -364,9 +392,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     justifyContent: 'center',
     marginLeft: -6,
-  },
-  notifWrapHidden: {
-    opacity: 0,
   },
   notifBadge: {
     position: 'absolute',
