@@ -52,7 +52,13 @@ function HeaderShortcut({
         accessibilityLabel={showBadge ? `${label}, ${count}` : label}
       />
       {showBadge ? (
-        <Badge style={styles.notifBadge} size={16}>
+        <Badge
+          style={styles.notifBadge}
+          size={16}
+          // Badge sits over the icon — must not steal clicks.
+          {...(Platform.OS === 'web'
+            ? ({ pointerEvents: 'none' } as object)
+            : null)}>
           {count > 99 ? '99+' : count}
         </Badge>
       ) : null}
@@ -98,6 +104,22 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
   };
 
   const go = (path: string) => {
+    // Expo Router path push; on web also set location when already on another module.
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const current = window.location.pathname.replace(/\/$/, '') || '/';
+      const target = path.replace(/\/$/, '') || '/';
+      if (current === target) {
+        return;
+      }
+      router.push(path as Href);
+      // Fallback if drawer route did not update the URL.
+      window.setTimeout(() => {
+        if (window.location.pathname.replace(/\/$/, '') !== target) {
+          window.location.assign(path);
+        }
+      }, 250);
+      return;
+    }
     router.push(path as Href);
   };
 
@@ -152,7 +174,7 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
                 />
               ) : null}
               <HeaderShortcut
-                icon="account-badge-outline"
+                icon="card-account-details-outline"
                 label="Member Request"
                 count={requestedCount}
                 iconColor={colors.onPrimary}
@@ -398,6 +420,10 @@ const styles = StyleSheet.create({
     top: 6,
     right: 4,
     backgroundColor: '#D32F2F',
+    zIndex: 1,
+    ...(Platform.OS === 'web'
+      ? ({ pointerEvents: 'none' } as object)
+      : null),
   },
   detailHeaderContent: {
     flex: 1,

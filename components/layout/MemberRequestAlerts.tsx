@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { Portal, Snackbar } from 'react-native-paper';
+import { useRouter } from 'expo-router';
 
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -52,13 +53,14 @@ function writeSeenIds(ids: Set<string>) {
 }
 
 /**
- * Poll Requested member applications and notify when new ones appear.
- * Uses the same Settings toggle / sound as App Order notifications.
+ * Always poll Requested member applications.
+ * Snackbar always shows for new rows; sound follows Settings → notifications.
  */
 export function MemberRequestAlerts() {
+  const router = useRouter();
   const { session, isAuthenticated } = useAuth();
   const [snack, setSnack] = useState('');
-  const [prefEnabled, setPrefEnabled] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(false);
   const seenRef = useRef<Set<string>>(new Set());
   const readyRef = useRef(false);
 
@@ -66,22 +68,22 @@ export function MemberRequestAlerts() {
     if (Platform.OS !== 'web') {
       return;
     }
-    setPrefEnabled(readOnlineOrderAlertsEnabled());
+    setSoundEnabled(readOnlineOrderAlertsEnabled());
 
     const onPref = (event: Event) => {
       const detail = (event as CustomEvent<{ enabled?: boolean }>).detail;
       if (typeof detail?.enabled === 'boolean') {
-        setPrefEnabled(detail.enabled);
+        setSoundEnabled(detail.enabled);
         return;
       }
-      setPrefEnabled(readOnlineOrderAlertsEnabled());
+      setSoundEnabled(readOnlineOrderAlertsEnabled());
     };
     window.addEventListener(ONLINE_ORDER_ALERTS_EVENT, onPref);
     return () => window.removeEventListener(ONLINE_ORDER_ALERTS_EVENT, onPref);
   }, []);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || !prefEnabled || typeof window === 'undefined') {
+    if (Platform.OS !== 'web' || !soundEnabled || typeof window === 'undefined') {
       return;
     }
     if (isOnlineOrderAlertSoundUnlocked()) {
@@ -92,15 +94,10 @@ export function MemberRequestAlerts() {
     };
     window.addEventListener('pointerdown', unlock, { passive: true });
     return () => window.removeEventListener('pointerdown', unlock);
-  }, [prefEnabled]);
+  }, [soundEnabled]);
 
   useEffect(() => {
-    if (
-      Platform.OS !== 'web' ||
-      !isAuthenticated ||
-      !session?.token ||
-      !prefEnabled
-    ) {
+    if (Platform.OS !== 'web' || !isAuthenticated || !session?.token) {
       return;
     }
 
@@ -134,7 +131,9 @@ export function MemberRequestAlerts() {
           seenRef.current = new Set([...seenRef.current, ...nextIds]);
           writeSeenIds(seenRef.current);
           notifyMemberRequestBadgeChanged();
-          void playOnlineOrderAlertSound();
+          if (soundEnabled) {
+            void playOnlineOrderAlertSound();
+          }
           const first = fresh[0];
           const label = first.name || first.customer || first.phone || first.id;
           setSnack(
@@ -145,6 +144,7 @@ export function MemberRequestAlerts() {
         } else {
           seenRef.current = nextIds;
           writeSeenIds(nextIds);
+          notifyMemberRequestBadgeChanged();
         }
       } catch {
         // Ignore transient poll failures.
@@ -160,7 +160,7 @@ export function MemberRequestAlerts() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [isAuthenticated, session?.token, prefEnabled]);
+  }, [isAuthenticated, session?.token, soundEnabled]);
 
   if (Platform.OS !== 'web') {
     return null;
@@ -171,8 +171,14 @@ export function MemberRequestAlerts() {
       <Snackbar
         visible={Boolean(snack)}
         onDismiss={() => setSnack('')}
-        duration={5000}
-        action={{ label: 'OK', onPress: () => setSnack('') }}>
+        duration={6000}
+        action={{
+          label: 'Open',
+          onPress: () => {
+            setSnack('');
+            router.push('/member-requests' as never);
+          },
+        }}>
         {snack}
       </Snackbar>
     </Portal>

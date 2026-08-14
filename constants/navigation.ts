@@ -108,7 +108,7 @@ const MEMBERSHIP_COUPONS: NavItem = {
 const MEMBER_REQUESTS: NavItem = {
   name: 'member-requests',
   label: 'Member Request',
-  icon: 'account-badge-outline',
+  icon: 'card-account-details-outline',
   title: 'Member Request',
   description: 'Membership applications (x_membership_applicati).',
 };

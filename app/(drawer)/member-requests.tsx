@@ -10,8 +10,10 @@ import {
 } from 'react-native';
 import {
   ActivityIndicator,
+  Button,
   Chip,
-  Menu,
+  Dialog,
+  Portal,
   Snackbar,
   Text,
   useTheme,
@@ -106,45 +108,30 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function StatusMenu({
+function StatusChangeButton({
   item,
   busy,
-  onChange,
+  onPress,
 }: {
   item: MemberRequest;
   busy: boolean;
-  onChange: (status: MemberRequestStatus) => void;
+  onPress: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-
+  const theme = useTheme();
   return (
-    <Menu
-      visible={open}
-      onDismiss={() => setOpen(false)}
-      anchor={
-        <Pressable
-          disabled={busy}
-          onPress={() => setOpen(true)}
-          style={styles.statusMenuAnchor}
-          accessibilityLabel={`Change status for ${item.name || item.id}`}>
-          <StatusBadge status={item.status || 'Requested'} />
-          <Text variant="labelSmall" style={styles.statusHint}>
-            Change
-          </Text>
-        </Pressable>
-      }>
-      {MEMBER_REQUEST_STATUSES.map(status => (
-        <Menu.Item
-          key={status}
-          disabled={busy || item.status === status}
-          onPress={() => {
-            setOpen(false);
-            onChange(status);
-          }}
-          title={status}
-        />
-      ))}
-    </Menu>
+    <Pressable
+      disabled={busy}
+      onPress={onPress}
+      style={styles.statusMenuAnchor}
+      accessibilityRole="button"
+      accessibilityLabel={`Change status for ${item.name || item.id}`}>
+      <StatusBadge status={item.status || 'Requested'} />
+      <Text
+        variant="labelSmall"
+        style={[styles.statusHint, { color: theme.colors.primary }]}>
+        {busy ? 'Updating…' : 'Change'}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -152,12 +139,12 @@ function RequestRow({
   item,
   index,
   busy,
-  onStatusChange,
+  onOpenStatus,
 }: {
   item: MemberRequest;
   index: number;
   busy: boolean;
-  onStatusChange: (id: string, status: MemberRequestStatus) => void;
+  onOpenStatus: (item: MemberRequest) => void;
 }) {
   const theme = useTheme();
   const zebra =
@@ -170,10 +157,10 @@ function RequestRow({
         if (col.key === 'status') {
           return (
             <View key={col.key} style={[styles.cell, { flex: col.flex }]}>
-              <StatusMenu
+              <StatusChangeButton
                 item={item}
                 busy={busy}
-                onChange={status => onStatusChange(item.id, status)}
+                onPress={() => onOpenStatus(item)}
               />
             </View>
           );
@@ -253,6 +240,7 @@ export default function MemberRequestsScreen() {
   const [loadedCount, setLoadedCount] = useState(0);
   const [statusFilter, setStatusFilter] = useState<string>('Requested');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [statusTarget, setStatusTarget] = useState<MemberRequest | null>(null);
   const [snack, setSnack] = useState('');
   const [error, setError] = useState('');
 
@@ -307,6 +295,7 @@ export default function MemberRequestsScreen() {
   const onStatusChange = async (id: string, status: MemberRequestStatus) => {
     if (!session?.token) return;
     setUpdatingId(id);
+    setStatusTarget(null);
     try {
       const updated = await updateMemberRequestStatus(session.token, id, status);
       setRows(prev =>
@@ -398,7 +387,7 @@ export default function MemberRequestsScreen() {
               item={item}
               index={index}
               busy={updatingId === item.id}
-              onStatusChange={onStatusChange}
+              onOpenStatus={setStatusTarget}
             />
           ) : (
             <View
@@ -438,10 +427,10 @@ export default function MemberRequestsScreen() {
                   {item.notes}
                 </Text>
               ) : null}
-              <StatusMenu
+              <StatusChangeButton
                 item={item}
                 busy={updatingId === item.id}
-                onChange={status => onStatusChange(item.id, status)}
+                onPress={() => setStatusTarget(item)}
               />
             </View>
           )
@@ -458,6 +447,41 @@ export default function MemberRequestsScreen() {
         onChange={setPage}
         itemLabel="request"
       />
+
+      <Portal>
+        <Dialog
+          visible={Boolean(statusTarget)}
+          onDismiss={() => setStatusTarget(null)}>
+          <Dialog.Title>Change status</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={{ marginBottom: 12 }}>
+              {statusTarget?.name || statusTarget?.customer || 'Member request'}
+            </Text>
+            <View style={styles.statusOptions}>
+              {MEMBER_REQUEST_STATUSES.map(status => {
+                const selected = statusTarget?.status === status;
+                return (
+                  <Button
+                    key={status}
+                    mode={selected ? 'contained' : 'outlined'}
+                    disabled={updatingId === statusTarget?.id}
+                    onPress={() => {
+                      if (!statusTarget) return;
+                      void onStatusChange(statusTarget.id, status);
+                    }}
+                    style={styles.statusOptionBtn}>
+                    {status}
+                  </Button>
+                );
+              })}
+            </View>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setStatusTarget(null)}>Cancel</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
       <Snackbar visible={Boolean(snack)} onDismiss={() => setSnack('')} duration={3500}>
         {snack}
       </Snackbar>
@@ -489,7 +513,9 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   statusMenuAnchor: { gap: 2 },
-  statusHint: { opacity: 0.55 },
+  statusHint: { fontWeight: '600' },
+  statusOptions: { gap: 8 },
+  statusOptionBtn: { alignSelf: 'stretch' },
   card: {
     marginHorizontal: 12,
     marginBottom: 10,

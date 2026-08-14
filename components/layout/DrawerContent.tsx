@@ -241,8 +241,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 20,
     top: 14,
+    ...(Platform.OS === 'web'
+      ? ({ pointerEvents: 'none' } as object)
+      : null),
   },
   groupBadge: {
     marginRight: 4,
+    ...(Platform.OS === 'web'
+      ? ({ pointerEvents: 'none' } as object)
+      : null),
   },
 });
