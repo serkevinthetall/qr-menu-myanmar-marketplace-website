@@ -472,6 +472,7 @@ export default function CallListScreen() {
   const [menuForId, setMenuForId] = useState<string | null>(null);
   const [reasonFor, setReasonFor] = useState<AppInstallRecord | null>(null);
   const [waitingFor, setWaitingFor] = useState<AppInstallRecord | null>(null);
+  const [removeFor, setRemoveFor] = useState<AppInstallRecord | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const listUiSnapshot = useMemo<CallListUi>(
@@ -843,9 +844,7 @@ export default function CallListScreen() {
                   }}
                   onNotInstalled={() => setReasonFor(item)}
                   onWaiting={() => setWaitingFor(item)}
-                  onRemove={() => {
-                    void removeItem(item);
-                  }}
+                  onRemove={() => setRemoveFor(item)}
                 />
               ))}
             </ScrollView>
@@ -874,9 +873,7 @@ export default function CallListScreen() {
                 }}
                 onNotInstalled={() => setReasonFor(item)}
                 onWaiting={() => setWaitingFor(item)}
-                onRemove={() => {
-                  void removeItem(item);
-                }}
+                onRemove={() => setRemoveFor(item)}
               />
             </View>
           )}
@@ -994,6 +991,32 @@ export default function CallListScreen() {
                 void setStatus(waitingFor, 'waiting', undefined, note);
               }}>
               Save
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        <Dialog visible={Boolean(removeFor)} onDismiss={() => setRemoveFor(null)}>
+          <Dialog.Title>Remove from App User List?</Dialog.Title>
+          <Dialog.Content>
+            <Text style={{ color: theme.colors.onSurfaceVariant }}>
+              Are you sure you want to remove{' '}
+              {removeFor?.name || 'this contact'} from App User List? This cannot
+              be undone from here.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setRemoveFor(null)}>Cancel</Button>
+            <Button
+              mode="contained"
+              buttonColor={theme.colors.error}
+              textColor={theme.colors.onError}
+              onPress={() => {
+                if (!removeFor) return;
+                const target = removeFor;
+                setRemoveFor(null);
+                void removeItem(target);
+              }}>
+              Remove
             </Button>
           </Dialog.Actions>
         </Dialog>
