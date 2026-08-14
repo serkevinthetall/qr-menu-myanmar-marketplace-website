@@ -25,6 +25,7 @@ import { ThemeMode } from '@/constants/colors';
 import { useAuth } from '@/contexts/auth-context';
 import { useMemberRequestBadge } from '@/contexts/member-request-badge-context';
 import {
+  HeaderAction,
   useHeaderActions,
   useModuleSearch,
 } from '@/contexts/search-context';
@@ -43,6 +44,7 @@ import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
 import { toTelUri } from '@/utils/myanmar-phone';
 
 const PAGE_SIZE = 50;
+const EMPTY_HEADER_ACTIONS: HeaderAction[] = [];
 
 type Column = {
   key: string;
@@ -244,7 +246,7 @@ export default function MemberRequestsScreen() {
   const [snack, setSnack] = useState('');
   const [error, setError] = useState('');
 
-  useHeaderActions([]);
+  useHeaderActions(EMPTY_HEADER_ACTIONS);
 
   const load = useCallback(
     async (opts?: { silent?: boolean; page?: number }) => {

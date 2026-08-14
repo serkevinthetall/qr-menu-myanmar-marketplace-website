@@ -142,7 +142,6 @@ export function MemberRequestAlerts() {
         } else {
           seenRef.current = nextIds;
           writeSeenIds(nextIds);
-          notifyMemberRequestBadgeChanged();
         }
       } catch {
         // Ignore transient poll failures.
