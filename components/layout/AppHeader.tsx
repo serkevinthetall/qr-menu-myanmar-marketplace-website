@@ -1,5 +1,4 @@
 import { DrawerHeaderProps } from '@react-navigation/drawer';
-import { Href, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import {
@@ -71,7 +70,6 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
   const colors = useAppColors();
   const { isMobile } = useResponsive();
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const { unreadCount } = useAppOrderUnread();
   const { requestedCount } = useMemberRequestBadge();
   const { newCount } = useCallListBadge();
@@ -103,24 +101,9 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
     detailHeader?.onPrint?.(format);
   };
 
-  const go = (path: string) => {
-    // Expo Router path push; on web also set location when already on another module.
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const current = window.location.pathname.replace(/\/$/, '') || '/';
-      const target = path.replace(/\/$/, '') || '/';
-      if (current === target) {
-        return;
-      }
-      router.push(path as Href);
-      // Fallback if drawer route did not update the URL.
-      window.setTimeout(() => {
-        if (window.location.pathname.replace(/\/$/, '') !== target) {
-          window.location.assign(path);
-        }
-      }, 250);
-      return;
-    }
-    router.push(path as Href);
+  const go = (routeName: string) => {
+    // Prefer drawer screen name (registered in _layout) — no full-page reload.
+    navigation.navigate(routeName as never);
   };
 
   return (
@@ -161,7 +144,7 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
                 count={unreadCount}
                 iconColor={colors.onPrimary}
                 rippleColor={colors.headerRipple}
-                onPress={() => go('/online-orders')}
+                onPress={() => go('online-orders')}
               />
               {ENABLE_APP_INSTALL_CALL_LIST ? (
                 <HeaderShortcut
@@ -170,7 +153,7 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
                   count={newCount}
                   iconColor={colors.onPrimary}
                   rippleColor={colors.headerRipple}
-                  onPress={() => go('/call-list')}
+                  onPress={() => go('call-list')}
                 />
               ) : null}
               <HeaderShortcut
@@ -179,7 +162,7 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
                 count={requestedCount}
                 iconColor={colors.onPrimary}
                 rippleColor={colors.headerRipple}
-                onPress={() => go('/member-requests')}
+                onPress={() => go('member-requests')}
               />
             </>
           )}

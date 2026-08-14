@@ -8,8 +8,6 @@ import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Badge, Drawer, Icon, Text, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Href, useRouter } from 'expo-router';
-
 import { NAV_ENTRIES, NavItem } from '@/constants/navigation';
 import { useAppOrderUnread } from '@/contexts/app-order-unread-context';
 import { useMemberRequestBadge } from '@/contexts/member-request-badge-context';
@@ -18,7 +16,6 @@ import { ENABLE_APP_INSTALL_CALL_LIST, useCallListBadge } from '@/features/app-i
 export function DrawerContent(props: DrawerContentComponentProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const { unreadCount } = useAppOrderUnread();
   const { requestedCount } = useMemberRequestBadge();
   const { newCount } = useCallListBadge();
@@ -27,8 +24,8 @@ export function DrawerContent(props: DrawerContentComponentProps) {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   const navigateTo = (routeName: string) => {
-    // Path-based push so new drawer screens (e.g. member-requests) resolve.
-    router.push(`/${routeName}` as Href);
+    // Drawer screen names match Drawer.Screen `name` from NAV_ITEMS.
+    props.navigation.navigate(routeName);
     if (Platform.OS === 'web') {
       props.navigation.closeDrawer();
     }

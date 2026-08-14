@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { Portal, Snackbar } from 'react-native-paper';
-import { useRouter } from 'expo-router';
 
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -57,7 +56,6 @@ function writeSeenIds(ids: Set<string>) {
  * Snackbar always shows for new rows; sound follows Settings → notifications.
  */
 export function MemberRequestAlerts() {
-  const router = useRouter();
   const { session, isAuthenticated } = useAuth();
   const [snack, setSnack] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(false);
@@ -172,13 +170,7 @@ export function MemberRequestAlerts() {
         visible={Boolean(snack)}
         onDismiss={() => setSnack('')}
         duration={6000}
-        action={{
-          label: 'Open',
-          onPress: () => {
-            setSnack('');
-            router.push('/member-requests' as never);
-          },
-        }}>
+        action={{ label: 'OK', onPress: () => setSnack('') }}>
         {snack}
       </Snackbar>
     </Portal>
