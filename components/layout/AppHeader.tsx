@@ -38,7 +38,9 @@ function HeaderShortcut({
   iconColor: string;
   rippleColor: string;
 }) {
-  const showBadge = count > 0;
+  if (count <= 0) {
+    return null;
+  }
   return (
     <View style={styles.notifWrap}>
       <IconButton
@@ -48,19 +50,16 @@ function HeaderShortcut({
         rippleColor={rippleColor}
         size={22}
         onPress={onPress}
-        accessibilityLabel={showBadge ? `${label}, ${count}` : label}
+        accessibilityLabel={`${label}, ${count}`}
       />
-      {showBadge ? (
-        <Badge
-          style={styles.notifBadge}
-          size={16}
-          // Badge sits over the icon — must not steal clicks.
-          {...(Platform.OS === 'web'
-            ? ({ pointerEvents: 'none' } as object)
-            : null)}>
-          {count > 99 ? '99+' : count}
-        </Badge>
-      ) : null}
+      <Badge
+        style={styles.notifBadge}
+        size={16}
+        {...(Platform.OS === 'web'
+          ? ({ pointerEvents: 'none' } as object)
+          : null)}>
+        {count > 99 ? '99+' : count}
+      </Badge>
     </View>
   );
 }
