@@ -27,6 +27,7 @@ import { useMemberRequestBadge } from '@/contexts/member-request-badge-context';
 import {
   HeaderAction,
   useHeaderActions,
+  useModuleFilters,
   useModuleSearch,
 } from '@/contexts/search-context';
 import { useAppTheme } from '@/contexts/theme-context';
@@ -36,8 +37,11 @@ import {
   updateMemberRequestStatus,
 } from '@/services/member-requests';
 import {
+  getMemberRequestPeriodRange,
+  MEMBER_REQUEST_DATE_PERIOD_OPTIONS,
   MEMBER_REQUEST_STATUSES,
   MemberRequest,
+  MemberRequestDatePeriod,
   MemberRequestStatus,
 } from '@/types/member-request';
 import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
@@ -241,12 +245,18 @@ export default function MemberRequestsScreen() {
   const [hasMore, setHasMore] = useState(false);
   const [loadedCount, setLoadedCount] = useState(0);
   const [statusFilter, setStatusFilter] = useState<string>('Requested');
+  const [datePeriod, setDatePeriod] = useState<MemberRequestDatePeriod>('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [statusTarget, setStatusTarget] = useState<MemberRequest | null>(null);
   const [snack, setSnack] = useState('');
   const [error, setError] = useState('');
 
   useHeaderActions(EMPTY_HEADER_ACTIONS);
+
+  const dateRange = useMemo(
+    () => getMemberRequestPeriodRange(datePeriod),
+    [datePeriod],
+  );
 
   const load = useCallback(
     async (opts?: { silent?: boolean; page?: number }) => {
@@ -258,6 +268,8 @@ export default function MemberRequestsScreen() {
         const data = await fetchMemberRequests(session.token, {
           q: query || undefined,
           status: statusFilter || undefined,
+          from: dateRange?.from,
+          to: dateRange?.to,
           limit: PAGE_SIZE,
           offset: Math.max(0, nextPage - 1) * PAGE_SIZE,
         });
@@ -274,7 +286,15 @@ export default function MemberRequestsScreen() {
         setRefreshing(false);
       }
     },
-    [session?.token, page, query, statusFilter, refreshRequestedCount],
+    [
+      session?.token,
+      page,
+      query,
+      statusFilter,
+      dateRange?.from,
+      dateRange?.to,
+      refreshRequestedCount,
+    ],
   );
 
   useEffect(() => {
@@ -283,7 +303,41 @@ export default function MemberRequestsScreen() {
 
   useEffect(() => {
     setPage(1);
-  }, [query, statusFilter]);
+  }, [query, statusFilter, datePeriod]);
+
+  const onSelectDatePeriod = useCallback((id: MemberRequestDatePeriod | 'all') => {
+    setDatePeriod(id === 'all' ? '' : id);
+  }, []);
+
+  const dateChips = useMemo(
+    () => (
+      <View style={styles.filterRowWrap}>
+        {MEMBER_REQUEST_DATE_PERIOD_OPTIONS.map(opt => (
+          <Chip
+            key={opt.id}
+            compact
+            selected={opt.id === 'all' ? !datePeriod : datePeriod === opt.id}
+            onPress={() => onSelectDatePeriod(opt.id)}
+            style={styles.chip}>
+            {opt.label}
+          </Chip>
+        ))}
+      </View>
+    ),
+    [datePeriod, onSelectDatePeriod],
+  );
+
+  const filterPanel = useMemo(
+    () => (
+      <View style={styles.headerFilterPanel}>
+        <Text style={styles.filterSectionLabel}>Requested at</Text>
+        {dateChips}
+      </View>
+    ),
+    [dateChips],
+  );
+
+  useModuleFilters(filterPanel);
 
   const pageCount = Math.max(1, page + (hasMore ? 1 : 0));
   const totalEstimate =
@@ -341,6 +395,21 @@ export default function MemberRequestsScreen() {
             </Chip>
           ))}
         </ScrollView>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRow}>
+          {MEMBER_REQUEST_DATE_PERIOD_OPTIONS.map(opt => (
+            <Chip
+              key={opt.id}
+              compact
+              selected={opt.id === 'all' ? !datePeriod : datePeriod === opt.id}
+              onPress={() => onSelectDatePeriod(opt.id)}
+              style={styles.chip}>
+              {opt.label}
+            </Chip>
+          ))}
+        </ScrollView>
         {isDesktop ? (
           <View
             style={[
@@ -359,7 +428,7 @@ export default function MemberRequestsScreen() {
         ) : null}
       </View>
     ),
-    [isDesktop, statusFilter, theme.colors.surfaceVariant],
+    [isDesktop, statusFilter, datePeriod, onSelectDatePeriod, theme.colors.surfaceVariant],
   );
 
   if (loading && rows.length === 0) {
@@ -497,6 +566,14 @@ const styles = StyleSheet.create({
   listContent: { paddingBottom: 24 },
   listHeader: { gap: 8, paddingTop: 8 },
   filterRow: { gap: 8, paddingHorizontal: 12, paddingBottom: 4 },
+  filterRowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  headerFilterPanel: { gap: 8, paddingHorizontal: 4, paddingBottom: 8 },
+  filterSectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    opacity: 0.7,
+    paddingHorizontal: 4,
+  },
   chip: { marginRight: 0 },
   row: {
     flexDirection: 'row',

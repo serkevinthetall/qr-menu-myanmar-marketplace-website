@@ -33,6 +33,8 @@ export async function fetchMemberRequests(
   options?: {
     q?: string;
     status?: string;
+    from?: string;
+    to?: string;
     limit?: number;
     offset?: number;
   },
@@ -40,6 +42,8 @@ export async function fetchMemberRequests(
   const params = new URLSearchParams();
   if (options?.q) params.set('q', options.q);
   if (options?.status) params.set('status', options.status);
+  if (options?.from) params.set('from', options.from);
+  if (options?.to) params.set('to', options.to);
   if (options?.limit !== undefined) params.set('limit', String(options.limit));
   if (options?.offset !== undefined) params.set('offset', String(options.offset));
   const query = params.toString() ? `?${params.toString()}` : '';
