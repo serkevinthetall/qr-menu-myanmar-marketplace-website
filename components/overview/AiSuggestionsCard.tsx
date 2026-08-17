@@ -73,7 +73,7 @@ export function AiSuggestionsCard({
             {status.configured
               ? pack
                 ? `${slotLabel(pack.slot)} · ${formatMyanmarDateTime(pack.generatedAt) || pack.generatedAt}`
-                : 'No suggestions yet — tap Process to analyse this month.'
+                : 'No suggestions yet — tap Process to analyse this month’s sales and purchases.'
               : 'Add GEMINI_API_KEY on the API to enable Process.'}
           </Text>
         </View>
@@ -108,7 +108,7 @@ export function AiSuggestionsCard({
         <View style={styles.loadingBlock}>
           <ActivityIndicator size="small" color={theme.colors.primary} />
           <Text style={{ color: detail.label }}>
-            Processing this month’s Overview with Gemini…
+            Analysing this month’s sales, purchases, and Overview with Gemini…
           </Text>
         </View>
       ) : null}

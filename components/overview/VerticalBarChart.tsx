@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { LayoutChangeEvent, ScrollView, StyleSheet, View } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 
 import { useDetailTheme } from '@/hooks/use-detail-theme';
@@ -30,8 +30,10 @@ function defaultFormatValue(value: number): string {
   return safe.toLocaleString('en-US', { maximumFractionDigits: 0 });
 }
 
-const CHART_HEIGHT = 180;
+const CHART_HEIGHT = 220;
 const DEFAULT_BAR = '#467FCF';
+const MIN_COL_WIDTH = 72;
+const COL_GAP = 10;
 
 export function VerticalBarChart({
   items,
@@ -42,6 +44,7 @@ export function VerticalBarChart({
 }: VerticalBarChartProps) {
   const theme = useTheme();
   const detail = useDetailTheme();
+  const [trackWidth, setTrackWidth] = useState(0);
 
   const rows = useMemo(
     () =>
@@ -61,6 +64,22 @@ export function VerticalBarChart({
     return max > 0 ? max : 1;
   }, [rows]);
 
+  const gaps = COL_GAP * Math.max(0, rows.length - 1);
+  const fillsTrack =
+    trackWidth > 0 &&
+    rows.length * MIN_COL_WIDTH + gaps <= trackWidth;
+  const colWidth = fillsTrack
+    ? Math.floor((trackWidth - gaps) / rows.length)
+    : MIN_COL_WIDTH;
+  const barWidth = Math.max(16, Math.min(48, Math.round(colWidth * 0.42)));
+
+  const onLayout = (event: LayoutChangeEvent) => {
+    const next = Math.round(event.nativeEvent.layout.width);
+    if (next > 0 && next !== trackWidth) {
+      setTrackWidth(next);
+    }
+  };
+
   if (rows.length === 0) {
     return (
       <View style={styles.empty}>
@@ -70,12 +89,21 @@ export function VerticalBarChart({
   }
 
   return (
-    <View style={styles.wrap}>
+    <View style={styles.wrap} onLayout={onLayout}>
       <ScrollView
         horizontal
-        showsHorizontalScrollIndicator
-        contentContainerStyle={styles.scrollContent}>
-        <View style={[styles.chartRow, { minHeight: CHART_HEIGHT + 56 }]}>
+        scrollEnabled={!fillsTrack}
+        showsHorizontalScrollIndicator={!fillsTrack}
+        contentContainerStyle={[
+          styles.scrollContent,
+          fillsTrack ? styles.scrollFill : null,
+        ]}>
+        <View
+          style={[
+            styles.chartRow,
+            { minHeight: CHART_HEIGHT + 72, gap: COL_GAP },
+            fillsTrack ? styles.chartFill : null,
+          ]}>
           {rows.map(row => {
             const h = Math.max(
               4,
@@ -83,7 +111,7 @@ export function VerticalBarChart({
             );
 
             return (
-              <View key={row.id} style={styles.col}>
+              <View key={row.id} style={[styles.col, { width: colWidth }]}>
                 <Text
                   style={[styles.valueLabel, { color: theme.colors.primary }]}
                   numberOfLines={1}>
@@ -95,6 +123,7 @@ export function VerticalBarChart({
                       styles.bar,
                       {
                         height: h,
+                        width: barWidth,
                         backgroundColor: barColor,
                       },
                     ]}
@@ -116,6 +145,8 @@ export function VerticalBarChart({
 
 const styles = StyleSheet.create({
   wrap: {
+    width: '100%',
+    alignSelf: 'stretch',
     gap: 8,
   },
   empty: {
@@ -127,14 +158,20 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingRight: 8,
   },
+  scrollFill: {
+    flexGrow: 1,
+    width: '100%',
+    paddingRight: 0,
+  },
   chartRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 8,
     paddingTop: 4,
   },
+  chartFill: {
+    width: '100%',
+  },
   col: {
-    width: 44,
     alignItems: 'center',
     gap: 4,
   },
@@ -148,7 +185,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   bar: {
-    width: 22,
     borderTopLeftRadius: 4,
     borderTopRightRadius: 4,
   },
@@ -158,5 +194,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 13,
     minHeight: 28,
+    width: '100%',
+    paddingHorizontal: 2,
   },
 });
