@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 
 import { useDetailTheme } from '@/hooks/use-detail-theme';
@@ -16,6 +16,7 @@ type HorizontalBarChartProps = {
   items: HorizontalBarItem[];
   emptyLabel?: string;
   formatValue?: (value: number) => string;
+  onItemPress?: (id: string) => void;
 };
 
 function defaultFormatValue(value: number): string {
@@ -33,6 +34,7 @@ export function HorizontalBarChart({
   items,
   emptyLabel = 'No data in this period.',
   formatValue = defaultFormatValue,
+  onItemPress,
 }: HorizontalBarChartProps) {
   const theme = useTheme();
   const detail = useDetailTheme();
@@ -68,9 +70,8 @@ export function HorizontalBarChart({
       {rows.map((row, index) => {
         const ratio = Math.max(0.02, row.value / maxValue);
         const color = BAR_COLORS[index % BAR_COLORS.length];
-
-        return (
-          <View key={row.id} style={styles.row}>
+        const content = (
+          <>
             <Text
               style={[styles.label, { color: detail.onSurface }]}
               numberOfLines={1}
@@ -97,6 +98,28 @@ export function HorizontalBarChart({
               numberOfLines={1}>
               {formatValue(row.value)}
             </Text>
+          </>
+        );
+
+        if (onItemPress) {
+          return (
+            <Pressable
+              key={row.id}
+              onPress={() => onItemPress(row.id)}
+              style={({ pressed }) => [
+                styles.row,
+                pressed ? styles.rowPressed : null,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${row.label}`}>
+              {content}
+            </Pressable>
+          );
+        }
+
+        return (
+          <View key={row.id} style={styles.row}>
+            {content}
           </View>
         );
       })}
@@ -119,6 +142,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  rowPressed: {
+    opacity: 0.72,
   },
   label: {
     width: 120,

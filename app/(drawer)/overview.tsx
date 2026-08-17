@@ -137,12 +137,17 @@ function SurfaceCard({
   title,
   children,
   style,
+  actionLabel,
+  onAction,
 }: {
   title: string;
   children: ReactNode;
   style?: object;
+  actionLabel?: string;
+  onAction?: () => void;
 }) {
   const detail = useDetailTheme();
+  const theme = useTheme();
 
   return (
     <View
@@ -155,7 +160,22 @@ function SurfaceCard({
         },
         style,
       ]}>
-      <Text style={[styles.cardTitle, { color: detail.onSurface }]}>{title}</Text>
+      <View style={styles.cardHeader}>
+        <Text style={[styles.cardTitle, { color: detail.onSurface, flex: 1 }]}>
+          {title}
+        </Text>
+        {actionLabel && onAction ? (
+          <Pressable
+            onPress={onAction}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={actionLabel}>
+            <Text style={[styles.cardAction, { color: theme.colors.primary }]}>
+              {actionLabel}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
       {children}
     </View>
   );
@@ -675,7 +695,10 @@ export default function OverviewScreen() {
             ]}
             pointerEvents={loading ? 'none' : 'auto'}>
             <View style={styles.mainCol}>
-              <SurfaceCard title="Most spending customers">
+              <SurfaceCard
+                title="Most spending customers"
+                actionLabel="View detail"
+                onAction={() => router.push('/(drawer)/customers')}>
                 <Text style={[styles.cardHint, { color: detail.label }]}>
                   Top customers by purchase total · {selectedPeriodLabel}
                 </Text>
@@ -683,6 +706,12 @@ export default function OverviewScreen() {
                   items={customerBarItems}
                   emptyLabel="No customer purchases in this period."
                   formatValue={formatMoney}
+                  onItemPress={id =>
+                    router.push({
+                      pathname: '/(drawer)/customers',
+                      params: { detailId: id },
+                    })
+                  }
                 />
               </SurfaceCard>
 
@@ -1005,6 +1034,16 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: '800',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 2,
+  },
+  cardAction: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   cardHint: {
     fontSize: 12,
