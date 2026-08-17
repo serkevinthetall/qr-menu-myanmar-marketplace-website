@@ -84,6 +84,13 @@ export default function DrawerLayout() {
             drawerItemStyle: { display: 'none' },
           }}
         />
+        <Drawer.Screen
+          name="overview-detail"
+          options={{
+            title: 'Overview detail',
+            drawerItemStyle: { display: 'none' },
+          }}
+        />
       </Drawer>
     </>
   );
