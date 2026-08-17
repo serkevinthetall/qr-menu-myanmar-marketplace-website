@@ -11,7 +11,7 @@ export const CALL_LIST_BADGE_REFRESH_EVENT = 'qr-shop-call-list-badge-refresh';
 
 type ListResponse = {
   data: AppInstallRecord[];
-  meta?: { count: number; status: AppInstallStatus | null };
+  meta?: { count: number; status: AppInstallStatus | null; statuses?: AppInstallStatus[] };
 };
 
 type OneResponse = { data: AppInstallRecord; meta?: { created?: boolean } };
@@ -43,10 +43,17 @@ export async function fetchAppInstallMap(
 
 export async function fetchCallList(
   token: string,
-  options?: { status?: AppInstallStatus; q?: string },
+  options?: { status?: AppInstallStatus | AppInstallStatus[]; q?: string },
 ): Promise<AppInstallRecord[]> {
   const params = new URLSearchParams();
-  if (options?.status) params.set('status', options.status);
+  if (options?.status) {
+    const statuses = Array.isArray(options.status)
+      ? options.status
+      : [options.status];
+    if (statuses.length > 0) {
+      params.set('status', statuses.join(','));
+    }
+  }
   if (options?.q) params.set('q', options.q);
   const query = params.toString() ? `?${params.toString()}` : '';
   const response = await webApiRequest<ListResponse>(`/app-installs${query}`, {

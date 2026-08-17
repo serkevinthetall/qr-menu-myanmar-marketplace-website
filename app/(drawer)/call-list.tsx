@@ -63,9 +63,25 @@ type ViewMode = 'list' | 'grid';
 
 type CallListUi = {
   viewMode: ViewMode;
-  statusFilter: AppInstallStatus | 'all';
+  statusFilter: AppInstallStatus[];
   dateFilters: AppUserListDateFilters;
 };
+
+const APP_INSTALL_STATUS_IDS: AppInstallStatus[] = [
+  'new',
+  'not_installed',
+  'waiting',
+  'not_pick_up',
+  'please_come_and_install',
+  'installed',
+];
+
+function isAppInstallStatusId(value: unknown): value is AppInstallStatus {
+  return (
+    typeof value === 'string' &&
+    APP_INSTALL_STATUS_IDS.includes(value as AppInstallStatus)
+  );
+}
 
 function statusColor(status: AppInstallStatus): { bg: string; fg: string } {
   switch (status) {
@@ -466,9 +482,7 @@ export default function CallListScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [statusFilter, setStatusFilter] = useState<AppInstallStatus | 'all'>(
-    'all',
-  );
+  const [statusFilter, setStatusFilter] = useState<AppInstallStatus[]>([]);
   const [dateFilters, setDateFilters] = useState<AppUserListDateFilters>({
     ...EMPTY_APP_USER_LIST_DATE_FILTERS,
   });
@@ -490,16 +504,10 @@ export default function CallListScreen() {
     if (saved.viewMode === 'list' || saved.viewMode === 'grid') {
       setViewMode(saved.viewMode);
     }
-    if (
-      saved.statusFilter === 'all' ||
-      saved.statusFilter === 'new' ||
-      saved.statusFilter === 'not_installed' ||
-      saved.statusFilter === 'waiting' ||
-      saved.statusFilter === 'not_pick_up' ||
-      saved.statusFilter === 'please_come_and_install' ||
-      saved.statusFilter === 'installed'
-    ) {
-      setStatusFilter(saved.statusFilter);
+    if (Array.isArray(saved.statusFilter)) {
+      setStatusFilter(saved.statusFilter.filter(isAppInstallStatusId));
+    } else if (isAppInstallStatusId(saved.statusFilter)) {
+      setStatusFilter([saved.statusFilter]);
     }
     if (saved.dateFilters && typeof saved.dateFilters === 'object') {
       const period =
@@ -527,16 +535,32 @@ export default function CallListScreen() {
       <View style={styles.headerFilterPanel}>
         <Text style={styles.filterSectionLabel}>Status</Text>
         <View style={styles.headerFilterChips}>
-          {APP_INSTALL_STATUS_OPTIONS.map(opt => (
-            <Chip
-              key={opt.id}
-              compact
-              selected={statusFilter === opt.id}
-              onPress={() => setStatusFilter(opt.id)}
-              style={styles.chip}>
-              {opt.label}
-            </Chip>
-          ))}
+          {APP_INSTALL_STATUS_OPTIONS.map(opt => {
+            const selected =
+              opt.id === 'all'
+                ? statusFilter.length === 0
+                : statusFilter.includes(opt.id);
+            return (
+              <Chip
+                key={opt.id}
+                compact
+                selected={selected}
+                onPress={() => {
+                  if (opt.id === 'all') {
+                    setStatusFilter([]);
+                    return;
+                  }
+                  setStatusFilter(prev =>
+                    prev.includes(opt.id)
+                      ? prev.filter(id => id !== opt.id)
+                      : [...prev, opt.id],
+                  );
+                }}
+                style={styles.chip}>
+                {opt.label}
+              </Chip>
+            );
+          })}
         </View>
 
         <Text style={styles.filterSectionLabel}>Created date</Text>
@@ -620,7 +644,7 @@ export default function CallListScreen() {
     setError('');
     try {
       const data = await fetchCallList(session.token, {
-        status: statusFilter === 'all' ? undefined : statusFilter,
+        status: statusFilter.length > 0 ? statusFilter : undefined,
         q: query.trim() || undefined,
       });
       setItems(data);
@@ -773,7 +797,7 @@ export default function CallListScreen() {
 
   const emptyLabel =
     query.trim() ||
-    statusFilter !== 'all' ||
+    statusFilter.length > 0 ||
     hasAppUserListDateFilters(dateFilters)
       ? 'No matching App User List contacts.'
       : 'No install requests yet. Use Request on a Customer.';
