@@ -73,8 +73,8 @@ export function AiSuggestionsCard({
             {status.configured
               ? pack
                 ? `${slotLabel(pack.slot)} · ${formatMyanmarDateTime(pack.generatedAt) || pack.generatedAt}`
-                : 'No suggestions yet — generate from your latest sales data.'
-              : 'Add GROQ_API_KEY on the API to enable generation.'}
+                : 'No suggestions yet — tap Process to analyse this month.'
+              : 'Add GEMINI_API_KEY on the API to enable Process.'}
           </Text>
         </View>
         {status.configured ? (
@@ -94,7 +94,7 @@ export function AiSuggestionsCard({
               <Icon source="creation" size={16} color="#fff" />
             )}
             <Text style={styles.buttonText}>
-              {generating ? 'Generating…' : pack ? 'Refresh' : 'Generate'}
+              {generating ? 'Processing…' : 'Process'}
             </Text>
           </Pressable>
         ) : null}
@@ -108,7 +108,7 @@ export function AiSuggestionsCard({
         <View style={styles.loadingBlock}>
           <ActivityIndicator size="small" color={theme.colors.primary} />
           <Text style={{ color: detail.label }}>
-            Analysing rollups with Groq…
+            Processing this month’s Overview with Gemini…
           </Text>
         </View>
       ) : null}

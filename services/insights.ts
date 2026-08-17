@@ -30,9 +30,11 @@ export async function fetchOverviewSummary(
 export async function fetchOverviewRankings(
   token: string,
   period: OverviewPeriod,
+  compare = false,
 ): Promise<OverviewRankings> {
+  const compareQuery = compare ? '&compare=1' : '';
   const response = await webApiRequest<RankingsResponse>(
-    `/insights/rankings?period=${period}`,
+    `/insights/rankings?period=${period}${compareQuery}`,
     { token },
   );
   return response.data;
@@ -42,9 +44,11 @@ export async function fetchOverviewOrders(
   token: string,
   period: OverviewPeriod,
   type: OverviewOrderType,
+  compare = false,
 ): Promise<OverviewOrders> {
+  const compareQuery = compare ? '&compare=1' : '';
   const response = await webApiRequest<OrdersResponse>(
-    `/insights/orders?period=${period}&type=${type}`,
+    `/insights/orders?period=${period}&type=${type}${compareQuery}`,
     { token },
   );
   return response.data;

@@ -101,6 +101,7 @@ export function OverviewOrdersDetailView({
   const [compareMenuOpen, setCompareMenuOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<'total' | 'date' | 'partner'>('total');
+  const [compareLoaded, setCompareLoaded] = useState(false);
 
   const goBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -134,10 +135,11 @@ export function OverviewOrdersDetailView({
     setCompareMode('off');
     setSearch('');
     setSortKey('total');
+    setCompareLoaded(false);
 
     void (async () => {
       try {
-        const orders = await fetchOverviewOrders(token, period, type);
+        const orders = await fetchOverviewOrders(token, period, type, false);
         if (!cancelled) {
           setData(orders);
         }
@@ -159,6 +161,36 @@ export function OverviewOrdersDetailView({
       cancelled = true;
     };
   }, [token, period, type]);
+
+  useEffect(() => {
+    if (!token || compareMode !== 'last_month' || compareLoaded) {
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    void (async () => {
+      try {
+        const orders = await fetchOverviewOrders(token, period, type, true);
+        if (!cancelled) {
+          setData(orders);
+          setCompareLoaded(true);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : 'Failed to load last month.',
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [compareLoaded, compareMode, period, token, type]);
 
   const showCompare = compareMode === 'last_month';
   const chartLimit = showCompare ? COMPARE_LIMIT : CHART_LIMIT;
@@ -391,7 +423,12 @@ export function OverviewOrdersDetailView({
                 filteredOrders.map((row, index) => (
                   <Pressable
                     key={row.id}
-                    onPress={() => router.push(modulePath)}
+                    onPress={() =>
+                      router.push({
+                        pathname: modulePath,
+                        params: { detailId: row.id },
+                      })
+                    }
                     style={[
                       styles.tableRow,
                       { borderBottomColor: detail.border },

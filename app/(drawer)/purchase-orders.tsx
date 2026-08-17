@@ -7,6 +7,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import {
   ActivityIndicator,
   Icon,
@@ -290,6 +291,9 @@ export default function PurchaseOrdersScreen() {
   const { mode } = useAppTheme();
   const { session } = useAuth();
   const { width } = useResponsive();
+  const { detailId: routeDetailId } = useLocalSearchParams<{
+    detailId?: string;
+  }>();
   const [items, setItems] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -364,6 +368,16 @@ export default function PurchaseOrdersScreen() {
     },
     [session?.token],
   );
+
+  useEffect(() => {
+    const id = Array.isArray(routeDetailId)
+      ? routeDetailId[0]
+      : routeDetailId;
+    if (!id || !session?.token) {
+      return;
+    }
+    void openDetail(id);
+  }, [openDetail, routeDetailId, session?.token]);
 
   const closeDetail = useCallback(() => {
     setSelectedId(null);

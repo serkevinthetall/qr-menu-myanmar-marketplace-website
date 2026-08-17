@@ -91,6 +91,20 @@ export default function DrawerLayout() {
             drawerItemStyle: { display: 'none' },
           }}
         />
+        <Drawer.Screen
+          name="overview-sales"
+          options={{
+            title: 'Sale orders',
+            drawerItemStyle: { display: 'none' },
+          }}
+        />
+        <Drawer.Screen
+          name="overview-purchases"
+          options={{
+            title: 'Purchase orders',
+            drawerItemStyle: { display: 'none' },
+          }}
+        />
       </Drawer>
     </>
   );

@@ -1,17 +1,11 @@
 import { useLocalSearchParams } from 'expo-router';
 
-import { OverviewRankingDetailView } from '@/components/overview/OverviewRankingDetailView';
+import { OverviewOrdersDetailView } from '@/components/overview/OverviewOrdersDetailView';
 import { useModuleSearch } from '@/contexts/search-context';
 import { OverviewPeriod } from '@/types/overview';
 
-type DetailKind = 'customers' | 'areas';
-
 function first(raw?: string | string[]): string {
   return Array.isArray(raw) ? String(raw[0] ?? '') : String(raw ?? '');
-}
-
-function parseKind(raw?: string | string[]): DetailKind {
-  return first(raw) === 'areas' ? 'areas' : 'customers';
 }
 
 function parsePeriod(raw?: string | string[]): OverviewPeriod {
@@ -22,18 +16,11 @@ function parsePeriod(raw?: string | string[]): OverviewPeriod {
   return 'month';
 }
 
-export default function OverviewDetailScreen() {
-  const { kind, period } = useLocalSearchParams<{
-    kind?: string;
-    period?: string;
-  }>();
+export default function OverviewSalesDetailScreen() {
+  const { period } = useLocalSearchParams<{ period?: string }>();
   useModuleSearch('', false);
 
   return (
-    <OverviewRankingDetailView
-      kind={parseKind(kind)}
-      period={parsePeriod(period)}
-    />
+    <OverviewOrdersDetailView type="sale" period={parsePeriod(period)} />
   );
 }
-

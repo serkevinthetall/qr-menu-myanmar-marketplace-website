@@ -89,6 +89,7 @@ export function OverviewRankingDetailView({
   const [stateFilterId, setStateFilterId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<'total' | 'name'>('total');
+  const [compareLoaded, setCompareLoaded] = useState(false);
 
   const goBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -123,10 +124,11 @@ export function OverviewRankingDetailView({
     setStateFilterId(null);
     setSearch('');
     setSortKey('total');
+    setCompareLoaded(false);
 
     void (async () => {
       try {
-        const rankings = await fetchOverviewRankings(token, period);
+        const rankings = await fetchOverviewRankings(token, period, false);
         if (!cancelled) {
           setData(rankings);
         }
@@ -149,13 +151,43 @@ export function OverviewRankingDetailView({
     };
   }, [token, period, kind]);
 
+  useEffect(() => {
+    if (!token || compareMode !== 'last_month' || compareLoaded) {
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    void (async () => {
+      try {
+        const rankings = await fetchOverviewRankings(token, period, true);
+        if (!cancelled) {
+          setData(rankings);
+          setCompareLoaded(true);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : 'Failed to load last month.',
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [compareLoaded, compareMode, period, token]);
+
   const showCompare = compareMode === 'last_month';
 
   const filteredAreas = useMemo(() => {
     if (!data) {
       return [];
     }
-    let rows = data.areas;
+    let rows = data.areas.filter(row => row.total > 0);
     if (stateFilterId != null) {
       rows = rows.filter(row => row.stateId === stateFilterId);
     }

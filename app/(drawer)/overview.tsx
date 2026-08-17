@@ -2,7 +2,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -354,7 +353,6 @@ export default function OverviewScreen() {
   const [aiStatus, setAiStatus] = useState<AiSuggestionsStatus | null>(null);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiError, setAiError] = useState('');
-  const autoGenerateTried = useRef(false);
 
   const loadAiSuggestions = useCallback(async () => {
     if (!session?.token) {
@@ -432,20 +430,6 @@ export default function OverviewScreen() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  useEffect(() => {
-    if (
-      !aiStatus?.enabled ||
-      !aiStatus.configured ||
-      !aiStatus.shouldGenerate ||
-      aiGenerating ||
-      autoGenerateTried.current
-    ) {
-      return;
-    }
-    autoGenerateTried.current = true;
-    void runGenerateSuggestions(aiStatus.suggestedSlot);
-  }, [aiStatus, aiGenerating, runGenerateSuggestions]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -662,7 +646,11 @@ export default function OverviewScreen() {
             generating={aiGenerating}
             error={aiError}
             onGenerate={() =>
-              void runGenerateSuggestions(aiStatus?.suggestedSlot ?? 'manual')
+              void runGenerateSuggestions(
+                period === 'month'
+                  ? 'monthly'
+                  : (aiStatus?.suggestedSlot ?? 'manual'),
+              )
             }
           />
 
@@ -719,8 +707,8 @@ export default function OverviewScreen() {
                 actionLabel="View detail"
                 onAction={() =>
                   router.push({
-                    pathname: '/overview-detail',
-                    params: { kind: 'sales', period },
+                    pathname: '/overview-sales',
+                    params: { period },
                   })
                 }>
                 <Text style={[styles.cardHint, { color: detail.label }]}>
@@ -748,7 +736,12 @@ export default function OverviewScreen() {
                   data?.recentOrders.map(order => (
                     <Pressable
                       key={order.id}
-                      onPress={() => router.push('/(drawer)/sale-orders')}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/sale-orders',
+                          params: { detailId: order.id },
+                        })
+                      }
                       style={[
                         styles.tableRow,
                         { borderBottomColor: detail.border },
@@ -784,8 +777,8 @@ export default function OverviewScreen() {
                 actionLabel="View detail"
                 onAction={() =>
                   router.push({
-                    pathname: '/overview-detail',
-                    params: { kind: 'purchases', period },
+                    pathname: '/overview-purchases',
+                    params: { period },
                   })
                 }>
                 <Text style={[styles.cardHint, { color: detail.label }]}>
@@ -813,7 +806,12 @@ export default function OverviewScreen() {
                   data?.recentPurchaseOrders.map(order => (
                     <Pressable
                       key={order.id}
-                      onPress={() => router.push('/(drawer)/purchase-orders')}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/purchase-orders',
+                          params: { detailId: order.id },
+                        })
+                      }
                       style={[
                         styles.tableRow,
                         { borderBottomColor: detail.border },
