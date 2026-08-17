@@ -3,6 +3,8 @@ import {
   AiSuggestionPack,
   AiSuggestionSlot,
   AiSuggestionsStatus,
+  OverviewOrders,
+  OverviewOrderType,
   OverviewPeriod,
   OverviewRankings,
   OverviewSummary,
@@ -10,6 +12,7 @@ import {
 
 type SummaryResponse = { data: OverviewSummary };
 type RankingsResponse = { data: OverviewRankings };
+type OrdersResponse = { data: OverviewOrders };
 type SuggestionsResponse = { data: AiSuggestionsStatus };
 type GenerateResponse = { data: AiSuggestionPack };
 
@@ -30,6 +33,18 @@ export async function fetchOverviewRankings(
 ): Promise<OverviewRankings> {
   const response = await webApiRequest<RankingsResponse>(
     `/insights/rankings?period=${period}`,
+    { token },
+  );
+  return response.data;
+}
+
+export async function fetchOverviewOrders(
+  token: string,
+  period: OverviewPeriod,
+  type: OverviewOrderType,
+): Promise<OverviewOrders> {
+  const response = await webApiRequest<OrdersResponse>(
+    `/insights/orders?period=${period}&type=${type}`,
     { token },
   );
   return response.data;

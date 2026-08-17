@@ -10,21 +10,23 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Menu, Text, TextInput, useTheme } from 'react-native-paper';
 
 import { VerticalBarChart } from '@/components/overview/VerticalBarChart';
+import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { useAuth } from '@/contexts/auth-context';
 import { useSearch } from '@/contexts/search-context';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
-import { fetchOverviewRankings } from '@/services/insights';
+import { fetchOverviewOrders } from '@/services/insights';
 import {
   OverviewCompareMode,
+  OverviewOrderType,
+  OverviewOrders,
   OverviewPeriod,
-  OverviewRankings,
+  OverviewPeriodOrder,
 } from '@/types/overview';
+import { formatMyanmarDate } from '@/utils/myanmar-datetime';
 
-export type OverviewRankingKind = 'customers' | 'areas';
-
-type OverviewRankingDetailViewProps = {
-  kind: OverviewRankingKind;
+type OverviewOrdersDetailViewProps = {
+  type: OverviewOrderType;
   period: OverviewPeriod;
 };
 
@@ -59,15 +61,25 @@ function periodLabel(period: OverviewPeriod): string {
   }
 }
 
-const CUSTOMER_CHART_LIMIT = 15;
-const CUSTOMER_COMPARE_LIMIT = 10;
-const AREA_NATIONWIDE_CHART_LIMIT = 15;
-const AREA_COMPARE_LIMIT = 10;
+const CHART_LIMIT = 15;
+const COMPARE_LIMIT = 10;
 
-export function OverviewRankingDetailView({
-  kind,
+function toChartItems(rows: OverviewPeriodOrder[], limit: number) {
+  return [...rows]
+    .filter(row => row.total > 0)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, limit)
+    .map(row => ({
+      id: row.id,
+      label: row.number || row.partner || 'Order',
+      value: row.total,
+    }));
+}
+
+export function OverviewOrdersDetailView({
+  type,
   period,
-}: OverviewRankingDetailViewProps) {
+}: OverviewOrdersDetailViewProps) {
   const theme = useTheme();
   const detail = useDetailTheme();
   const router = useRouter();
@@ -77,18 +89,18 @@ export function OverviewRankingDetailView({
   const isMobile = width < 900;
   const token = session?.token ?? '';
   const selectedPeriodLabel = periodLabel(period);
-  const title =
-    kind === 'customers' ? 'Most spending customers' : 'Top buying areas';
+  const isPurchase = type === 'purchase';
+  const title = isPurchase ? 'Purchase orders' : 'Sale orders';
+  const partnerLabel = isPurchase ? 'VENDOR' : 'CUSTOMER';
+  const modulePath = isPurchase ? '/purchase-orders' : '/sale-orders';
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<OverviewRankings | null>(null);
+  const [data, setData] = useState<OverviewOrders | null>(null);
   const [compareMode, setCompareMode] = useState<OverviewCompareMode>('off');
   const [compareMenuOpen, setCompareMenuOpen] = useState(false);
-  const [stateMenuOpen, setStateMenuOpen] = useState(false);
-  const [stateFilterId, setStateFilterId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
-  const [sortKey, setSortKey] = useState<'total' | 'name'>('total');
+  const [sortKey, setSortKey] = useState<'total' | 'date' | 'partner'>('total');
 
   const goBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -120,20 +132,19 @@ export function OverviewRankingDetailView({
     setLoading(true);
     setError(null);
     setCompareMode('off');
-    setStateFilterId(null);
     setSearch('');
     setSortKey('total');
 
     void (async () => {
       try {
-        const rankings = await fetchOverviewRankings(token, period);
+        const orders = await fetchOverviewOrders(token, period, type);
         if (!cancelled) {
-          setData(rankings);
+          setData(orders);
         }
       } catch (err) {
         if (!cancelled) {
           setError(
-            err instanceof Error ? err.message : 'Failed to load rankings.',
+            err instanceof Error ? err.message : 'Failed to load orders.',
           );
           setData(null);
         }
@@ -147,135 +158,43 @@ export function OverviewRankingDetailView({
     return () => {
       cancelled = true;
     };
-  }, [token, period, kind]);
+  }, [token, period, type]);
 
   const showCompare = compareMode === 'last_month';
+  const chartLimit = showCompare ? COMPARE_LIMIT : CHART_LIMIT;
 
-  const filteredAreas = useMemo(() => {
+  const filteredOrders = useMemo(() => {
     if (!data) {
       return [];
     }
-    let rows = data.areas;
-    if (stateFilterId != null) {
-      rows = rows.filter(row => row.stateId === stateFilterId);
-    }
+    let rows = data.orders.filter(row => row.total > 0);
     const q = search.trim().toLowerCase();
     if (q) {
       rows = rows.filter(
         row =>
-          row.name.toLowerCase().includes(q) ||
-          row.stateName.toLowerCase().includes(q),
+          row.number.toLowerCase().includes(q) ||
+          row.partner.toLowerCase().includes(q),
       );
     }
     const sorted = [...rows];
-    if (sortKey === 'name') {
-      sorted.sort((a, b) => a.name.localeCompare(b.name));
+    if (sortKey === 'partner') {
+      sorted.sort((a, b) => a.partner.localeCompare(b.partner));
+    } else if (sortKey === 'date') {
+      sorted.sort((a, b) => b.orderDate.localeCompare(a.orderDate));
     } else {
-      sorted.sort((a, b) => b.total - a.total || b.prevTotal - a.prevTotal);
-    }
-    return sorted;
-  }, [data, search, sortKey, stateFilterId]);
-
-  const filteredCustomers = useMemo(() => {
-    if (!data) {
-      return [];
-    }
-    let rows = data.customers.filter(row => row.total > 0);
-    const q = search.trim().toLowerCase();
-    if (q) {
-      rows = rows.filter(row => row.name.toLowerCase().includes(q));
-    }
-    const sorted = [...rows];
-    if (sortKey === 'name') {
-      sorted.sort((a, b) => a.name.localeCompare(b.name));
-    } else {
-      sorted.sort((a, b) => b.total - a.total || b.prevTotal - a.prevTotal);
+      sorted.sort((a, b) => b.total - a.total);
     }
     return sorted;
   }, [data, search, sortKey]);
 
-  const currentChartLimit = useMemo(() => {
-    if (kind === 'customers') {
-      return showCompare ? CUSTOMER_COMPARE_LIMIT : CUSTOMER_CHART_LIMIT;
-    }
-    if (showCompare) {
-      return AREA_COMPARE_LIMIT;
-    }
-    return stateFilterId == null ? AREA_NATIONWIDE_CHART_LIMIT : 50;
-  }, [kind, showCompare, stateFilterId]);
-
-  const currentChartItems = useMemo(() => {
-    if (kind === 'customers') {
-      return filteredCustomers.slice(0, currentChartLimit).map(row => ({
-        id: row.id,
-        label: row.name,
-        value: row.total,
-      }));
-    }
-    return [...filteredAreas]
-      .sort((a, b) => b.total - a.total)
-      .slice(0, currentChartLimit)
-      .map(row => ({
-        id: row.key,
-        label: row.name,
-        value: row.total,
-      }));
-  }, [currentChartLimit, filteredAreas, filteredCustomers, kind]);
-
-  const prevChartItems = useMemo(() => {
-    const limit =
-      kind === 'customers' ? CUSTOMER_COMPARE_LIMIT : AREA_COMPARE_LIMIT;
-    if (kind === 'customers') {
-      return [...filteredCustomers]
-        .filter(row => row.prevTotal > 0)
-        .sort((a, b) => b.prevTotal - a.prevTotal)
-        .slice(0, limit)
-        .map(row => ({
-          id: `prev-${row.id}`,
-          label: row.name,
-          value: row.prevTotal,
-        }));
-    }
-    return [...filteredAreas]
-      .filter(row => row.prevTotal > 0)
-      .sort((a, b) => b.prevTotal - a.prevTotal)
-      .slice(0, limit)
-      .map(row => ({
-        id: `prev-${row.key}`,
-        label: row.name,
-        value: row.prevTotal,
-      }));
-  }, [filteredAreas, filteredCustomers, kind]);
-
-  const selectedStateName =
-    stateFilterId == null
-      ? 'All Myanmar'
-      : (data?.states.find(s => s.id === stateFilterId)?.name ?? 'State');
-
-  const currentChartHint =
-    kind === 'customers'
-      ? `Top ${currentChartLimit} · ${selectedPeriodLabel}`
-      : stateFilterId == null
-        ? `Top ${currentChartLimit} nationwide · ${selectedPeriodLabel}`
-        : showCompare
-          ? `${selectedStateName} · top ${currentChartLimit} · ${selectedPeriodLabel}`
-          : `${selectedStateName} townships · ${selectedPeriodLabel}`;
-
-  const prevChartHint =
-    kind === 'customers'
-      ? `Top ${CUSTOMER_COMPARE_LIMIT} · Last month`
-      : stateFilterId == null
-        ? `Top ${AREA_COMPARE_LIMIT} nationwide · Last month`
-        : `${selectedStateName} · top ${AREA_COMPARE_LIMIT} · Last month`;
-
-  const emptyCurrent =
-    kind === 'customers'
-      ? 'No customer purchases in this period.'
-      : 'No area sales in this period.';
-  const emptyPrev =
-    kind === 'customers'
-      ? 'No customer purchases last month.'
-      : 'No area sales last month.';
+  const currentChartItems = useMemo(
+    () => toChartItems(data?.orders ?? [], chartLimit),
+    [chartLimit, data?.orders],
+  );
+  const prevChartItems = useMemo(
+    () => toChartItems(data?.prevOrders ?? [], COMPARE_LIMIT),
+    [data?.prevOrders],
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: detail.background }]}>
@@ -292,7 +211,7 @@ export function OverviewRankingDetailView({
               {title}
             </Text>
             <Text style={{ color: detail.label, marginTop: 2 }}>
-              All figures for{' '}
+              Confirmed orders for{' '}
               <Text style={{ color: theme.colors.primary, fontWeight: '800' }}>
                 {selectedPeriodLabel}
               </Text>
@@ -318,41 +237,6 @@ export function OverviewRankingDetailView({
                 },
               ]}>
               <View style={styles.toolbar}>
-                {kind === 'areas' ? (
-                  <Menu
-                    visible={stateMenuOpen}
-                    onDismiss={() => setStateMenuOpen(false)}
-                    anchor={
-                      <Pressable
-                        onPress={() => setStateMenuOpen(true)}
-                        style={[styles.menuBtn, { borderColor: detail.border }]}>
-                        <Text
-                          style={{ color: detail.onSurface, fontWeight: '700' }}
-                          numberOfLines={1}>
-                          {selectedStateName}
-                        </Text>
-                      </Pressable>
-                    }>
-                    <Menu.Item
-                      onPress={() => {
-                        setStateFilterId(null);
-                        setStateMenuOpen(false);
-                      }}
-                      title="All Myanmar"
-                    />
-                    {(data?.states ?? []).map(state => (
-                      <Menu.Item
-                        key={state.id}
-                        onPress={() => {
-                          setStateFilterId(state.id);
-                          setStateMenuOpen(false);
-                        }}
-                        title={state.name}
-                      />
-                    ))}
-                  </Menu>
-                ) : null}
-
                 <Menu
                   visible={compareMenuOpen}
                   onDismiss={() => setCompareMenuOpen(false)}
@@ -385,30 +269,34 @@ export function OverviewRankingDetailView({
               </View>
 
               <Text style={[styles.hint, { color: detail.label }]}>
-                {currentChartHint}
+                Top {chartLimit} by amount · {selectedPeriodLabel}
               </Text>
               <VerticalBarChart
                 items={currentChartItems}
-                emptyLabel={emptyCurrent}
+                emptyLabel={
+                  isPurchase
+                    ? 'No purchase orders in this period.'
+                    : 'No sale orders in this period.'
+                }
                 formatValue={formatMoney}
-                maxBars={currentChartLimit}
+                maxBars={chartLimit}
               />
 
               {showCompare ? (
                 <>
                   <Text style={[styles.hint, { color: detail.label }]}>
-                    {prevChartHint}
+                    Top {COMPARE_LIMIT} by amount · Last month
                   </Text>
                   <VerticalBarChart
                     items={prevChartItems}
-                    emptyLabel={emptyPrev}
+                    emptyLabel={
+                      isPurchase
+                        ? 'No purchase orders last month.'
+                        : 'No sale orders last month.'
+                    }
                     formatValue={formatMoney}
                     barColor="#94A3B8"
-                    maxBars={
-                      kind === 'customers'
-                        ? CUSTOMER_COMPARE_LIMIT
-                        : AREA_COMPARE_LIMIT
-                    }
+                    maxBars={COMPARE_LIMIT}
                   />
                 </>
               ) : null}
@@ -421,7 +309,9 @@ export function OverviewRankingDetailView({
                 mode="outlined"
                 dense
                 placeholder={
-                  kind === 'customers' ? 'Search customers' : 'Search areas'
+                  isPurchase
+                    ? 'Search vendors or order numbers'
+                    : 'Search customers or order numbers'
                 }
                 value={search}
                 onChangeText={setSearch}
@@ -442,17 +332,30 @@ export function OverviewRankingDetailView({
                     Sort: Total
                   </Text>
                 </Pressable>
-                <Pressable onPress={() => setSortKey('name')} hitSlop={6}>
+                <Pressable onPress={() => setSortKey('date')} hitSlop={6}>
                   <Text
                     style={{
                       color:
-                        sortKey === 'name'
+                        sortKey === 'date'
                           ? theme.colors.primary
                           : detail.label,
                       fontWeight: '700',
                       fontSize: 12,
                     }}>
-                    Name
+                    Date
+                  </Text>
+                </Pressable>
+                <Pressable onPress={() => setSortKey('partner')} hitSlop={6}>
+                  <Text
+                    style={{
+                      color:
+                        sortKey === 'partner'
+                          ? theme.colors.primary
+                          : detail.label,
+                      fontWeight: '700',
+                      fontSize: 12,
+                    }}>
+                    {isPurchase ? 'Vendor' : 'Customer'}
                   </Text>
                 </Pressable>
               </View>
@@ -464,112 +367,31 @@ export function OverviewRankingDetailView({
                 </Text>
                 <Text
                   style={[styles.th, styles.colName, { color: detail.label }]}>
-                  {kind === 'customers' ? 'CUSTOMER' : 'AREA'}
+                  {partnerLabel}
                 </Text>
-                {kind === 'areas' ? (
-                  <Text
-                    style={[
-                      styles.th,
-                      styles.colState,
-                      { color: detail.label },
-                    ]}>
-                    STATE
-                  </Text>
-                ) : (
-                  <Text
-                    style={[
-                      styles.th,
-                      styles.colOrders,
-                      { color: detail.label },
-                    ]}>
-                    ORDERS
-                  </Text>
-                )}
+                <Text
+                  style={[styles.th, styles.colOrder, { color: detail.label }]}>
+                  ORDER
+                </Text>
                 <Text
                   style={[styles.th, styles.colAmount, { color: detail.label }]}>
                   TOTAL
                 </Text>
-                {showCompare ? (
-                  <Text
-                    style={[
-                      styles.th,
-                      styles.colAmount,
-                      { color: detail.label },
-                    ]}>
-                    LAST MO
-                  </Text>
-                ) : null}
+                <Text
+                  style={[styles.th, styles.colDate, { color: detail.label }]}>
+                  DATE
+                </Text>
               </View>
 
-              {kind === 'customers' ? (
-                filteredCustomers.length === 0 ? (
-                  <Text style={{ color: detail.label, paddingVertical: 12 }}>
-                    No customers match.
-                  </Text>
-                ) : (
-                  filteredCustomers.map((row, index) => (
-                    <View
-                      key={row.id}
-                      style={[
-                        styles.tableRow,
-                        { borderBottomColor: detail.border },
-                      ]}>
-                      <Text
-                        style={[
-                          styles.td,
-                          styles.colRank,
-                          { color: detail.label },
-                        ]}>
-                        {index + 1}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.td,
-                          styles.colName,
-                          { color: detail.onSurface },
-                        ]}
-                        numberOfLines={2}>
-                        {row.name}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.td,
-                          styles.colOrders,
-                          { color: detail.label },
-                        ]}>
-                        {row.orders}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.td,
-                          styles.colAmount,
-                          { color: detail.onSurface },
-                        ]}
-                        numberOfLines={1}>
-                        {formatFullMoney(row.total)}
-                      </Text>
-                      {showCompare ? (
-                        <Text
-                          style={[
-                            styles.td,
-                            styles.colAmount,
-                            { color: detail.label },
-                          ]}
-                          numberOfLines={1}>
-                          {formatFullMoney(row.prevTotal)}
-                        </Text>
-                      ) : null}
-                    </View>
-                  ))
-                )
-              ) : filteredAreas.length === 0 ? (
+              {filteredOrders.length === 0 ? (
                 <Text style={{ color: detail.label, paddingVertical: 12 }}>
-                  No areas match.
+                  No orders match.
                 </Text>
               ) : (
-                filteredAreas.map((row, index) => (
-                  <View
-                    key={row.key}
+                filteredOrders.map((row, index) => (
+                  <Pressable
+                    key={row.id}
+                    onPress={() => router.push(modulePath)}
                     style={[
                       styles.tableRow,
                       { borderBottomColor: detail.border },
@@ -582,23 +404,24 @@ export function OverviewRankingDetailView({
                       ]}>
                       {index + 1}
                     </Text>
-                    <Text
+                    <CustomerNameText
+                      size="body"
                       style={[
                         styles.td,
                         styles.colName,
-                        { color: detail.onSurface },
+                        { color: detail.onSurface, fontWeight: '600' },
                       ]}
                       numberOfLines={2}>
-                      {row.name}
-                    </Text>
+                      {row.partner || '—'}
+                    </CustomerNameText>
                     <Text
                       style={[
                         styles.td,
-                        styles.colState,
-                        { color: detail.label },
+                        styles.colOrder,
+                        { color: theme.colors.primary },
                       ]}
                       numberOfLines={1}>
-                      {row.stateName}
+                      {row.number || '—'}
                     </Text>
                     <Text
                       style={[
@@ -609,18 +432,16 @@ export function OverviewRankingDetailView({
                       numberOfLines={1}>
                       {formatFullMoney(row.total)}
                     </Text>
-                    {showCompare ? (
-                      <Text
-                        style={[
-                          styles.td,
-                          styles.colAmount,
-                          { color: detail.label },
-                        ]}
-                        numberOfLines={1}>
-                        {formatFullMoney(row.prevTotal)}
-                      </Text>
-                    ) : null}
-                  </View>
+                    <Text
+                      style={[
+                        styles.td,
+                        styles.colDate,
+                        { color: detail.label },
+                      ]}
+                      numberOfLines={1}>
+                      {formatMyanmarDate(row.orderDate) || row.orderDate || '—'}
+                    </Text>
+                  </Pressable>
                 ))
               )}
             </View>
@@ -717,17 +538,17 @@ const styles = StyleSheet.create({
     flex: 1.4,
     minWidth: 0,
   },
-  colState: {
+  colOrder: {
     flex: 1,
     minWidth: 0,
-  },
-  colOrders: {
-    width: 52,
-    textAlign: 'right',
   },
   colAmount: {
     flex: 1,
     textAlign: 'right',
     minWidth: 0,
+  },
+  colDate: {
+    width: 88,
+    textAlign: 'right',
   },
 });

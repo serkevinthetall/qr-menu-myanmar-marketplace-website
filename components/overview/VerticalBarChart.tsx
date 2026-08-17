@@ -4,23 +4,17 @@ import { Text, useTheme } from 'react-native-paper';
 
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 
-const PRIMARY = '#467FCF';
-const COMPARE = '#94A3B8';
-
 export type VerticalBarItem = {
   id: string;
   label: string;
   value: number;
-  compareValue?: number;
 };
 
 type VerticalBarChartProps = {
   items: VerticalBarItem[];
   emptyLabel?: string;
   formatValue?: (value: number) => string;
-  showCompare?: boolean;
-  currentLegend?: string;
-  compareLegend?: string;
+  barColor?: string;
   /** Max bars to render (horizontal scroll if many). */
   maxBars?: number;
 };
@@ -37,14 +31,13 @@ function defaultFormatValue(value: number): string {
 }
 
 const CHART_HEIGHT = 180;
+const DEFAULT_BAR = '#467FCF';
 
 export function VerticalBarChart({
   items,
   emptyLabel = 'No data in this period.',
   formatValue = defaultFormatValue,
-  showCompare = false,
-  currentLegend = 'This period',
-  compareLegend = 'Last month',
+  barColor = DEFAULT_BAR,
   maxBars = 40,
 }: VerticalBarChartProps) {
   const theme = useTheme();
@@ -53,15 +46,9 @@ export function VerticalBarChart({
   const rows = useMemo(
     () =>
       items
-        .filter(
-          item =>
-            (Number.isFinite(item.value) && item.value > 0) ||
-            (showCompare &&
-              Number.isFinite(item.compareValue) &&
-              (item.compareValue ?? 0) > 0),
-        )
+        .filter(item => Number.isFinite(item.value) && item.value > 0)
         .slice(0, maxBars),
-    [items, maxBars, showCompare],
+    [items, maxBars],
   );
 
   const maxValue = useMemo(() => {
@@ -70,12 +57,9 @@ export function VerticalBarChart({
       if (row.value > max) {
         max = row.value;
       }
-      if (showCompare && (row.compareValue ?? 0) > max) {
-        max = row.compareValue ?? 0;
-      }
     }
     return max > 0 ? max : 1;
-  }, [rows, showCompare]);
+  }, [rows]);
 
   if (rows.length === 0) {
     return (
@@ -85,27 +69,8 @@ export function VerticalBarChart({
     );
   }
 
-  const colWidth = showCompare ? 56 : 44;
-
   return (
     <View style={styles.wrap}>
-      {showCompare ? (
-        <View style={styles.legendRow}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendSwatch, { backgroundColor: PRIMARY }]} />
-            <Text style={[styles.legendText, { color: detail.label }]}>
-              {currentLegend}
-            </Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendSwatch, { backgroundColor: COMPARE }]} />
-            <Text style={[styles.legendText, { color: detail.label }]}>
-              {compareLegend}
-            </Text>
-          </View>
-        </View>
-      ) : null}
-
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator
@@ -116,19 +81,9 @@ export function VerticalBarChart({
               4,
               Math.round((row.value / maxValue) * CHART_HEIGHT),
             );
-            const compareH = showCompare
-              ? Math.max(
-                  2,
-                  Math.round(
-                    ((row.compareValue ?? 0) / maxValue) * CHART_HEIGHT,
-                  ),
-                )
-              : 0;
 
             return (
-              <View
-                key={row.id}
-                style={[styles.col, { width: colWidth }]}>
+              <View key={row.id} style={styles.col}>
                 <Text
                   style={[styles.valueLabel, { color: theme.colors.primary }]}
                   numberOfLines={1}>
@@ -140,23 +95,10 @@ export function VerticalBarChart({
                       styles.bar,
                       {
                         height: h,
-                        backgroundColor: PRIMARY,
-                        width: showCompare ? 18 : 22,
+                        backgroundColor: barColor,
                       },
                     ]}
                   />
-                  {showCompare ? (
-                    <View
-                      style={[
-                        styles.bar,
-                        {
-                          height: compareH,
-                          backgroundColor: COMPARE,
-                          width: 18,
-                        },
-                      ]}
-                    />
-                  ) : null}
                 </View>
                 <Text
                   style={[styles.axisLabel, { color: detail.onSurface }]}
@@ -182,25 +124,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 16,
   },
-  legendRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendSwatch: {
-    width: 12,
-    height: 12,
-    borderRadius: 2,
-  },
-  legendText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
   scrollContent: {
     paddingRight: 8,
   },
@@ -211,6 +134,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   col: {
+    width: 44,
     alignItems: 'center',
     gap: 4,
   },
@@ -222,9 +146,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'center',
-    gap: 3,
   },
   bar: {
+    width: 22,
     borderTopLeftRadius: 4,
     borderTopRightRadius: 4,
   },

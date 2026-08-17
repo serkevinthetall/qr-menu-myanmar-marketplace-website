@@ -715,7 +715,14 @@ export default function OverviewScreen() {
               </SurfaceCard>
 
               <SurfaceCard
-                title={`Sale orders · ${data?.kpis.confirmedOrders.value ?? 0}`}>
+                title={`Sale orders · ${data?.kpis.confirmedOrders.value ?? 0}`}
+                actionLabel="View detail"
+                onAction={() =>
+                  router.push({
+                    pathname: '/overview-detail',
+                    params: { kind: 'sales', period },
+                  })
+                }>
                 <Text style={[styles.cardHint, { color: detail.label }]}>
                   Confirmed orders in {selectedPeriodLabel.toLowerCase()}
                 </Text>
@@ -773,7 +780,14 @@ export default function OverviewScreen() {
               </SurfaceCard>
 
               <SurfaceCard
-                title={`Purchase orders · ${data?.kpis.purchaseOrders?.value ?? 0}`}>
+                title={`Purchase orders · ${data?.kpis.purchaseOrders?.value ?? 0}`}
+                actionLabel="View detail"
+                onAction={() =>
+                  router.push({
+                    pathname: '/overview-detail',
+                    params: { kind: 'purchases', period },
+                  })
+                }>
                 <Text style={[styles.cardHint, { color: detail.label }]}>
                   Confirmed purchases in {selectedPeriodLabel.toLowerCase()}
                 </Text>

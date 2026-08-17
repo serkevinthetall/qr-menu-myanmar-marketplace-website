@@ -1,11 +1,17 @@
 import { useLocalSearchParams } from 'expo-router';
 
+import { OverviewOrdersDetailView } from '@/components/overview/OverviewOrdersDetailView';
 import { OverviewRankingDetailView } from '@/components/overview/OverviewRankingDetailView';
 import { useModuleSearch } from '@/contexts/search-context';
 import { OverviewPeriod } from '@/types/overview';
 
-function parseKind(raw?: string): 'customers' | 'areas' {
-  return raw === 'areas' ? 'areas' : 'customers';
+type DetailKind = 'customers' | 'areas' | 'sales' | 'purchases';
+
+function parseKind(raw?: string): DetailKind {
+  if (raw === 'areas' || raw === 'sales' || raw === 'purchases') {
+    return raw;
+  }
+  return 'customers';
 }
 
 function parsePeriod(raw?: string): OverviewPeriod {
@@ -22,10 +28,19 @@ export default function OverviewDetailScreen() {
   }>();
   useModuleSearch('', false);
 
+  const parsedKind = parseKind(kind);
+  const parsedPeriod = parsePeriod(period);
+
+  if (parsedKind === 'sales' || parsedKind === 'purchases') {
+    return (
+      <OverviewOrdersDetailView
+        type={parsedKind === 'purchases' ? 'purchase' : 'sale'}
+        period={parsedPeriod}
+      />
+    );
+  }
+
   return (
-    <OverviewRankingDetailView
-      kind={parseKind(kind)}
-      period={parsePeriod(period)}
-    />
+    <OverviewRankingDetailView kind={parsedKind} period={parsedPeriod} />
   );
 }

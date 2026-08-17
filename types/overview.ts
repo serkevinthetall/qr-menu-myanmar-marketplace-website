@@ -158,3 +158,24 @@ export type OverviewRankings = {
   areas: OverviewRankingArea[];
   states: OverviewRankingState[];
 };
+
+export type OverviewOrderType = 'sale' | 'purchase';
+
+export type OverviewPeriodOrder = {
+  id: string;
+  number: string;
+  partner: string;
+  total: number;
+  orderDate: string;
+  status: string;
+};
+
+export type OverviewOrders = {
+  period: OverviewPeriod;
+  type: OverviewOrderType;
+  range: { from: string; to: string };
+  compareRange: { from: string; to: string };
+  compareLabel: string;
+  orders: OverviewPeriodOrder[];
+  prevOrders: OverviewPeriodOrder[];
+};
