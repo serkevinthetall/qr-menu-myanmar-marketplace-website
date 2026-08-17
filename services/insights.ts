@@ -4,10 +4,12 @@ import {
   AiSuggestionSlot,
   AiSuggestionsStatus,
   OverviewPeriod,
+  OverviewRankings,
   OverviewSummary,
 } from '@/types/overview';
 
 type SummaryResponse = { data: OverviewSummary };
+type RankingsResponse = { data: OverviewRankings };
 type SuggestionsResponse = { data: AiSuggestionsStatus };
 type GenerateResponse = { data: AiSuggestionPack };
 
@@ -17,6 +19,17 @@ export async function fetchOverviewSummary(
 ): Promise<OverviewSummary> {
   const response = await webApiRequest<SummaryResponse>(
     `/insights/summary?period=${period}`,
+    { token },
+  );
+  return response.data;
+}
+
+export async function fetchOverviewRankings(
+  token: string,
+  period: OverviewPeriod,
+): Promise<OverviewRankings> {
+  const response = await webApiRequest<RankingsResponse>(
+    `/insights/rankings?period=${period}`,
     { token },
   );
   return response.data;

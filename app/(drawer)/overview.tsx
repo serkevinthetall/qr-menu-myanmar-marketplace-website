@@ -18,6 +18,7 @@ import { useRouter } from 'expo-router';
 
 import { AiSuggestionsCard } from '@/components/overview/AiSuggestionsCard';
 import { HorizontalBarChart } from '@/components/overview/HorizontalBarChart';
+import { OverviewRankingDetailModal } from '@/components/overview/OverviewRankingDetailModal';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { useAuth } from '@/contexts/auth-context';
 import { useModuleSearch } from '@/contexts/search-context';
@@ -355,6 +356,9 @@ export default function OverviewScreen() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiError, setAiError] = useState('');
   const autoGenerateTried = useRef(false);
+  const [rankingDetail, setRankingDetail] = useState<
+    null | 'customers' | 'areas'
+  >(null);
 
   const loadAiSuggestions = useCallback(async () => {
     if (!session?.token) {
@@ -698,7 +702,7 @@ export default function OverviewScreen() {
               <SurfaceCard
                 title="Most spending customers"
                 actionLabel="View detail"
-                onAction={() => router.push('/(drawer)/customers')}>
+                onAction={() => setRankingDetail('customers')}>
                 <Text style={[styles.cardHint, { color: detail.label }]}>
                   Top customers by purchase total · {selectedPeriodLabel}
                 </Text>
@@ -706,12 +710,6 @@ export default function OverviewScreen() {
                   items={customerBarItems}
                   emptyLabel="No customer purchases in this period."
                   formatValue={formatMoney}
-                  onItemPress={id =>
-                    router.push({
-                      pathname: '/(drawer)/customers',
-                      params: { detailId: id },
-                    })
-                  }
                 />
               </SurfaceCard>
 
@@ -833,7 +831,10 @@ export default function OverviewScreen() {
             </View>
 
             <View style={styles.sideCol}>
-              <SurfaceCard title="Top buying areas">
+              <SurfaceCard
+                title="Top buying areas"
+                actionLabel="View detail"
+                onAction={() => setRankingDetail('areas')}>
                 <Text style={[styles.cardHint, { color: detail.label }]}>
                   Top 5 areas by sale amount · {selectedPeriodLabel}
                 </Text>
@@ -873,6 +874,17 @@ export default function OverviewScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {session?.token && rankingDetail ? (
+        <OverviewRankingDetailModal
+          visible
+          onDismiss={() => setRankingDetail(null)}
+          kind={rankingDetail}
+          period={period}
+          periodLabel={selectedPeriodLabel}
+          token={session.token}
+        />
+      ) : null}
     </View>
   );
 }
@@ -1038,8 +1050,7 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 2,
+    gap: 8,
   },
   cardAction: {
     fontSize: 13,

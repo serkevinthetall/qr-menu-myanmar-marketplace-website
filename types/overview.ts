@@ -121,3 +121,40 @@ export type OverviewSummary = {
   recentOrders: OverviewRecentOrder[];
   recentPurchaseOrders: OverviewRecentPurchaseOrder[];
 };
+
+export type OverviewCompareMode = 'off' | 'last_month';
+
+export type OverviewRankingCustomer = {
+  id: string;
+  name: string;
+  total: number;
+  orders: number;
+  prevTotal: number;
+  prevOrders: number;
+};
+
+export type OverviewRankingArea = {
+  key: string;
+  name: string;
+  stateId: number | null;
+  stateName: string;
+  total: number;
+  orders: number;
+  prevTotal: number;
+  prevOrders: number;
+};
+
+export type OverviewRankingState = {
+  id: number;
+  name: string;
+};
+
+export type OverviewRankings = {
+  period: OverviewPeriod;
+  range: { from: string; to: string };
+  compareRange: { from: string; to: string };
+  compareLabel: string;
+  customers: OverviewRankingCustomer[];
+  areas: OverviewRankingArea[];
+  states: OverviewRankingState[];
+};
