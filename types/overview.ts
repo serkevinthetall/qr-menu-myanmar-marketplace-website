@@ -179,3 +179,23 @@ export type OverviewOrders = {
   orders: OverviewPeriodOrder[];
   prevOrders: OverviewPeriodOrder[];
 };
+
+export type CompareAiTopic = 'customers' | 'areas' | 'sales' | 'demand';
+
+export type OverviewDemandProduct = {
+  id: string;
+  name: string;
+  demandQty: number;
+  prevDemandQty: number;
+  onHand: number;
+  revenue: number;
+  prevRevenue: number;
+};
+
+export type OverviewDemand = {
+  period: OverviewPeriod;
+  range: { from: string; to: string };
+  compareRange: { from: string; to: string };
+  compareLabel: string;
+  products: OverviewDemandProduct[];
+};

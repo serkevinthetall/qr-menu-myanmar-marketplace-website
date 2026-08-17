@@ -10,10 +10,12 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Menu, Text, TextInput, useTheme } from 'react-native-paper';
 
 import { VerticalBarChart } from '@/components/overview/VerticalBarChart';
+import { CompareAiPanel } from '@/components/overview/CompareAiPanel';
 import { useAuth } from '@/contexts/auth-context';
 import { useSearch } from '@/contexts/search-context';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
+import { useCompareAi } from '@/hooks/use-compare-ai';
 import { fetchOverviewRankings } from '@/services/insights';
 import {
   OverviewCompareMode,
@@ -182,6 +184,12 @@ export function OverviewRankingDetailView({
   }, [compareLoaded, compareMode, period, token]);
 
   const showCompare = compareMode === 'last_month';
+  const compareAi = useCompareAi({
+    token,
+    topic: kind,
+    period,
+    active: showCompare && compareLoaded && Boolean(data),
+  });
 
   const filteredAreas = useMemo(() => {
     if (!data) {
@@ -442,6 +450,14 @@ export function OverviewRankingDetailView({
                         : AREA_COMPARE_LIMIT
                     }
                   />
+                  {compareAi.show ? (
+                    <CompareAiPanel
+                      generating={compareAi.generating}
+                      error={compareAi.error}
+                      pack={compareAi.pack}
+                      onGenerate={() => void compareAi.run()}
+                    />
+                  ) : null}
                 </>
               ) : null}
 

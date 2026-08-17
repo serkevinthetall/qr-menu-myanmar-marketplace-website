@@ -3,6 +3,8 @@ import {
   AiSuggestionPack,
   AiSuggestionSlot,
   AiSuggestionsStatus,
+  CompareAiTopic,
+  OverviewDemand,
   OverviewOrders,
   OverviewOrderType,
   OverviewPeriod,
@@ -13,6 +15,7 @@ import {
 type SummaryResponse = { data: OverviewSummary };
 type RankingsResponse = { data: OverviewRankings };
 type OrdersResponse = { data: OverviewOrders };
+type DemandResponse = { data: OverviewDemand };
 type SuggestionsResponse = { data: AiSuggestionsStatus };
 type GenerateResponse = { data: AiSuggestionPack };
 
@@ -54,6 +57,19 @@ export async function fetchOverviewOrders(
   return response.data;
 }
 
+export async function fetchOverviewDemand(
+  token: string,
+  period: OverviewPeriod,
+  compare = false,
+): Promise<OverviewDemand> {
+  const compareQuery = compare ? '&compare=1' : '';
+  const response = await webApiRequest<DemandResponse>(
+    `/insights/demand?period=${period}${compareQuery}`,
+    { token },
+  );
+  return response.data;
+}
+
 export async function fetchAiSuggestions(
   token: string,
 ): Promise<AiSuggestionsStatus> {
@@ -74,6 +90,22 @@ export async function generateAiSuggestions(
       method: 'POST',
       token,
       body: { slot },
+    },
+  );
+  return response.data;
+}
+
+export async function generateCompareAiSuggestions(
+  token: string,
+  topic: CompareAiTopic,
+  period: OverviewPeriod,
+): Promise<AiSuggestionPack> {
+  const response = await webApiRequest<GenerateResponse>(
+    '/insights/suggestions/compare',
+    {
+      method: 'POST',
+      token,
+      body: { topic, period },
     },
   );
   return response.data;

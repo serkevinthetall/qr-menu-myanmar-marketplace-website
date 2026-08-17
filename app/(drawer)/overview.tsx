@@ -874,7 +874,15 @@ export default function OverviewScreen() {
                 </Text>
                 <LowestOnHandList items={data?.lowestOnHandProducts ?? []} />
               </SurfaceCard>
-              <SurfaceCard title="Highest demand">
+              <SurfaceCard
+                title="Highest demand"
+                actionLabel="View detail"
+                onAction={() =>
+                  router.push({
+                    pathname: '/overview-demand',
+                    params: { period },
+                  })
+                }>
                 <Text style={[styles.cardHint, { color: detail.label }]}>
                   Top 3 by sold qty · showing on hand · {selectedPeriodLabel}
                 </Text>

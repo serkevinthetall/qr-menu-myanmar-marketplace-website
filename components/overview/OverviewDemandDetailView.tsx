@@ -9,46 +9,19 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Menu, Text, TextInput, useTheme } from 'react-native-paper';
 
-import { VerticalBarChart } from '@/components/overview/VerticalBarChart';
 import { CompareAiPanel } from '@/components/overview/CompareAiPanel';
-import { CustomerNameText } from '@/components/ui/CustomerNameText';
+import { VerticalBarChart } from '@/components/overview/VerticalBarChart';
 import { useAuth } from '@/contexts/auth-context';
 import { useSearch } from '@/contexts/search-context';
+import { useCompareAi } from '@/hooks/use-compare-ai';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
-import { useCompareAi } from '@/hooks/use-compare-ai';
-import { fetchOverviewOrders } from '@/services/insights';
+import { fetchOverviewDemand } from '@/services/insights';
 import {
   OverviewCompareMode,
-  OverviewOrderType,
-  OverviewOrders,
+  OverviewDemand,
   OverviewPeriod,
-  OverviewPeriodOrder,
 } from '@/types/overview';
-import { formatMyanmarDate } from '@/utils/myanmar-datetime';
-
-type OverviewOrdersDetailViewProps = {
-  type: OverviewOrderType;
-  period: OverviewPeriod;
-};
-
-function formatMoney(value: number): string {
-  const safe = Number.isFinite(value) ? value : 0;
-  if (safe >= 1_000_000) {
-    return `${(safe / 1_000_000).toFixed(1)}M`;
-  }
-  if (safe >= 10_000) {
-    return `${Math.round(safe / 1000)}k`;
-  }
-  return safe.toLocaleString('en-US', { maximumFractionDigits: 0 });
-}
-
-function formatFullMoney(value: number): string {
-  const safe = Number.isFinite(value) ? value : 0;
-  return `${safe.toLocaleString('en-US', {
-    maximumFractionDigits: 0,
-  })} MMK`;
-}
 
 function periodLabel(period: OverviewPeriod): string {
   switch (period) {
@@ -66,22 +39,11 @@ function periodLabel(period: OverviewPeriod): string {
 const CHART_LIMIT = 15;
 const COMPARE_LIMIT = 10;
 
-function toChartItems(rows: OverviewPeriodOrder[], limit: number) {
-  return [...rows]
-    .filter(row => row.total > 0)
-    .sort((a, b) => b.total - a.total)
-    .slice(0, limit)
-    .map(row => ({
-      id: row.id,
-      label: row.number || row.partner || 'Order',
-      value: row.total,
-    }));
-}
-
-export function OverviewOrdersDetailView({
-  type,
+export function OverviewDemandDetailView({
   period,
-}: OverviewOrdersDetailViewProps) {
+}: {
+  period: OverviewPeriod;
+}) {
   const theme = useTheme();
   const detail = useDetailTheme();
   const router = useRouter();
@@ -91,18 +53,13 @@ export function OverviewOrdersDetailView({
   const isMobile = width < 900;
   const token = session?.token ?? '';
   const selectedPeriodLabel = periodLabel(period);
-  const isPurchase = type === 'purchase';
-  const title = isPurchase ? 'Purchase orders' : 'Sale orders';
-  const partnerLabel = isPurchase ? 'VENDOR' : 'CUSTOMER';
-  const modulePath = isPurchase ? '/purchase-orders' : '/sale-orders';
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<OverviewOrders | null>(null);
+  const [data, setData] = useState<OverviewDemand | null>(null);
   const [compareMode, setCompareMode] = useState<OverviewCompareMode>('off');
   const [compareMenuOpen, setCompareMenuOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [sortKey, setSortKey] = useState<'total' | 'date' | 'partner'>('total');
   const [compareLoaded, setCompareLoaded] = useState(false);
 
   const goBack = useCallback(() => {
@@ -116,12 +73,12 @@ export function OverviewOrdersDetailView({
   useFocusEffect(
     useCallback(() => {
       setDetailHeader({
-        title,
+        title: 'Highest demand',
         breadcrumbParent: 'Overview',
         onBack: goBack,
       });
       return () => setDetailHeader(null);
-    }, [goBack, setDetailHeader, title]),
+    }, [goBack, setDetailHeader]),
   );
 
   useEffect(() => {
@@ -136,19 +93,18 @@ export function OverviewOrdersDetailView({
     setError(null);
     setCompareMode('off');
     setSearch('');
-    setSortKey('total');
     setCompareLoaded(false);
 
     void (async () => {
       try {
-        const orders = await fetchOverviewOrders(token, period, type, false);
+        const demand = await fetchOverviewDemand(token, period, false);
         if (!cancelled) {
-          setData(orders);
+          setData(demand);
         }
       } catch (err) {
         if (!cancelled) {
           setError(
-            err instanceof Error ? err.message : 'Failed to load orders.',
+            err instanceof Error ? err.message : 'Failed to load demand.',
           );
           setData(null);
         }
@@ -162,7 +118,7 @@ export function OverviewOrdersDetailView({
     return () => {
       cancelled = true;
     };
-  }, [token, period, type]);
+  }, [token, period]);
 
   useEffect(() => {
     if (!token || compareMode !== 'last_month' || compareLoaded) {
@@ -172,9 +128,9 @@ export function OverviewOrdersDetailView({
     setLoading(true);
     void (async () => {
       try {
-        const orders = await fetchOverviewOrders(token, period, type, true);
+        const demand = await fetchOverviewDemand(token, period, true);
         if (!cancelled) {
-          setData(orders);
+          setData(demand);
           setCompareLoaded(true);
         }
       } catch (err) {
@@ -192,48 +148,54 @@ export function OverviewOrdersDetailView({
     return () => {
       cancelled = true;
     };
-  }, [compareLoaded, compareMode, period, token, type]);
+  }, [compareLoaded, compareMode, period, token]);
 
   const showCompare = compareMode === 'last_month';
   const compareAi = useCompareAi({
     token,
-    topic: 'sales',
+    topic: 'demand',
     period,
-    active: !isPurchase && showCompare && compareLoaded && Boolean(data),
+    active: showCompare && compareLoaded && Boolean(data),
   });
-  const chartLimit = showCompare ? COMPARE_LIMIT : CHART_LIMIT;
 
-  const filteredOrders = useMemo(() => {
+  const filtered = useMemo(() => {
     if (!data) {
       return [];
     }
-    let rows = data.orders.filter(row => row.total > 0);
     const q = search.trim().toLowerCase();
-    if (q) {
-      rows = rows.filter(
-        row =>
-          row.number.toLowerCase().includes(q) ||
-          row.partner.toLowerCase().includes(q),
-      );
-    }
-    const sorted = [...rows];
-    if (sortKey === 'partner') {
-      sorted.sort((a, b) => a.partner.localeCompare(b.partner));
-    } else if (sortKey === 'date') {
-      sorted.sort((a, b) => b.orderDate.localeCompare(a.orderDate));
-    } else {
-      sorted.sort((a, b) => b.total - a.total);
-    }
-    return sorted;
-  }, [data, search, sortKey]);
+    const rows = q
+      ? data.products.filter(row => row.name.toLowerCase().includes(q))
+      : data.products;
+    return [...rows].sort(
+      (a, b) => b.demandQty - a.demandQty || b.prevDemandQty - a.prevDemandQty,
+    );
+  }, [data, search]);
 
+  const chartLimit = showCompare ? COMPARE_LIMIT : CHART_LIMIT;
   const currentChartItems = useMemo(
-    () => toChartItems(data?.orders ?? [], chartLimit),
-    [chartLimit, data?.orders],
+    () =>
+      [...filtered]
+        .filter(row => row.demandQty > 0)
+        .slice(0, chartLimit)
+        .map(row => ({
+          id: row.id,
+          label: row.name,
+          value: row.demandQty,
+        })),
+    [chartLimit, filtered],
   );
   const prevChartItems = useMemo(
-    () => toChartItems(data?.prevOrders ?? [], COMPARE_LIMIT),
-    [data?.prevOrders],
+    () =>
+      [...filtered]
+        .filter(row => row.prevDemandQty > 0)
+        .sort((a, b) => b.prevDemandQty - a.prevDemandQty)
+        .slice(0, COMPARE_LIMIT)
+        .map(row => ({
+          id: `prev-${row.id}`,
+          label: row.name,
+          value: row.prevDemandQty,
+        })),
+    [filtered],
   );
 
   return (
@@ -248,10 +210,10 @@ export function OverviewOrdersDetailView({
         <View style={styles.page}>
           <View>
             <Text style={[styles.pageTitle, { color: detail.onSurface }]}>
-              {title}
+              Highest demand
             </Text>
             <Text style={{ color: detail.label, marginTop: 2 }}>
-              Confirmed orders for{' '}
+              Sold qty for{' '}
               <Text style={{ color: theme.colors.primary, fontWeight: '800' }}>
                 {selectedPeriodLabel}
               </Text>
@@ -309,32 +271,24 @@ export function OverviewOrdersDetailView({
               </View>
 
               <Text style={[styles.hint, { color: detail.label }]}>
-                Top {chartLimit} by amount · {selectedPeriodLabel}
+                Top {chartLimit} by sold qty · {selectedPeriodLabel}
               </Text>
               <VerticalBarChart
                 items={currentChartItems}
-                emptyLabel={
-                  isPurchase
-                    ? 'No purchase orders in this period.'
-                    : 'No sale orders in this period.'
-                }
-                formatValue={formatMoney}
+                emptyLabel="No product demand in this period."
+                formatValue={value => value.toLocaleString()}
                 maxBars={chartLimit}
               />
 
               {showCompare ? (
                 <>
                   <Text style={[styles.hint, { color: detail.label }]}>
-                    Top {COMPARE_LIMIT} by amount · Last month
+                    Top {COMPARE_LIMIT} by sold qty · Last month
                   </Text>
                   <VerticalBarChart
                     items={prevChartItems}
-                    emptyLabel={
-                      isPurchase
-                        ? 'No purchase orders last month.'
-                        : 'No sale orders last month.'
-                    }
-                    formatValue={formatMoney}
+                    emptyLabel="No product demand last month."
+                    formatValue={value => value.toLocaleString()}
                     barColor="#94A3B8"
                     maxBars={COMPARE_LIMIT}
                   />
@@ -352,61 +306,14 @@ export function OverviewOrdersDetailView({
               <Text style={[styles.tableTitle, { color: detail.onSurface }]}>
                 Full list
               </Text>
-
               <TextInput
                 mode="outlined"
                 dense
-                placeholder={
-                  isPurchase
-                    ? 'Search vendors or order numbers'
-                    : 'Search customers or order numbers'
-                }
+                placeholder="Search products"
                 value={search}
                 onChangeText={setSearch}
                 style={styles.search}
               />
-
-              <View style={styles.sortRow}>
-                <Pressable onPress={() => setSortKey('total')} hitSlop={6}>
-                  <Text
-                    style={{
-                      color:
-                        sortKey === 'total'
-                          ? theme.colors.primary
-                          : detail.label,
-                      fontWeight: '700',
-                      fontSize: 12,
-                    }}>
-                    Sort: Total
-                  </Text>
-                </Pressable>
-                <Pressable onPress={() => setSortKey('date')} hitSlop={6}>
-                  <Text
-                    style={{
-                      color:
-                        sortKey === 'date'
-                          ? theme.colors.primary
-                          : detail.label,
-                      fontWeight: '700',
-                      fontSize: 12,
-                    }}>
-                    Date
-                  </Text>
-                </Pressable>
-                <Pressable onPress={() => setSortKey('partner')} hitSlop={6}>
-                  <Text
-                    style={{
-                      color:
-                        sortKey === 'partner'
-                          ? theme.colors.primary
-                          : detail.label,
-                      fontWeight: '700',
-                      fontSize: 12,
-                    }}>
-                    {isPurchase ? 'Vendor' : 'Customer'}
-                  </Text>
-                </Pressable>
-              </View>
 
               <View style={styles.tableHeader}>
                 <Text
@@ -415,36 +322,32 @@ export function OverviewOrdersDetailView({
                 </Text>
                 <Text
                   style={[styles.th, styles.colName, { color: detail.label }]}>
-                  {partnerLabel}
+                  PRODUCT
                 </Text>
                 <Text
-                  style={[styles.th, styles.colOrder, { color: detail.label }]}>
-                  ORDER
+                  style={[styles.th, styles.colQty, { color: detail.label }]}>
+                  DEMAND
                 </Text>
+                {showCompare ? (
+                  <Text
+                    style={[styles.th, styles.colQty, { color: detail.label }]}>
+                    LAST MO
+                  </Text>
+                ) : null}
                 <Text
-                  style={[styles.th, styles.colAmount, { color: detail.label }]}>
-                  TOTAL
-                </Text>
-                <Text
-                  style={[styles.th, styles.colDate, { color: detail.label }]}>
-                  DATE
+                  style={[styles.th, styles.colQty, { color: detail.label }]}>
+                  ON HAND
                 </Text>
               </View>
 
-              {filteredOrders.length === 0 ? (
+              {filtered.length === 0 ? (
                 <Text style={{ color: detail.label, paddingVertical: 12 }}>
-                  No orders match.
+                  No products match.
                 </Text>
               ) : (
-                filteredOrders.map((row, index) => (
-                  <Pressable
+                filtered.map((row, index) => (
+                  <View
                     key={row.id}
-                    onPress={() =>
-                      router.push({
-                        pathname: modulePath,
-                        params: { detailId: row.id },
-                      })
-                    }
                     style={[
                       styles.tableRow,
                       { borderBottomColor: detail.border },
@@ -457,44 +360,42 @@ export function OverviewOrdersDetailView({
                       ]}>
                       {index + 1}
                     </Text>
-                    <CustomerNameText
-                      size="body"
+                    <Text
                       style={[
                         styles.td,
                         styles.colName,
-                        { color: detail.onSurface, fontWeight: '600' },
-                      ]}
-                      numberOfLines={2}>
-                      {row.partner || '—'}
-                    </CustomerNameText>
-                    <Text
-                      style={[
-                        styles.td,
-                        styles.colOrder,
-                        { color: theme.colors.primary },
-                      ]}
-                      numberOfLines={1}>
-                      {row.number || '—'}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.td,
-                        styles.colAmount,
                         { color: detail.onSurface },
                       ]}
-                      numberOfLines={1}>
-                      {formatFullMoney(row.total)}
+                      numberOfLines={2}>
+                      {row.name}
                     </Text>
                     <Text
                       style={[
                         styles.td,
-                        styles.colDate,
-                        { color: detail.label },
-                      ]}
-                      numberOfLines={1}>
-                      {formatMyanmarDate(row.orderDate) || row.orderDate || '—'}
+                        styles.colQty,
+                        { color: detail.onSurface },
+                      ]}>
+                      {row.demandQty.toLocaleString()}
                     </Text>
-                  </Pressable>
+                    {showCompare ? (
+                      <Text
+                        style={[
+                          styles.td,
+                          styles.colQty,
+                          { color: detail.label },
+                        ]}>
+                        {row.prevDemandQty.toLocaleString()}
+                      </Text>
+                    ) : null}
+                    <Text
+                      style={[
+                        styles.td,
+                        styles.colQty,
+                        { color: detail.label },
+                      ]}>
+                      {row.onHand.toLocaleString()}
+                    </Text>
+                  </View>
                 ))
               )}
             </View>
@@ -559,10 +460,6 @@ const styles = StyleSheet.create({
   search: {
     backgroundColor: 'transparent',
   },
-  sortRow: {
-    flexDirection: 'row',
-    gap: 16,
-  },
   tableHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -588,20 +485,12 @@ const styles = StyleSheet.create({
     width: 28,
   },
   colName: {
-    flex: 1.4,
+    flex: 1.6,
     minWidth: 0,
   },
-  colOrder: {
-    flex: 1,
-    minWidth: 0,
-  },
-  colAmount: {
-    flex: 1,
+  colQty: {
+    flex: 0.7,
     textAlign: 'right',
     minWidth: 0,
-  },
-  colDate: {
-    width: 88,
-    textAlign: 'right',
   },
 });

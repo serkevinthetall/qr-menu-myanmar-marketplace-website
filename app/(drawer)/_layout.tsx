@@ -105,6 +105,13 @@ export default function DrawerLayout() {
             drawerItemStyle: { display: 'none' },
           }}
         />
+        <Drawer.Screen
+          name="overview-demand"
+          options={{
+            title: 'Highest demand',
+            drawerItemStyle: { display: 'none' },
+          }}
+        />
       </Drawer>
     </>
   );
