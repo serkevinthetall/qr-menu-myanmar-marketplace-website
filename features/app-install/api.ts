@@ -6,6 +6,7 @@ import {
   AppInstallRecord,
   AppInstallStatus,
 } from './types';
+import { OverviewAreaSeries } from '@/types/overview';
 
 export const CALL_LIST_BADGE_REFRESH_EVENT = 'qr-shop-call-list-badge-refresh';
 
@@ -71,6 +72,50 @@ export async function fetchCallListNewCount(token: string): Promise<number> {
     Number(response.data?.notInstalledCount) ||
     0
   );
+}
+
+export type AppUserListRange = 'today' | 'yesterday' | 'week' | 'month';
+
+type AppUserListSummaryResponse = {
+  data: {
+    range: AppUserListRange;
+    count: number;
+  };
+};
+
+type AppUserListTimelineResponse = {
+  data: {
+    range: AppUserListRange;
+    count: number;
+    buckets: string[];
+    series: OverviewAreaSeries[];
+  };
+};
+
+export async function fetchAppUserListSummary(
+  token: string,
+  range: AppUserListRange,
+): Promise<number> {
+  const response = await webApiRequest<AppUserListSummaryResponse>(
+    `/app-installs/analytics/summary?range=${range}`,
+    { token },
+  );
+  return response.data?.count ?? 0;
+}
+
+export async function fetchAppUserListTimeline(
+  token: string,
+  range: AppUserListRange,
+): Promise<{ buckets: string[]; series: OverviewAreaSeries[]; count: number }> {
+  const response = await webApiRequest<AppUserListTimelineResponse>(
+    `/app-installs/analytics/timeline?range=${range}`,
+    { token },
+  );
+  return {
+    buckets: response.data?.buckets ?? [],
+    series: response.data?.series ?? [],
+    count: response.data?.count ?? 0,
+  };
 }
 
 export async function requestAppInstall(

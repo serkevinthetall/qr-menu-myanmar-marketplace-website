@@ -28,6 +28,11 @@ import {
   generateAiSuggestions,
 } from '@/services/insights';
 import {
+  ENABLE_APP_INSTALL_CALL_LIST,
+  fetchAppUserListSummary,
+  type AppUserListRange,
+} from '@/features/app-install';
+import {
   AiSuggestionsStatus,
   OverviewDemandStockProduct,
   OverviewPeriod,
@@ -353,6 +358,7 @@ export default function OverviewScreen() {
   const [aiStatus, setAiStatus] = useState<AiSuggestionsStatus | null>(null);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiError, setAiError] = useState('');
+  const [appUserListCount, setAppUserListCount] = useState(0);
 
   const loadAiSuggestions = useCallback(async () => {
     if (!session?.token) {
@@ -405,6 +411,9 @@ export default function OverviewScreen() {
     [session?.token, aiGenerating, aiStatus?.suggestedSlot],
   );
 
+  const appUserListRange: AppUserListRange =
+    period === 'day' ? 'today' : period === 'week' ? 'week' : 'month';
+
   const load = useCallback(async () => {
     if (!session?.token) {
       return;
@@ -412,11 +421,18 @@ export default function OverviewScreen() {
     setError('');
     setLoading(true);
     try {
-      const [summary] = await Promise.all([
+      const [summary, _aiStatus, appCount] = await Promise.all([
         fetchOverviewSummary(session.token, period),
         loadAiSuggestions(),
+        (async () => {
+          if (!ENABLE_APP_INSTALL_CALL_LIST) {
+            return 0;
+          }
+          return fetchAppUserListSummary(session.token, appUserListRange);
+        })(),
       ]);
       setData(summary);
+      setAppUserListCount(appCount);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to load overview.',
@@ -425,7 +441,7 @@ export default function OverviewScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [session?.token, period, loadAiSuggestions]);
+  }, [session?.token, period, loadAiSuggestions, appUserListRange]);
 
   useEffect(() => {
     void load();
@@ -890,6 +906,21 @@ export default function OverviewScreen() {
                   items={data?.highestDemandProducts ?? []}
                 />
               </SurfaceCard>
+              {ENABLE_APP_INSTALL_CALL_LIST ? (
+                <SurfaceCard
+                  title={`App user list · ${appUserListCount.toLocaleString()}`}
+                  actionLabel="View detail"
+                  onAction={() =>
+                    router.push({
+                      pathname: '/app-user-list' as any,
+                      params: { initialRange: appUserListRange },
+                    })
+                  }>
+                  <Text style={[styles.cardHint, { color: detail.label }]}>
+                    Users for {selectedPeriodLabel}
+                  </Text>
+                </SurfaceCard>
+              ) : null}
               <SurfaceCard title="Least products">
                 <ProductRankList
                   items={data?.bottomProducts ?? []}

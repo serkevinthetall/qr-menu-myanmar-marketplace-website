@@ -539,7 +539,7 @@ export default function CallListScreen() {
             const selected =
               opt.id === 'all'
                 ? statusFilter.length === 0
-                : statusFilter.includes(opt.id);
+                : statusFilter.includes(opt.id as AppInstallStatus);
             return (
               <Chip
                 key={opt.id}
@@ -550,10 +550,11 @@ export default function CallListScreen() {
                     setStatusFilter([]);
                     return;
                   }
+                  const statusId = opt.id as AppInstallStatus;
                   setStatusFilter(prev =>
-                    prev.includes(opt.id)
-                      ? prev.filter(id => id !== opt.id)
-                      : [...prev, opt.id],
+                    prev.includes(statusId)
+                      ? prev.filter(id => id !== statusId)
+                      : [...prev, statusId],
                   );
                 }}
                 style={styles.chip}>

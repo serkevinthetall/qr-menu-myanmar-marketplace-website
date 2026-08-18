@@ -11,11 +11,15 @@ export {
   fetchAppInstallMap,
   fetchCallList,
   fetchCallListNewCount,
+  fetchAppUserListSummary,
+  fetchAppUserListTimeline,
   notifyCallListBadgeChanged,
   removeFromCallList,
   requestAppInstall,
   updateAppInstallStatus,
 } from './api';
+
+export type { AppUserListRange } from './api';
 export {
   APP_INSTALL_REASON_OPTIONS,
   APP_INSTALL_STATUS_OPTIONS,

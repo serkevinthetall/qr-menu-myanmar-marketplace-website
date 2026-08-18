@@ -12,6 +12,7 @@ type AreaLineChartProps = {
   buckets: string[];
   series: OverviewAreaSeries[];
   height?: number;
+  emptyLabel?: string;
 };
 
 function shortBucketLabel(bucket: string): string {
@@ -31,6 +32,7 @@ export function AreaLineChart({
   buckets,
   series,
   height = 220,
+  emptyLabel = 'No area sales in this period.',
 }: AreaLineChartProps) {
   const theme = useTheme();
   const detail = useDetailTheme();
@@ -65,7 +67,7 @@ export function AreaLineChart({
   if (series.length === 0) {
     return (
       <View style={[styles.empty, { height }]}>
-        <Text style={{ color: detail.label }}>No area sales in this period.</Text>
+        <Text style={{ color: detail.label }}>{emptyLabel}</Text>
       </View>
     );
   }

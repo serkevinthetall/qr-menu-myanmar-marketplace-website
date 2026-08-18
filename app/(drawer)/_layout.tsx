@@ -112,6 +112,13 @@ export default function DrawerLayout() {
             drawerItemStyle: { display: 'none' },
           }}
         />
+        <Drawer.Screen
+          name="app-user-list"
+          options={{
+            title: 'App user list',
+            drawerItemStyle: { display: 'none' },
+          }}
+        />
       </Drawer>
     </>
   );
