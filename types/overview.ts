@@ -180,6 +180,11 @@ export type OverviewOrders = {
   prevOrders: OverviewPeriodOrder[];
 };
 
+export type OverviewChatTurn = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
 export type CompareAiTopic = 'customers' | 'areas' | 'sales' | 'demand';
 
 export type OverviewDemandProduct = {

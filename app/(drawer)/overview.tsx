@@ -18,6 +18,7 @@ import { ActivityIndicator, Icon, Text, useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 
 import { AiSuggestionsCard } from '@/components/overview/AiSuggestionsCard';
+import { OverviewChatPanel } from '@/components/overview/OverviewChatPanel';
 import { HorizontalBarChart } from '@/components/overview/HorizontalBarChart';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { useAuth } from '@/contexts/auth-context';
@@ -361,6 +362,7 @@ export default function OverviewScreen() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiError, setAiError] = useState('');
   const [appUserListCount, setAppUserListCount] = useState(0);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const loadAiSuggestions = useCallback(async () => {
     if (!session?.token) {
@@ -933,19 +935,17 @@ export default function OverviewScreen() {
           </View>
         </View>
       </ScrollView>
+      <OverviewChatPanel
+        visible={chatOpen}
+        onClose={() => setChatOpen(false)}
+        token={session?.token ?? ''}
+        period={period}
+        periodLabel={selectedPeriodLabel}
+      />
       <Pressable
-        onPress={() => {
-          if (!aiStatus?.enabled || !aiStatus.configured || aiGenerating) {
-            return;
-          }
-          void runGenerateSuggestions(
-            period === 'month'
-              ? 'monthly'
-              : (aiStatus.suggestedSlot ?? 'manual'),
-          );
-        }}
+        onPress={() => setChatOpen(open => !open)}
         accessibilityRole="button"
-        accessibilityLabel="Process business suggestions"
+        accessibilityLabel={chatOpen ? 'Close chat' : 'Open chat'}
         style={[
           styles.fab,
           {
