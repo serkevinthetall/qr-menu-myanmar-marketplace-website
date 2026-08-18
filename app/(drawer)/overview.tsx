@@ -949,9 +949,10 @@ export default function OverviewScreen() {
         style={[
           styles.fab,
           {
-            backgroundColor: detail.surface,
+            backgroundColor: '#111',
             shadowColor: detail.shadow,
           },
+          Platform.OS === 'web' ? ({ position: 'fixed' } as const) : null,
         ]}>
         <Image
           source={require('@/assets/images/overview-ai-fab.png')}
@@ -1188,15 +1189,15 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 36,
     overflow: 'hidden',
-    elevation: 8,
+    elevation: 12,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.28,
-    shadowRadius: 8,
-    zIndex: 20,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    zIndex: 1000,
     ...(Platform.OS === 'web' ? { cursor: 'pointer' as const } : null),
   },
   fabImage: {
-    width: '100%',
-    height: '100%',
+    width: 72,
+    height: 72,
   },
 });
