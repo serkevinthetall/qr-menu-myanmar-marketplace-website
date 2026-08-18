@@ -6,12 +6,14 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { ActivityIndicator, Icon, Text, useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 
@@ -931,6 +933,32 @@ export default function OverviewScreen() {
           </View>
         </View>
       </ScrollView>
+      <Pressable
+        onPress={() => {
+          if (!aiStatus?.enabled || !aiStatus.configured || aiGenerating) {
+            return;
+          }
+          void runGenerateSuggestions(
+            period === 'month'
+              ? 'monthly'
+              : (aiStatus.suggestedSlot ?? 'manual'),
+          );
+        }}
+        accessibilityRole="button"
+        accessibilityLabel="Process business suggestions"
+        style={[
+          styles.fab,
+          {
+            backgroundColor: detail.surface,
+            shadowColor: detail.shadow,
+          },
+        ]}>
+        <Image
+          source={require('@/assets/images/overview-ai-fab.png')}
+          style={styles.fabImage}
+          contentFit="cover"
+        />
+      </Pressable>
     </View>
   );
 }
@@ -944,8 +972,8 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   content: { flexGrow: 1 },
-  padMobile: { padding: 12, paddingBottom: 32 },
-  padDesktop: { padding: 20, paddingBottom: 40 },
+  padMobile: { padding: 12, paddingBottom: 96 },
+  padDesktop: { padding: 20, paddingBottom: 104 },
   page: {
     width: '100%',
     maxWidth: 1480,
@@ -1152,4 +1180,23 @@ const styles = StyleSheet.create({
   colOrder: { flex: 1, minWidth: 0 },
   colAmount: { flex: 1, minWidth: 0, textAlign: 'right' },
   colDate: { flex: 0.9, minWidth: 0, textAlign: 'right' },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    zIndex: 20,
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' as const } : null),
+  },
+  fabImage: {
+    width: '100%',
+    height: '100%',
+  },
 });
