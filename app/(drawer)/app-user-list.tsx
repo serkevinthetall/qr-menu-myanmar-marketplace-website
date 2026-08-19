@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Chip, Text, useTheme } from 'react-native-paper';
+import {
+  ActivityIndicator,
+  Button,
+  Chip,
+  Menu,
+  Text,
+  useTheme,
+} from 'react-native-paper';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { AreaLineChart } from '@/components/overview/AreaLineChart';
@@ -11,6 +18,8 @@ import { useResponsive } from '@/hooks/use-responsive';
 import {
   fetchAppUserListSummary,
   fetchAppUserListTimeline,
+  APP_INSTALL_STATUS_OPTIONS,
+  type AppInstallStatus,
   type AppUserListRange,
 } from '@/features/app-install';
 import type { OverviewAreaSeries } from '@/types/overview';
@@ -20,6 +29,11 @@ const RANGE_OPTIONS: Array<{ id: AppUserListRange; label: string }> = [
   { id: 'today', label: 'Today' },
   { id: 'yesterday', label: 'Yesterday' },
   { id: 'month', label: 'This month' },
+];
+
+const STATUS_OPTIONS: Array<{ id: AppInstallStatus | 'all'; label: string }> = [
+  { id: 'all', label: 'All statuses' },
+  ...APP_INSTALL_STATUS_OPTIONS,
 ];
 
 function parseRange(raw: unknown): AppUserListRange {
@@ -55,6 +69,9 @@ export default function AppUserListDetailScreen() {
     setRange(parseRange(initialRange));
   }, [initialRange]);
 
+  const [status, setStatus] = useState<AppInstallStatus | 'all'>('installed');
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [count, setCount] = useState(0);
@@ -72,7 +89,7 @@ export default function AppUserListDetailScreen() {
   useFocusEffect(
     useCallback(() => {
       setDetailHeader({
-        title: 'Installed app users',
+        title: 'App User List',
         breadcrumbParent: 'Overview',
         onBack: goBack,
       });
@@ -93,8 +110,8 @@ export default function AppUserListDetailScreen() {
     void (async () => {
       try {
         const [summary, timeline] = await Promise.all([
-          fetchAppUserListSummary(token, range),
-          fetchAppUserListTimeline(token, range),
+          fetchAppUserListSummary(token, range, status),
+          fetchAppUserListTimeline(token, range, status),
         ]);
 
         if (cancelled) {
@@ -118,12 +135,17 @@ export default function AppUserListDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [range, token]);
+  }, [range, token, status]);
 
   const rangeLabel = useMemo(
     () => RANGE_OPTIONS.find(o => o.id === range)?.label ?? 'This week',
     [range],
   );
+
+  const statusLabel = useMemo(() => {
+    const found = STATUS_OPTIONS.find(o => o.id === status);
+    return found?.label ?? 'Installed';
+  }, [status]);
 
   return (
     <View style={[styles.container, { backgroundColor: detail.background }]}>
@@ -137,15 +159,42 @@ export default function AppUserListDetailScreen() {
         <View style={styles.page}>
           <View>
             <Text style={[styles.pageTitle, { color: detail.onSurface }]}>
-              Installed app users
+              App User List
             </Text>
             <Text style={{ color: detail.label, marginTop: 2 }}>
-              Installed users for{' '}
+              {status === 'all' ? 'Total users for' : `${statusLabel} users for`}{' '}
               <Text style={{ color: theme.colors.primary, fontWeight: '800' }}>
                 {rangeLabel}
               </Text>
               : {count.toLocaleString()}
             </Text>
+          </View>
+
+          <View style={styles.statusRow}>
+            <Menu
+              visible={statusMenuOpen}
+              onDismiss={() => setStatusMenuOpen(false)}
+              anchor={
+                <Button
+                  compact
+                  mode="outlined"
+                  onPress={() => setStatusMenuOpen(true)}
+                  style={styles.statusBtn}
+                  labelStyle={styles.statusBtnLabel}>
+                  Status: {statusLabel}
+                </Button>
+              }>
+              {STATUS_OPTIONS.map(opt => (
+                <Menu.Item
+                  key={String(opt.id)}
+                  title={opt.label}
+                  onPress={() => {
+                    setStatus(opt.id);
+                    setStatusMenuOpen(false);
+                  }}
+                />
+              ))}
+            </Menu>
           </View>
 
           <View style={styles.rangeRow}>
@@ -197,6 +246,19 @@ const styles = StyleSheet.create({
   },
   pageTitle: {
     fontSize: 24,
+    fontWeight: '800',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  statusBtn: {
+    alignSelf: 'flex-start',
+  },
+  statusBtnLabel: {
     fontWeight: '800',
   },
   center: {
