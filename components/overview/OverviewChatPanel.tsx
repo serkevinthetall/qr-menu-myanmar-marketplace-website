@@ -52,7 +52,7 @@ export function OverviewChatPanel({
   }
 
   const panelWidth = isMobile ? Math.min(width - 24, 400) : 380;
-  const panelHeight = Math.min(Math.max(height - 160, 320), 520);
+  const panelHeight = Math.min(Math.max(height - 170, 420), 560);
 
   async function send() {
     const text = draft.trim();
@@ -91,6 +91,8 @@ export function OverviewChatPanel({
       style={[
         styles.panel,
         {
+          width: panelWidth,
+          height: panelHeight,
           right: isMobile ? 12 : 20,
           backgroundColor: detail.surface,
           borderColor: detail.border,
@@ -215,6 +217,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 20,
     bottom: 108,
+    width: 380,
+    height: 520,
     borderRadius: 16,
     borderWidth: 1,
     overflow: 'hidden',
@@ -249,6 +253,7 @@ const styles = StyleSheet.create({
   },
   thread: {
     flex: 1,
+    minHeight: 0,
   },
   threadContent: {
     padding: 12,
