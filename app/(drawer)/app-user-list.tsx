@@ -48,6 +48,13 @@ export default function AppUserListDetailScreen() {
     parseRange(initialRange),
   );
 
+  // `initialRange` comes from the Overview card "View detail" link.
+  // When navigating while this screen is already mounted, we must sync
+  // the chip selection to the latest URL params.
+  useEffect(() => {
+    setRange(parseRange(initialRange));
+  }, [initialRange]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [count, setCount] = useState(0);
