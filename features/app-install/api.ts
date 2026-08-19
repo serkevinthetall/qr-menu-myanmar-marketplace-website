@@ -95,9 +95,12 @@ type AppUserListTimelineResponse = {
 export async function fetchAppUserListSummary(
   token: string,
   range: AppUserListRange,
+  status: AppInstallStatus | 'all' = 'installed',
 ): Promise<number> {
+  const statusQuery =
+    status && status !== 'all' ? `&status=${encodeURIComponent(status)}` : '';
   const response = await webApiRequest<AppUserListSummaryResponse>(
-    `/app-installs/analytics/summary?range=${range}`,
+    `/app-installs/analytics/summary?range=${range}${statusQuery}`,
     { token },
   );
   return response.data?.count ?? 0;
@@ -106,9 +109,12 @@ export async function fetchAppUserListSummary(
 export async function fetchAppUserListTimeline(
   token: string,
   range: AppUserListRange,
+  status: AppInstallStatus | 'all' = 'installed',
 ): Promise<{ buckets: string[]; series: OverviewAreaSeries[]; count: number }> {
+  const statusQuery =
+    status && status !== 'all' ? `&status=${encodeURIComponent(status)}` : '';
   const response = await webApiRequest<AppUserListTimelineResponse>(
-    `/app-installs/analytics/timeline?range=${range}`,
+    `/app-installs/analytics/timeline?range=${range}${statusQuery}`,
     { token },
   );
   return {

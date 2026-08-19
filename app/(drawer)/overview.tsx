@@ -921,7 +921,7 @@ export default function OverviewScreen() {
                     })
                   }>
                   <Text style={[styles.cardHint, { color: detail.label }]}>
-                    Users for {selectedPeriodLabel}
+                    Installed users for {selectedPeriodLabel}
                   </Text>
                 </SurfaceCard>
               ) : null}

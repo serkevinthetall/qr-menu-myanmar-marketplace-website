@@ -133,7 +133,7 @@ export default function AppUserListDetailScreen() {
               App User List
             </Text>
             <Text style={{ color: detail.label, marginTop: 2 }}>
-              Total users for{' '}
+              Installed users for{' '}
               <Text style={{ color: theme.colors.primary, fontWeight: '800' }}>
                 {rangeLabel}
               </Text>
