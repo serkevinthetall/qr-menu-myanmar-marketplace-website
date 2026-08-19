@@ -55,11 +55,11 @@ export function useContactAppInstall(token: string | undefined) {
   );
 
   const handleRequestInstall = useCallback(
-    async (id: string) => {
+    async (id: string, snapshot?: { name?: string; phone?: string }) => {
       if (!enabled || !token) return;
       setInstallBusyId(id);
       try {
-        const record = await requestAppInstall(token, id);
+        const record = await requestAppInstall(token, id, snapshot);
         setInstallMap(prev => ({ ...prev, [id]: record }));
         setMessage('Added to App User List (New).');
       } catch (err) {

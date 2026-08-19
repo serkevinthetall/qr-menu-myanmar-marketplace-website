@@ -254,7 +254,7 @@ function ContactRow({
   onToggle: (id: string) => void;
   onOpen: (id: string) => void;
   onCreateQuotation: (id: string) => void;
-  onRequestInstall?: (id: string) => void;
+  onRequestInstall?: (id: string, snapshot?: { name?: string; phone?: string }) => void;
   onMarkInstalled?: (id: string) => void;
   onMarkNotInstalled?: (id: string) => void;
   onMarkWaiting?: (id: string) => void;
@@ -403,7 +403,12 @@ function ContactRow({
                   icon="cellphone-arrow-down"
                   loading={busy}
                   disabled={busy}
-                  onPress={() => onRequestInstall?.(item.id)}
+                  onPress={() =>
+                    onRequestInstall?.(item.id, {
+                      name: item.name,
+                      phone: item.phone,
+                    })
+                  }
                   style={[
                     styles.rowActionBtn,
                     {

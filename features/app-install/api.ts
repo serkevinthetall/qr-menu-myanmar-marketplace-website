@@ -121,10 +121,18 @@ export async function fetchAppUserListTimeline(
 export async function requestAppInstall(
   token: string,
   partnerId: string,
+  snapshot?: { name?: string; phone?: string },
 ): Promise<AppInstallRecord> {
   const response = await webApiRequest<OneResponse>(
     `/app-installs/${partnerId}/request`,
-    { method: 'POST', token },
+    {
+      method: 'POST',
+      token,
+      body: {
+        name: snapshot?.name ?? '',
+        phone: snapshot?.phone ?? '',
+      },
+    },
   );
   notifyCallListBadgeChanged();
   return response.data;

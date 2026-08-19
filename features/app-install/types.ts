@@ -82,14 +82,31 @@ export const EMPTY_APP_USER_LIST_DATE_FILTERS: AppUserListDateFilters = {
   endDate: '',
 };
 
+function pad2(n: number): string {
+  return n < 10 ? `0${n}` : String(n);
+}
+
 function toISO(date: Date): string {
-  const pad = (n: number) => (n < 10 ? `0${n}` : String(n));
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
+/** Calendar Y-M-D in Asia/Yangon (matches Overview App User List analytics). */
+function yangonYmd(value: string | Date): string {
+  const dated = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(dated.getTime())) {
+    return '';
+  }
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Yangon',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(dated);
 }
 
 function todayDate(): Date {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const [year, month, day] = yangonYmd(new Date()).split('-').map(Number);
+  return new Date(year, month - 1, day);
 }
 
 function startOfWeek(date: Date): Date {
@@ -168,7 +185,7 @@ export function matchesAppUserListDateFilters(
   if (!range) {
     return true;
   }
-  const day = String(requestedAt ?? '').trim().slice(0, 10);
+  const day = yangonYmd(String(requestedAt ?? '').trim());
   if (!day) {
     return false;
   }
