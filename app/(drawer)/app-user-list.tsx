@@ -72,7 +72,7 @@ export default function AppUserListDetailScreen() {
   useFocusEffect(
     useCallback(() => {
       setDetailHeader({
-        title: 'App User List',
+        title: 'Installed app users',
         breadcrumbParent: 'Overview',
         onBack: goBack,
       });
@@ -137,7 +137,7 @@ export default function AppUserListDetailScreen() {
         <View style={styles.page}>
           <View>
             <Text style={[styles.pageTitle, { color: detail.onSurface }]}>
-              App User List
+              Installed app users
             </Text>
             <Text style={{ color: detail.label, marginTop: 2 }}>
               Installed users for{' '}

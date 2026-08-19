@@ -912,7 +912,7 @@ export default function OverviewScreen() {
               </SurfaceCard>
               {ENABLE_APP_INSTALL_CALL_LIST ? (
                 <SurfaceCard
-                  title={`App user list · ${appUserListCount.toLocaleString()}`}
+                  title={`Installed app users · ${appUserListCount.toLocaleString()}`}
                   actionLabel="View detail"
                   onAction={() =>
                     router.push({
