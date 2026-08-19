@@ -42,10 +42,12 @@ import {
   APP_USER_LIST_DATE_PERIOD_OPTIONS,
   EMPTY_APP_USER_LIST_DATE_FILTERS,
   ENABLE_APP_INSTALL_CALL_LIST,
+  MongoSaveErrorDialog,
   exportCallListExcel,
   fetchCallList,
   hasAppUserListDateFilters,
   matchesAppUserListDateFilters,
+  mongoSaveErrorMessage,
   removeFromCallList,
   updateAppInstallStatus,
   type AppInstallReason,
@@ -481,6 +483,7 @@ export default function CallListScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [saveError, setSaveError] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [statusFilter, setStatusFilter] = useState<AppInstallStatus[]>([]);
   const [dateFilters, setDateFilters] = useState<AppUserListDateFilters>({
@@ -650,7 +653,7 @@ export default function CallListScreen() {
       });
       setItems(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load App User List.');
+      setSaveError(mongoSaveErrorMessage(err, 'Loading App User List'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -762,7 +765,7 @@ export default function CallListScreen() {
         setOtherReasonNote('');
         setWaitingNote('');
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to update status.');
+        setSaveError(mongoSaveErrorMessage(err, 'Status update'));
       } finally {
         setBusyId(null);
         setMenuForId(null);
@@ -786,9 +789,7 @@ export default function CallListScreen() {
         setItems(prev =>
           prev.some(row => row.odooPartnerId === id) ? prev : [item, ...prev],
         );
-        setError(
-          err instanceof Error ? err.message : 'Failed to remove from App User List.',
-        );
+        setSaveError(mongoSaveErrorMessage(err, 'Remove'));
       } finally {
         setBusyId(null);
       }
@@ -920,6 +921,11 @@ export default function CallListScreen() {
         onChange={setPage}
         centerLabel={`${visibleItems.length} contacts`}
         itemLabel="contact"
+      />
+
+      <MongoSaveErrorDialog
+        message={saveError}
+        onDismiss={() => setSaveError('')}
       />
 
       <Portal>

@@ -43,6 +43,7 @@ import {
 import { useResponsive } from '@/hooks/use-responsive';
 import {
   ContactAppInstallFilters,
+  MongoSaveErrorDialog,
   NotInstalledReasonDialog,
   WaitingNoteDialog,
   useContactAppInstall,
@@ -1158,6 +1159,13 @@ export default function CustomersScreen() {
           onSave={note => {
             void appInstall.confirmWaitingNote(note);
           }}
+        />
+      ) : null}
+
+      {appInstall.enabled ? (
+        <MongoSaveErrorDialog
+          message={appInstall.saveError}
+          onDismiss={() => appInstall.setSaveError('')}
         />
       ) : null}
 

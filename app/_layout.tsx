@@ -10,6 +10,7 @@ import 'react-native-reanimated';
 import { homeRouteForSurface, isSalesRepAppSurface } from '@/constants/app-surface';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { AppThemeProvider, useAppTheme } from '@/contexts/theme-context';
+import { useWebDeployRefresh } from '@/hooks/use-web-deploy-refresh';
 
 export const unstable_settings = {
   anchor: isSalesRepAppSurface() ? '(app)' : '(drawer)',
@@ -102,6 +103,8 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  useWebDeployRefresh();
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AppThemeProvider>

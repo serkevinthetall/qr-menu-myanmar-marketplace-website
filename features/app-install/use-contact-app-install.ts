@@ -9,6 +9,7 @@ import {
 } from './api';
 import type { AppInstallFilter } from './ContactAppInstallFilters';
 import { ENABLE_APP_INSTALL_CALL_LIST } from './enabled';
+import { mongoSaveErrorMessage } from './MongoSaveErrorDialog';
 import type { AppInstallReason, AppInstallRecord } from './types';
 
 /**
@@ -26,6 +27,7 @@ export function useContactAppInstall(token: string | undefined) {
   const [reasonForId, setReasonForId] = useState<string | null>(null);
   const [waitingForId, setWaitingForId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const [saveError, setSaveError] = useState('');
 
   const loadInstallMap = useCallback(async () => {
     if (!enabled || !token) {
@@ -35,8 +37,9 @@ export function useContactAppInstall(token: string | undefined) {
     try {
       const map = await fetchAppInstallMap(token);
       setInstallMap(map);
-    } catch {
+    } catch (err) {
       setInstallMap({});
+      setSaveError(mongoSaveErrorMessage(err, 'Loading App User List'));
     }
   }, [enabled, token]);
 
@@ -63,9 +66,7 @@ export function useContactAppInstall(token: string | undefined) {
         setInstallMap(prev => ({ ...prev, [id]: record }));
         setMessage('Added to App User List (New).');
       } catch (err) {
-        setMessage(
-          err instanceof Error ? err.message : 'Failed to request app install.',
-        );
+        setSaveError(mongoSaveErrorMessage(err, 'Request'));
       } finally {
         setInstallBusyId(null);
       }
@@ -84,7 +85,7 @@ export function useContactAppInstall(token: string | undefined) {
         setInstallMap(prev => ({ ...prev, [id]: record }));
         setMessage('Marked as Installed.');
       } catch (err) {
-        setMessage(err instanceof Error ? err.message : 'Failed to update status.');
+        setSaveError(mongoSaveErrorMessage(err, 'Status update'));
       } finally {
         setInstallBusyId(null);
       }
@@ -114,7 +115,7 @@ export function useContactAppInstall(token: string | undefined) {
         setMessage('Marked as Waiting.');
         setWaitingForId(null);
       } catch (err) {
-        setMessage(err instanceof Error ? err.message : 'Failed to update status.');
+        setSaveError(mongoSaveErrorMessage(err, 'Status update'));
       } finally {
         setInstallBusyId(null);
       }
@@ -133,7 +134,7 @@ export function useContactAppInstall(token: string | undefined) {
         setInstallMap(prev => ({ ...prev, [id]: record }));
         setMessage('Marked as Not pick up.');
       } catch (err) {
-        setMessage(err instanceof Error ? err.message : 'Failed to update status.');
+        setSaveError(mongoSaveErrorMessage(err, 'Status update'));
       } finally {
         setInstallBusyId(null);
       }
@@ -152,7 +153,7 @@ export function useContactAppInstall(token: string | undefined) {
         setInstallMap(prev => ({ ...prev, [id]: record }));
         setMessage('Marked as Onsite install.');
       } catch (err) {
-        setMessage(err instanceof Error ? err.message : 'Failed to update status.');
+        setSaveError(mongoSaveErrorMessage(err, 'Status update'));
       } finally {
         setInstallBusyId(null);
       }
@@ -171,7 +172,7 @@ export function useContactAppInstall(token: string | undefined) {
         setInstallMap(prev => ({ ...prev, [id]: record }));
         setMessage('Marked as New.');
       } catch (err) {
-        setMessage(err instanceof Error ? err.message : 'Failed to update status.');
+        setSaveError(mongoSaveErrorMessage(err, 'Status update'));
       } finally {
         setInstallBusyId(null);
       }
@@ -200,9 +201,7 @@ export function useContactAppInstall(token: string | undefined) {
         });
         setMessage('Removed from App User List.');
       } catch (err) {
-        setMessage(
-          err instanceof Error ? err.message : 'Failed to remove from App User List.',
-        );
+        setSaveError(mongoSaveErrorMessage(err, 'Remove'));
       } finally {
         setInstallBusyId(null);
       }
@@ -225,7 +224,7 @@ export function useContactAppInstall(token: string | undefined) {
         setMessage('Marked as Not installed.');
         setReasonForId(null);
       } catch (err) {
-        setMessage(err instanceof Error ? err.message : 'Failed to update status.');
+        setSaveError(mongoSaveErrorMessage(err, 'Status update'));
       } finally {
         setInstallBusyId(null);
       }
@@ -245,6 +244,8 @@ export function useContactAppInstall(token: string | undefined) {
     setWaitingForId,
     message,
     setMessage,
+    saveError,
+    setSaveError,
     loadInstallMap,
     matchesInstallFilter,
     handleRequestInstall,
