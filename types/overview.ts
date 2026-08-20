@@ -185,6 +185,12 @@ export type OverviewChatTurn = {
   content: string;
 };
 
+export type OverviewChatResult = {
+  reply: string;
+  provider?: 'odoo' | 'gemini';
+  warning?: string;
+};
+
 export type CompareAiTopic = 'customers' | 'areas' | 'sales' | 'demand';
 
 export type OverviewDemandProduct = {

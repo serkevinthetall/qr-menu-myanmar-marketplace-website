@@ -5,6 +5,7 @@ import {
   AiSuggestionsStatus,
   CompareAiTopic,
   OverviewChatTurn,
+  OverviewChatResult,
   OverviewDemand,
   OverviewOrders,
   OverviewOrderType,
@@ -19,7 +20,7 @@ type OrdersResponse = { data: OverviewOrders };
 type DemandResponse = { data: OverviewDemand };
 type SuggestionsResponse = { data: AiSuggestionsStatus };
 type GenerateResponse = { data: AiSuggestionPack };
-type ChatResponse = { data: { reply: string } };
+type ChatResponse = { data: OverviewChatResult };
 
 export async function fetchOverviewSummary(
   token: string,
@@ -128,11 +129,11 @@ export async function sendOverviewChat(
   message: string,
   period: OverviewPeriod,
   history: OverviewChatTurn[] = [],
-): Promise<string> {
+): Promise<OverviewChatResult> {
   const response = await webApiRequest<ChatResponse>('/insights/chat', {
     method: 'POST',
     token,
     body: { message, period, history },
   });
-  return response.data.reply;
+  return response.data;
 }

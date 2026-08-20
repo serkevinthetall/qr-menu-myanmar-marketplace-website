@@ -6,7 +6,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { ActivityIndicator, Icon, Text, TextInput } from 'react-native-paper';
+import { ActivityIndicator, Button, Dialog, Icon, Portal, Text, TextInput } from 'react-native-paper';
 
 import { Palette } from '@/constants/colors';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
@@ -36,6 +36,9 @@ export function OverviewChatPanel({
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [messages, setMessages] = useState<OverviewChatTurn[]>([]);
+  const [notice, setNotice] = useState<{ title: string; message: string } | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!visible) {
@@ -67,18 +70,23 @@ export function OverviewChatPanel({
     setMessages(nextMessages);
     setSending(true);
     try {
-      const reply = await sendOverviewChat(token, text, period, messages);
+      const result = await sendOverviewChat(token, text, period, messages);
       setMessages([
         ...nextMessages,
-        { role: 'assistant', content: reply || 'No reply.' },
+        { role: 'assistant', content: result.reply || 'No reply.' },
       ]);
+      if (result.warning) {
+        setNotice({ title: 'AI not working', message: result.warning });
+      }
     } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to send message.';
+      setNotice({ title: 'AI not working', message });
       setMessages([
         ...nextMessages,
         {
           role: 'assistant',
-          content:
-            err instanceof Error ? err.message : 'Failed to send message.',
+          content: message,
         },
       ]);
     } finally {
@@ -104,11 +112,14 @@ export function OverviewChatPanel({
         pack?.suggestions?.length ? formatSuggestionsForChat(pack.suggestions) : 'No suggestions.';
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
     } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to analyze six months.';
+      setNotice({ title: 'Gemini is not working', message });
       setMessages(prev => [
         ...prev,
         {
           role: 'assistant',
-          content: err instanceof Error ? err.message : 'Failed to analyze six months.',
+          content: message,
         },
       ]);
     } finally {
@@ -117,6 +128,7 @@ export function OverviewChatPanel({
   }
 
   return (
+    <>
     <View
       style={[
         styles.panel,
@@ -265,6 +277,20 @@ export function OverviewChatPanel({
         </Pressable>
       </View>
     </View>
+    <Portal>
+      <Dialog
+        visible={Boolean(notice)}
+        onDismiss={() => setNotice(null)}>
+        <Dialog.Title>{notice?.title ?? 'AI not working'}</Dialog.Title>
+        <Dialog.Content>
+          <Text>{notice?.message}</Text>
+        </Dialog.Content>
+        <Dialog.Actions>
+          <Button onPress={() => setNotice(null)}>OK</Button>
+        </Dialog.Actions>
+      </Dialog>
+    </Portal>
+    </>
   );
 }
 
