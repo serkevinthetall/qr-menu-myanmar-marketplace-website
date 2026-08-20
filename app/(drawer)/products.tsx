@@ -11,7 +11,6 @@ import {
   ActivityIndicator,
   Card,
   Checkbox,
-  Chip,
   Text,
   useTheme,
 } from 'react-native-paper';
@@ -260,7 +259,7 @@ function ProductCard({
   const theme = useTheme();
 
   return (
-    <Pressable onPress={() => onOpen(item.id)}>
+    <Pressable onPress={() => onOpen(item.id)} style={styles.cardPressable}>
       <Card
         mode="elevated"
         style={[
@@ -270,59 +269,84 @@ function ProductCard({
             borderColor: theme.colors.outline,
           },
         ]}>
-        <Card.Content style={styles.cardContent}>
-          <View style={styles.cardImageRow}>
-            <ProductThumb productId={item.id} size={120} style={styles.cardImage} />
-            <View style={styles.cardStar}>
-              <FavoriteStar
-                favorite={Boolean(item.favorite)}
-                disabled={favoriteBusy}
-                onToggle={() => onToggleFavorite(item.id, !item.favorite)}
-              />
-            </View>
+        <View style={styles.cardImageRow}>
+          <ProductThumb productId={item.id} size={160} style={styles.cardImage} />
+          <View style={styles.cardStar}>
+            <FavoriteStar
+              favorite={Boolean(item.favorite)}
+              disabled={favoriteBusy}
+              onToggle={() => onToggleFavorite(item.id, !item.favorite)}
+            />
           </View>
+        </View>
+
+        <View style={styles.cardBody}>
           <View style={styles.cardTop}>
-            <Text variant="titleMedium" style={styles.productName} numberOfLines={2}>
+            <Text
+              variant="titleSmall"
+              style={styles.productName}
+              numberOfLines={2}>
               {item.name}
             </Text>
-            {item.active ? (
-              <Chip
-                compact
-                style={{ backgroundColor: theme.colors.secondaryContainer }}>
-                Active
-              </Chip>
-            ) : (
-              <Chip compact style={styles.inactiveChip}>
-                Inactive
-              </Chip>
-            )}
+            <View
+              style={[
+                styles.statusBadge,
+                item.active
+                  ? { backgroundColor: theme.colors.secondaryContainer }
+                  : styles.inactiveChip,
+              ]}>
+              <Text
+                variant="labelSmall"
+                style={{
+                  color: item.active
+                    ? theme.colors.onSecondaryContainer
+                    : '#991B1B',
+                  fontWeight: '700',
+                }}
+                numberOfLines={1}>
+                {item.active ? 'Active' : 'Inactive'}
+              </Text>
+            </View>
           </View>
 
           {item.sku ? (
-            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+            <Text
+              variant="bodySmall"
+              style={{ color: theme.colors.onSurfaceVariant }}
+              numberOfLines={1}>
               SKU: {item.sku}
             </Text>
           ) : null}
 
           <View style={styles.cardFooter}>
-            <View>
-              <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+            <View style={styles.metricBox}>
+              <Text
+                variant="labelSmall"
+                style={{ color: theme.colors.onSurfaceVariant }}>
                 Price
               </Text>
-              <Text variant="titleLarge" style={{ color: theme.colors.primary, fontWeight: '700' }}>
+              <Text
+                variant="titleMedium"
+                style={{ color: theme.colors.primary, fontWeight: '700' }}
+                numberOfLines={1}>
                 {formatPrice(item.price)} MMK
               </Text>
             </View>
-            <View style={styles.stockBox}>
-              <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+            <View style={[styles.metricBox, styles.stockBox]}>
+              <Text
+                variant="labelSmall"
+                style={{ color: theme.colors.onSurfaceVariant }}>
                 Stock
               </Text>
-              <Text variant="titleMedium" style={{ color: theme.colors.secondary, fontWeight: '600' }}>
+              <Text
+                variant="titleMedium"
+                style={{ color: theme.colors.secondary, fontWeight: '700' }}
+                numberOfLines={1}>
                 {item.stock}
               </Text>
             </View>
           </View>
-        </Card.Content>
+        </View>
       </Card>
     </Pressable>
   );
@@ -898,28 +922,42 @@ const styles = StyleSheet.create({
   },
   cardWrapper: {
     marginBottom: 12,
+    alignSelf: 'stretch',
+  },
+  cardPressable: {
+    flex: 1,
   },
   productCard: {
+    flex: 1,
     borderRadius: 12,
     borderWidth: 1,
-  },
-  cardContent: {
-    gap: 10,
+    overflow: 'hidden',
   },
   cardImageRow: {
     position: 'relative',
+    width: '100%',
+    aspectRatio: 4 / 3,
+    backgroundColor: '#F1F5F9',
+    overflow: 'hidden',
   },
   cardStar: {
     position: 'absolute',
-    top: 0,
-    right: 0,
+    top: 8,
+    right: 8,
     zIndex: 2,
   },
   cardImage: {
     width: '100%',
-    height: 120,
-    borderRadius: 8,
-    alignSelf: 'center',
+    height: '100%',
+    borderRadius: 0,
+  },
+  cardBody: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 12,
+    gap: 8,
+    justifyContent: 'space-between',
   },
   cardTop: {
     flexDirection: 'row',
@@ -929,7 +967,8 @@ const styles = StyleSheet.create({
   },
   productName: {
     flex: 1,
-    fontWeight: '600',
+    fontWeight: '700',
+    lineHeight: 20,
   },
   inactiveChip: {
     backgroundColor: '#FEE2E2',
@@ -938,7 +977,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
+    gap: 12,
     marginTop: 4,
+  },
+  metricBox: {
+    flexShrink: 1,
+    minWidth: 0,
   },
   stockBox: {
     alignItems: 'flex-end',
