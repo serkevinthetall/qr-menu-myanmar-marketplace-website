@@ -326,7 +326,7 @@ function ProductCard({
                 Price
               </Text>
               <Text
-                variant="titleMedium"
+                variant="titleSmall"
                 style={{ color: theme.colors.primary, fontWeight: '700' }}
                 numberOfLines={1}>
                 {formatPrice(item.price)} MMK
@@ -339,7 +339,7 @@ function ProductCard({
                 Stock
               </Text>
               <Text
-                variant="titleMedium"
+                variant="titleSmall"
                 style={{ color: theme.colors.secondary, fontWeight: '700' }}
                 numberOfLines={1}>
                 {item.stock}
@@ -628,15 +628,18 @@ export default function ProductsScreen() {
 
   const numColumns = useMemo(() => {
     if (width >= 1200) {
+      return 7;
+    }
+    if (width >= 1000) {
       return 5;
     }
-    if (width >= 900) {
+    if (width >= 800) {
       return 4;
     }
-    if (width >= 700) {
+    if (width >= 600) {
       return 3;
     }
-    if (width >= 480) {
+    if (width >= 420) {
       return 2;
     }
     return 1;
@@ -644,7 +647,7 @@ export default function ProductsScreen() {
 
   const cardWidth = useMemo(() => {
     const horizontalPadding = 32;
-    const gap = 12;
+    const gap = 8;
     const available = width - horizontalPadding - gap * (numColumns - 1);
     return available / numColumns;
   }, [width, numColumns]);
@@ -923,11 +926,11 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   columnWrapper: {
-    gap: 12,
-    marginBottom: 12,
+    gap: 8,
+    marginBottom: 8,
   },
   cardWrapper: {
-    marginBottom: 12,
+    marginBottom: 8,
     alignSelf: 'stretch',
   },
   cardPressable: {
@@ -935,21 +938,21 @@ const styles = StyleSheet.create({
   },
   productCard: {
     flex: 1,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     overflow: 'hidden',
   },
   cardImageRow: {
     position: 'relative',
     width: '100%',
-    aspectRatio: 4 / 3,
+    aspectRatio: 1,
     backgroundColor: '#F1F5F9',
     overflow: 'hidden',
   },
   cardStar: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 6,
+    right: 6,
     zIndex: 2,
   },
   cardImage: {
@@ -959,22 +962,23 @@ const styles = StyleSheet.create({
   },
   cardBody: {
     flex: 1,
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 12,
-    gap: 8,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingBottom: 8,
+    gap: 6,
     justifyContent: 'space-between',
   },
   cardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: 4,
   },
   productName: {
     flex: 1,
     fontWeight: '700',
-    lineHeight: 20,
+    lineHeight: 18,
+    fontSize: 13,
   },
   inactiveChip: {
     backgroundColor: '#FEE2E2',
@@ -983,8 +987,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    gap: 12,
-    marginTop: 4,
+    gap: 6,
+    marginTop: 2,
   },
   metricBox: {
     flexShrink: 1,
