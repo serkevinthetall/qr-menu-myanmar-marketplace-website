@@ -97,6 +97,16 @@ export async function generateAiSuggestions(
   return response.data;
 }
 
+export async function generateSixMonthAiSuggestions(
+  token: string,
+): Promise<AiSuggestionPack> {
+  const response = await webApiRequest<GenerateResponse>(
+    '/insights/suggestions/generate-six-month',
+    { method: 'POST', token, body: {} },
+  );
+  return response.data;
+}
+
 export async function generateCompareAiSuggestions(
   token: string,
   topic: CompareAiTopic,

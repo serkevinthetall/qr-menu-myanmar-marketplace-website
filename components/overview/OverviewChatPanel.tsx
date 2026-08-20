@@ -11,7 +11,7 @@ import { ActivityIndicator, Icon, Text, TextInput } from 'react-native-paper';
 import { Palette } from '@/constants/colors';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
-import { sendOverviewChat } from '@/services/insights';
+import { generateSixMonthAiSuggestions, sendOverviewChat } from '@/services/insights';
 import { OverviewChatTurn, OverviewPeriod } from '@/types/overview';
 
 const WELCOME =
@@ -79,6 +79,36 @@ export function OverviewChatPanel({
           role: 'assistant',
           content:
             err instanceof Error ? err.message : 'Failed to send message.',
+        },
+      ]);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function formatSuggestionsForChat(
+    suggestions: { title: string; detail: string }[],
+  ) {
+    return suggestions
+      .slice(0, 5)
+      .map((s, idx) => `${idx + 1}. ${s.title}\n${s.detail}`)
+      .join('\n\n');
+  }
+
+  async function analyseSixMonth() {
+    if (sending) return;
+    setSending(true);
+    try {
+      const pack = await generateSixMonthAiSuggestions(token);
+      const reply =
+        pack?.suggestions?.length ? formatSuggestionsForChat(pack.suggestions) : 'No suggestions.';
+      setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
+    } catch (err) {
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: err instanceof Error ? err.message : 'Failed to analyze six months.',
         },
       ]);
     } finally {
@@ -170,6 +200,32 @@ export function OverviewChatPanel({
           </View>
         ) : null}
       </ScrollView>
+
+      <View style={[styles.sixMonthRow, { borderTopColor: detail.border }]}>
+        <Pressable
+          onPress={() => {
+            void analyseSixMonth();
+          }}
+          disabled={sending}
+          accessibilityRole="button"
+          accessibilityLabel="Analyze six month"
+          style={[
+            styles.sixMonthBtn,
+            {
+              borderColor: detail.border,
+              backgroundColor: Palette.card,
+            },
+            sending && { opacity: 0.55 },
+          ]}>
+          {sending ? (
+            <ActivityIndicator size={16} color={detail.onSurface} />
+          ) : (
+            <Text style={{ color: detail.onSurface, fontWeight: '700', fontSize: 12 }}>
+              Analyze six month
+            </Text>
+          )}
+        </Pressable>
+      </View>
 
       <View style={[styles.composer, { borderTopColor: detail.border }]}>
         <TextInput
@@ -291,6 +347,19 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sixMonthRow: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    backgroundColor: 'transparent',
+  },
+  sixMonthBtn: {
+    height: 38,
+    borderRadius: 10,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
