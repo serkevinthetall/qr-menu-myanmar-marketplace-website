@@ -628,9 +628,15 @@ export default function ProductsScreen() {
 
   const numColumns = useMemo(() => {
     if (width >= 1200) {
+      return 5;
+    }
+    if (width >= 900) {
+      return 4;
+    }
+    if (width >= 700) {
       return 3;
     }
-    if (width >= 768) {
+    if (width >= 480) {
       return 2;
     }
     return 1;
