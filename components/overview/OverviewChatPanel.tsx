@@ -15,7 +15,7 @@ import { generateSixMonthAiSuggestions, sendOverviewChat } from '@/services/insi
 import { OverviewChatTurn, OverviewPeriod } from '@/types/overview';
 
 const WELCOME =
-  'Ask about this period’s sales, purchases, customers, areas, or products. Chat uses Odoo AI. Analyze six month uses Gemini.';
+  'Ask about this period’s sales, purchases, customers, areas, or products. Chat and Analyze six month both use Gemini.';
 
 export function OverviewChatPanel({
   visible,

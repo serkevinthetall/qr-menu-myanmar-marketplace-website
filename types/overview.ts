@@ -187,7 +187,7 @@ export type OverviewChatTurn = {
 
 export type OverviewChatResult = {
   reply: string;
-  provider?: 'odoo' | 'gemini';
+  provider?: 'gemini';
   warning?: string;
 };
 

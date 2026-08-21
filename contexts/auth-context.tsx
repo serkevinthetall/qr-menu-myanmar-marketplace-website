@@ -15,6 +15,7 @@ import { clearAppProductCatalog } from '@/services/app/product-catalog-cache';
 import { authenticateUser, isSessionValid, logoutUser } from '@/services/auth';
 import { clearWebProductCatalog } from '@/services/web/product-catalog-cache';
 import { AuthSession, AuthUser, LoginCredentials } from '@/types/auth';
+import { subscribeSessionExpired } from '@/utils/session-expiry';
 
 type AuthContextValue = {
   session: AuthSession | null;
@@ -49,6 +50,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setIsLoading(false));
   }, [storageKey]);
 
+  const clearLocalSession = useCallback(async () => {
+    setSession(null);
+    if (isSalesRepAppSurface()) {
+      clearAppProductCatalog();
+    } else {
+      clearWebProductCatalog();
+    }
+    await AsyncStorage.removeItem(storageKey);
+  }, [storageKey]);
+
   const login = useCallback(async (credentials: LoginCredentials) => {
     const nextSession = isSalesRepAppSurface()
       ? await authenticateAppUser(credentials)
@@ -70,14 +81,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    setSession(null);
-    if (isSalesRepAppSurface()) {
-      clearAppProductCatalog();
-    } else {
-      clearWebProductCatalog();
-    }
-    await AsyncStorage.removeItem(storageKey);
-  }, [session?.token, storageKey]);
+    await clearLocalSession();
+  }, [session?.token, clearLocalSession]);
+
+  // Odoo "user is not connected" / 401 → drop local session; AuthGate goes to /login.
+  useEffect(() => {
+    return subscribeSessionExpired(() => {
+      void clearLocalSession();
+    });
+  }, [clearLocalSession]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

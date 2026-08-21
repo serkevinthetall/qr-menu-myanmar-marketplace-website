@@ -1,4 +1,8 @@
 import { API_BASE_URL } from '@/constants/api';
+import {
+  isAuthSessionErrorMessage,
+  notifySessionExpired,
+} from '@/utils/session-expiry';
 
 /**
  * Low-level HTTP helper. Prefer surface-specific clients:
@@ -10,6 +14,18 @@ type ApiOptions = {
   token?: string;
   body?: unknown;
 };
+
+function shouldForceLogin(path: string, status: number, message: string): boolean {
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  // Don't bounce away from an intentional failed login attempt.
+  if (
+    normalized.includes('/auth/login') ||
+    normalized.endsWith('/auth/login')
+  ) {
+    return false;
+  }
+  return status === 401 || isAuthSessionErrorMessage(message);
+}
 
 export async function apiRequest<T>(
   path: string,
@@ -37,7 +53,14 @@ export async function apiRequest<T>(
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(data.message ?? 'Request failed.');
+    const message =
+      typeof data.message === 'string' && data.message.trim()
+        ? data.message
+        : 'Request failed.';
+    if (shouldForceLogin(path, response.status, message)) {
+      notifySessionExpired();
+    }
+    throw new Error(message);
   }
 
   return data as T;
