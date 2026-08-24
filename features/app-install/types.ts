@@ -23,7 +23,13 @@ export type AppInstallRecord = {
   odooPartnerId: string;
   name: string;
   phone: string;
+  /** Odoo Studio township (`x_studio_many2one_field_8u9_1jp4l7r0g`). */
   township?: string;
+  street?: string;
+  street2?: string;
+  city?: string;
+  /** One-line street / street2 / city from Odoo. */
+  address?: string;
   /** Odoo contact Tags (`res.partner.category_id`). */
   tags?: AppInstallTag[];
   status: AppInstallStatus;

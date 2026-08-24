@@ -17,6 +17,7 @@ export function buildCallListExportRows(items: AppInstallRecord[]): Cell[][] {
       'Name',
       'Phone',
       'Township',
+      'Address',
       'Tags',
       'Status',
       'Reason',
@@ -30,6 +31,8 @@ export function buildCallListExportRows(items: AppInstallRecord[]): Cell[][] {
       item.name || '',
       item.phone || '',
       item.township || '',
+      item.address ||
+        [item.street, item.street2, item.city].filter(Boolean).join(', '),
       (item.tags ?? []).map(tag => tag.name).join(', '),
       item.statusLabel || item.status,
       item.reasonLabel || '',

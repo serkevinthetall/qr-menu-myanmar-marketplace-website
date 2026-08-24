@@ -18,6 +18,7 @@ type ListResponse = {
     status: AppInstallStatus | null;
     statuses?: AppInstallStatus[];
     tags?: AppInstallTag[];
+    townships?: string[];
   };
 };
 
@@ -51,7 +52,11 @@ export async function fetchAppInstallMap(
 export async function fetchCallList(
   token: string,
   options?: { status?: AppInstallStatus | AppInstallStatus[]; q?: string },
-): Promise<{ data: AppInstallRecord[]; tags: AppInstallTag[] }> {
+): Promise<{
+  data: AppInstallRecord[];
+  tags: AppInstallTag[];
+  townships: string[];
+}> {
   const params = new URLSearchParams();
   if (options?.status) {
     const statuses = Array.isArray(options.status)
@@ -69,6 +74,7 @@ export async function fetchCallList(
   return {
     data: response.data ?? [],
     tags: response.meta?.tags ?? [],
+    townships: response.meta?.townships ?? [],
   };
 }
 

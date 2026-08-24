@@ -27,6 +27,7 @@ import {
 } from 'react-native-paper';
 
 import { CalendarField } from '@/components/ui/CalendarField';
+import { SearchableDropdownField } from '@/components/ui/SearchableDropdownField';
 import { Pagination } from '@/components/ui/Pagination';
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -68,6 +69,8 @@ type CallListUi = {
   viewMode: ViewMode;
   statusFilter: AppInstallStatus[];
   tagFilter: string[];
+  /** Empty string = all townships. */
+  townshipFilter: string;
   dateFilters: AppUserListDateFilters;
 };
 
@@ -345,6 +348,13 @@ function CallListRow({
             </Text>
           ) : null}
         </View>
+        {item.address ? (
+          <Text
+            style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}
+            numberOfLines={2}>
+            {item.address}
+          </Text>
+        ) : null}
         {(item.appOrderCount ?? 0) > 0 &&
         (item.lastAppOrderNumber || item.lastAppOrderDate) ? (
           <Text
@@ -459,6 +469,13 @@ function CallListCard({
           {item.township}
         </Text>
       ) : null}
+      {item.address ? (
+        <Text
+          style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}
+          numberOfLines={2}>
+          {item.address}
+        </Text>
+      ) : null}
       {(item.appOrderCount ?? 0) > 0 &&
       (item.lastAppOrderNumber || item.lastAppOrderDate) ? (
         <Text
@@ -522,6 +539,8 @@ export default function CallListScreen() {
   const [statusFilter, setStatusFilter] = useState<AppInstallStatus[]>([]);
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [availableTags, setAvailableTags] = useState<AppInstallTag[]>([]);
+  const [townshipFilter, setTownshipFilter] = useState('');
+  const [availableTownships, setAvailableTownships] = useState<string[]>([]);
   const [dateFilters, setDateFilters] = useState<AppUserListDateFilters>({
     ...EMPTY_APP_USER_LIST_DATE_FILTERS,
   });
@@ -535,8 +554,8 @@ export default function CallListScreen() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const listUiSnapshot = useMemo<CallListUi>(
-    () => ({ viewMode, statusFilter, tagFilter, dateFilters }),
-    [viewMode, statusFilter, tagFilter, dateFilters],
+    () => ({ viewMode, statusFilter, tagFilter, townshipFilter, dateFilters }),
+    [viewMode, statusFilter, tagFilter, townshipFilter, dateFilters],
   );
 
   useListUiCache<CallListUi>('call-list', listUiSnapshot, saved => {
@@ -555,6 +574,16 @@ export default function CallListScreen() {
         ),
       );
     }
+    if (typeof saved.townshipFilter === 'string') {
+      setTownshipFilter(saved.townshipFilter.trim());
+    } else if (Array.isArray(saved.townshipFilter)) {
+      // Older multi-select cache → keep first selection.
+      const first = saved.townshipFilter.find(
+        (name): name is string =>
+          typeof name === 'string' && name.trim().length > 0,
+      );
+      setTownshipFilter(first?.trim() ?? '');
+    }
     if (saved.dateFilters && typeof saved.dateFilters === 'object') {
       const period =
         saved.dateFilters.period === 'today' ||
@@ -572,13 +601,27 @@ export default function CallListScreen() {
 
   const query = useModuleSearch(
     ENABLE_APP_INSTALL_CALL_LIST
-      ? 'Search App User List by name, phone, or tag'
+      ? 'Search App User List by name, phone, township, or tag'
       : '',
   );
 
   const filterPanel = useMemo(
     () => (
       <View style={styles.headerFilterPanel}>
+        <View style={styles.headerFilterControls}>
+          <View style={styles.townshipField}>
+            <SearchableDropdownField
+              compact
+              variant="header"
+              placeholder="Township"
+              value={townshipFilter}
+              options={availableTownships}
+              onChange={setTownshipFilter}
+              sortOptions={false}
+            />
+          </View>
+        </View>
+
         <Text style={styles.filterSectionLabel}>Status</Text>
         <View style={styles.headerFilterChips}>
           {APP_INSTALL_STATUS_OPTIONS.map(opt => {
@@ -707,7 +750,7 @@ export default function CallListScreen() {
         </View>
       </View>
     ),
-    [statusFilter, tagFilter, availableTags, dateFilters],
+    [statusFilter, tagFilter, availableTags, townshipFilter, availableTownships, dateFilters],
   );
 
   useModuleFilters(filterPanel, ENABLE_APP_INSTALL_CALL_LIST);
@@ -726,8 +769,12 @@ export default function CallListScreen() {
       });
       setItems(result.data);
       setAvailableTags(result.tags);
+      setAvailableTownships(result.townships);
       setTagFilter(prev =>
         prev.filter(id => result.tags.some(tag => tag.id === id)),
+      );
+      setTownshipFilter(prev =>
+        prev && result.townships.includes(prev) ? prev : '',
       );
     } catch (err) {
       setSaveError(mongoSaveErrorMessage(err, 'Loading App User List'));
@@ -751,20 +798,28 @@ export default function CallListScreen() {
 
   useEffect(() => {
     setPage(1);
-  }, [query, statusFilter, tagFilter, viewMode, dateFilters]);
+  }, [query, statusFilter, tagFilter, townshipFilter, viewMode, dateFilters]);
 
   const visibleItems = useMemo(() => {
     return items.filter(item => {
       if (!matchesAppUserListDateFilters(item.requestedAt, dateFilters)) {
         return false;
       }
-      if (tagFilter.length === 0) {
-        return true;
+      if (tagFilter.length > 0) {
+        const itemTagIds = new Set((item.tags ?? []).map(tag => tag.id));
+        if (!tagFilter.some(id => itemTagIds.has(id))) {
+          return false;
+        }
       }
-      const itemTagIds = new Set((item.tags ?? []).map(tag => tag.id));
-      return tagFilter.some(id => itemTagIds.has(id));
+      if (townshipFilter.trim()) {
+        const township = (item.township ?? '').trim();
+        if (township.toLowerCase() !== townshipFilter.trim().toLowerCase()) {
+          return false;
+        }
+      }
+      return true;
     });
-  }, [items, dateFilters, tagFilter]);
+  }, [items, dateFilters, tagFilter, townshipFilter]);
 
   const exportExcel = useCallback(() => {
     if (visibleItems.length === 0) {
@@ -847,6 +902,11 @@ export default function CallListScreen() {
                     updated.tags && updated.tags.length > 0
                       ? updated.tags
                       : row.tags,
+                  township: updated.township || row.township,
+                  street: updated.street || row.street,
+                  street2: updated.street2 || row.street2,
+                  city: updated.city || row.city,
+                  address: updated.address || row.address,
                 }
               : row,
           ),
@@ -1177,6 +1237,19 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     alignItems: 'center',
     width: '100%',
+  },
+  headerFilterControls: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  townshipField: {
+    minWidth: 180,
+    maxWidth: 280,
+    flexGrow: 1,
   },
   filterSectionLabel: {
     width: '100%',
