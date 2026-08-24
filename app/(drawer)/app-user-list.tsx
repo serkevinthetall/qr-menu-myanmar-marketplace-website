@@ -19,6 +19,8 @@ import {
   fetchAppUserListSummary,
   fetchAppUserListTimeline,
   APP_INSTALL_STATUS_OPTIONS,
+  MongoSaveErrorDialog,
+  mongoSaveErrorMessage,
   type AppInstallStatus,
   type AppUserListRange,
 } from '@/features/app-install';
@@ -74,6 +76,7 @@ export default function AppUserListDetailScreen() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  const [dbError, setDbError] = useState('');
   const [count, setCount] = useState(0);
   const [buckets, setBuckets] = useState<string[]>([]);
   const [series, setSeries] = useState<OverviewAreaSeries[]>([]);
@@ -123,7 +126,10 @@ export default function AppUserListDetailScreen() {
         setSeries(timeline.series);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load App User List.');
+          const message =
+            err instanceof Error ? err.message : 'Failed to load App User List.';
+          setError(message);
+          setDbError(mongoSaveErrorMessage(err, 'Loading App User List'));
         }
       } finally {
         if (!cancelled) {
@@ -229,6 +235,11 @@ export default function AppUserListDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      <MongoSaveErrorDialog
+        message={dbError}
+        onDismiss={() => setDbError('')}
+      />
     </View>
   );
 }

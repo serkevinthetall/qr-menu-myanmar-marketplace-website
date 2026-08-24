@@ -33,6 +33,8 @@ import {
 import {
   ENABLE_APP_INSTALL_CALL_LIST,
   fetchAppUserListSummary,
+  MongoSaveErrorDialog,
+  mongoSaveErrorMessage,
   type AppUserListRange,
 } from '@/features/app-install';
 import {
@@ -362,6 +364,7 @@ export default function OverviewScreen() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiError, setAiError] = useState('');
   const [appUserListCount, setAppUserListCount] = useState(0);
+  const [dbError, setDbError] = useState('');
   const [chatOpen, setChatOpen] = useState(false);
 
   const loadAiSuggestions = useCallback(async () => {
@@ -425,18 +428,26 @@ export default function OverviewScreen() {
     setError('');
     setLoading(true);
     try {
-      const [summary, _aiStatus, appCount] = await Promise.all([
+      const [summary] = await Promise.all([
         fetchOverviewSummary(session.token, period),
         loadAiSuggestions(),
-        (async () => {
-          if (!ENABLE_APP_INSTALL_CALL_LIST) {
-            return 0;
-          }
-          return fetchAppUserListSummary(session.token, appUserListRange);
-        })(),
       ]);
       setData(summary);
-      setAppUserListCount(appCount);
+
+      if (ENABLE_APP_INSTALL_CALL_LIST) {
+        try {
+          const appCount = await fetchAppUserListSummary(
+            session.token,
+            appUserListRange,
+          );
+          setAppUserListCount(appCount);
+        } catch (err) {
+          setAppUserListCount(0);
+          setDbError(mongoSaveErrorMessage(err, 'Loading App User List'));
+        }
+      } else {
+        setAppUserListCount(0);
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to load overview.',
@@ -942,6 +953,12 @@ export default function OverviewScreen() {
         period={period}
         periodLabel={selectedPeriodLabel}
       />
+      {ENABLE_APP_INSTALL_CALL_LIST ? (
+        <MongoSaveErrorDialog
+          message={dbError}
+          onDismiss={() => setDbError('')}
+        />
+      ) : null}
       <Pressable
         onPress={() => setChatOpen(open => !open)}
         accessibilityRole="button"

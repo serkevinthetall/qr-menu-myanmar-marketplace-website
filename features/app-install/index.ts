@@ -30,6 +30,7 @@ export {
   type AppInstallReason,
   type AppInstallRecord,
   type AppInstallStatus,
+  type AppInstallTag,
   type AppUserListDateFilters,
   type AppUserListDatePeriod,
 } from './types';

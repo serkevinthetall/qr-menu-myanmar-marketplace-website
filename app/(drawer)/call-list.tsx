@@ -53,6 +53,7 @@ import {
   type AppInstallReason,
   type AppInstallRecord,
   type AppInstallStatus,
+  type AppInstallTag,
   type AppUserListDateFilters,
 } from '@/features/app-install';
 import { useListUiCache } from '@/utils/list-ui-cache';
@@ -66,6 +67,7 @@ type ViewMode = 'list' | 'grid';
 type CallListUi = {
   viewMode: ViewMode;
   statusFilter: AppInstallStatus[];
+  tagFilter: string[];
   dateFilters: AppUserListDateFilters;
 };
 
@@ -141,6 +143,36 @@ function PhoneCallLink({
       numberOfLines={1}>
       {trimmed}
     </Text>
+  );
+}
+
+function TagChips({ tags }: { tags?: AppInstallTag[] }) {
+  const theme = useTheme();
+  if (!tags?.length) {
+    return null;
+  }
+  return (
+    <View style={styles.tagRow}>
+      {tags.map(tag => (
+        <View
+          key={tag.id}
+          style={[
+            styles.tagChip,
+            {
+              backgroundColor: theme.colors.secondaryContainer,
+            },
+          ]}>
+          <Text
+            style={[
+              styles.tagChipText,
+              { color: theme.colors.onSecondaryContainer },
+            ]}
+            numberOfLines={1}>
+            {tag.name}
+          </Text>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -336,6 +368,7 @@ function CallListRow({
             {formatMyanmarDateTime(item.requestedAt) || item.requestedAt}
           </Text>
         ) : null}
+        <TagChips tags={item.tags} />
       </View>
       <View style={styles.listStatus}>
         <StatusChip item={item} />
@@ -448,6 +481,7 @@ function CallListCard({
           Created {formatMyanmarDateTime(item.requestedAt) || item.requestedAt}
         </Text>
       ) : null}
+      <TagChips tags={item.tags} />
       <StatusChip item={item} />
       <View style={styles.gridActions}>
         <UpdateMenu
@@ -486,6 +520,8 @@ export default function CallListScreen() {
   const [saveError, setSaveError] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [statusFilter, setStatusFilter] = useState<AppInstallStatus[]>([]);
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [availableTags, setAvailableTags] = useState<AppInstallTag[]>([]);
   const [dateFilters, setDateFilters] = useState<AppUserListDateFilters>({
     ...EMPTY_APP_USER_LIST_DATE_FILTERS,
   });
@@ -499,8 +535,8 @@ export default function CallListScreen() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const listUiSnapshot = useMemo<CallListUi>(
-    () => ({ viewMode, statusFilter, dateFilters }),
-    [viewMode, statusFilter, dateFilters],
+    () => ({ viewMode, statusFilter, tagFilter, dateFilters }),
+    [viewMode, statusFilter, tagFilter, dateFilters],
   );
 
   useListUiCache<CallListUi>('call-list', listUiSnapshot, saved => {
@@ -511,6 +547,13 @@ export default function CallListScreen() {
       setStatusFilter(saved.statusFilter.filter(isAppInstallStatusId));
     } else if (isAppInstallStatusId(saved.statusFilter)) {
       setStatusFilter([saved.statusFilter]);
+    }
+    if (Array.isArray(saved.tagFilter)) {
+      setTagFilter(
+        saved.tagFilter.filter(
+          (id): id is string => typeof id === 'string' && id.trim().length > 0,
+        ),
+      );
     }
     if (saved.dateFilters && typeof saved.dateFilters === 'object') {
       const period =
@@ -529,7 +572,7 @@ export default function CallListScreen() {
 
   const query = useModuleSearch(
     ENABLE_APP_INSTALL_CALL_LIST
-      ? 'Search App User List by name or phone'
+      ? 'Search App User List by name, phone, or tag'
       : '',
   );
 
@@ -562,6 +605,36 @@ export default function CallListScreen() {
                 }}
                 style={styles.chip}>
                 {opt.label}
+              </Chip>
+            );
+          })}
+        </View>
+
+        <Text style={styles.filterSectionLabel}>Tags</Text>
+        <View style={styles.headerFilterChips}>
+          <Chip
+            compact
+            selected={tagFilter.length === 0}
+            onPress={() => setTagFilter([])}
+            style={styles.chip}>
+            All tags
+          </Chip>
+          {availableTags.map(tag => {
+            const selected = tagFilter.includes(tag.id);
+            return (
+              <Chip
+                key={tag.id}
+                compact
+                selected={selected}
+                onPress={() => {
+                  setTagFilter(prev =>
+                    prev.includes(tag.id)
+                      ? prev.filter(id => id !== tag.id)
+                      : [...prev, tag.id],
+                  );
+                }}
+                style={styles.chip}>
+                {tag.name}
               </Chip>
             );
           })}
@@ -634,7 +707,7 @@ export default function CallListScreen() {
         </View>
       </View>
     ),
-    [statusFilter, dateFilters],
+    [statusFilter, tagFilter, availableTags, dateFilters],
   );
 
   useModuleFilters(filterPanel, ENABLE_APP_INSTALL_CALL_LIST);
@@ -647,11 +720,15 @@ export default function CallListScreen() {
     if (!ENABLE_APP_INSTALL_CALL_LIST || !session?.token) return;
     setError('');
     try {
-      const data = await fetchCallList(session.token, {
+      const result = await fetchCallList(session.token, {
         status: statusFilter.length > 0 ? statusFilter : undefined,
         q: query.trim() || undefined,
       });
-      setItems(data);
+      setItems(result.data);
+      setAvailableTags(result.tags);
+      setTagFilter(prev =>
+        prev.filter(id => result.tags.some(tag => tag.id === id)),
+      );
     } catch (err) {
       setSaveError(mongoSaveErrorMessage(err, 'Loading App User List'));
     } finally {
@@ -674,15 +751,20 @@ export default function CallListScreen() {
 
   useEffect(() => {
     setPage(1);
-  }, [query, statusFilter, viewMode, dateFilters]);
+  }, [query, statusFilter, tagFilter, viewMode, dateFilters]);
 
-  const visibleItems = useMemo(
-    () =>
-      items.filter(item =>
-        matchesAppUserListDateFilters(item.requestedAt, dateFilters),
-      ),
-    [items, dateFilters],
-  );
+  const visibleItems = useMemo(() => {
+    return items.filter(item => {
+      if (!matchesAppUserListDateFilters(item.requestedAt, dateFilters)) {
+        return false;
+      }
+      if (tagFilter.length === 0) {
+        return true;
+      }
+      const itemTagIds = new Set((item.tags ?? []).map(tag => tag.id));
+      return tagFilter.some(id => itemTagIds.has(id));
+    });
+  }, [items, dateFilters, tagFilter]);
 
   const exportExcel = useCallback(() => {
     if (visibleItems.length === 0) {
@@ -757,7 +839,16 @@ export default function CallListScreen() {
         );
         setItems(prev =>
           prev.map(row =>
-            row.odooPartnerId === item.odooPartnerId ? { ...row, ...updated } : row,
+            row.odooPartnerId === item.odooPartnerId
+              ? {
+                  ...row,
+                  ...updated,
+                  tags:
+                    updated.tags && updated.tags.length > 0
+                      ? updated.tags
+                      : row.tags,
+                }
+              : row,
           ),
         );
         setReasonFor(null);
@@ -1217,6 +1308,22 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 4,
     flexWrap: 'wrap',
+  },
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 2,
+  },
+  tagChip: {
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    maxWidth: 160,
+  },
+  tagChipText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   badge: {
     paddingHorizontal: 8,

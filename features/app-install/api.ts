@@ -5,6 +5,7 @@ import {
   AppInstallReason,
   AppInstallRecord,
   AppInstallStatus,
+  AppInstallTag,
 } from './types';
 import { OverviewAreaSeries } from '@/types/overview';
 
@@ -12,7 +13,12 @@ export const CALL_LIST_BADGE_REFRESH_EVENT = 'qr-shop-call-list-badge-refresh';
 
 type ListResponse = {
   data: AppInstallRecord[];
-  meta?: { count: number; status: AppInstallStatus | null; statuses?: AppInstallStatus[] };
+  meta?: {
+    count: number;
+    status: AppInstallStatus | null;
+    statuses?: AppInstallStatus[];
+    tags?: AppInstallTag[];
+  };
 };
 
 type OneResponse = { data: AppInstallRecord; meta?: { created?: boolean } };
@@ -45,7 +51,7 @@ export async function fetchAppInstallMap(
 export async function fetchCallList(
   token: string,
   options?: { status?: AppInstallStatus | AppInstallStatus[]; q?: string },
-): Promise<AppInstallRecord[]> {
+): Promise<{ data: AppInstallRecord[]; tags: AppInstallTag[] }> {
   const params = new URLSearchParams();
   if (options?.status) {
     const statuses = Array.isArray(options.status)
@@ -60,7 +66,10 @@ export async function fetchCallList(
   const response = await webApiRequest<ListResponse>(`/app-installs${query}`, {
     token,
   });
-  return response.data ?? [];
+  return {
+    data: response.data ?? [],
+    tags: response.meta?.tags ?? [],
+  };
 }
 
 export async function fetchCallListNewCount(token: string): Promise<number> {

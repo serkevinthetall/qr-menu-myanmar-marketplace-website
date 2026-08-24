@@ -13,12 +13,19 @@ export type AppInstallReason =
   | 'will_install_later'
   | 'other';
 
+export type AppInstallTag = {
+  id: string;
+  name: string;
+};
+
 export type AppInstallRecord = {
   id: string;
   odooPartnerId: string;
   name: string;
   phone: string;
   township?: string;
+  /** Odoo contact Tags (`res.partner.category_id`). */
+  tags?: AppInstallTag[];
   status: AppInstallStatus;
   statusLabel: string;
   reason: AppInstallReason | null;
