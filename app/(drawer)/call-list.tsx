@@ -574,12 +574,13 @@ export default function CallListScreen() {
         ),
       );
     }
-    if (typeof saved.townshipFilter === 'string') {
-      setTownshipFilter(saved.townshipFilter.trim());
-    } else if (Array.isArray(saved.townshipFilter)) {
+    const savedTownship = (saved as { townshipFilter?: unknown }).townshipFilter;
+    if (typeof savedTownship === 'string') {
+      setTownshipFilter(savedTownship.trim());
+    } else if (Array.isArray(savedTownship)) {
       // Older multi-select cache → keep first selection.
-      const first = saved.townshipFilter.find(
-        (name): name is string =>
+      const first = savedTownship.find(
+        (name: unknown): name is string =>
           typeof name === 'string' && name.trim().length > 0,
       );
       setTownshipFilter(first?.trim() ?? '');

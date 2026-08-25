@@ -107,6 +107,24 @@ type AppUserListTimelineResponse = {
   };
 };
 
+export type AppUserListBreakdownItem = {
+  id: string;
+  label: string;
+  count: number;
+};
+
+type AppUserListBreakdownResponse = {
+  data: {
+    range: AppUserListRange;
+    status: AppInstallStatus | 'all';
+    byStatus: AppUserListBreakdownItem[];
+    byTownship: AppUserListBreakdownItem[];
+    byTag: AppUserListBreakdownItem[];
+    townshipStatus: AppInstallStatus | 'all';
+    tagStatus?: AppInstallStatus | 'all';
+  };
+};
+
 export async function fetchAppUserListSummary(
   token: string,
   range: AppUserListRange,
@@ -136,6 +154,33 @@ export async function fetchAppUserListTimeline(
     buckets: response.data?.buckets ?? [],
     series: response.data?.series ?? [],
     count: response.data?.count ?? 0,
+  };
+}
+
+export async function fetchAppUserListBreakdown(
+  token: string,
+  range: AppUserListRange,
+  status: AppInstallStatus | 'all' = 'installed',
+): Promise<{
+  byStatus: AppUserListBreakdownItem[];
+  byTownship: AppUserListBreakdownItem[];
+  byTag: AppUserListBreakdownItem[];
+  townshipStatus: AppInstallStatus | 'all';
+  tagStatus: AppInstallStatus | 'all';
+}> {
+  const statusQuery =
+    status && status !== 'all' ? `&status=${encodeURIComponent(status)}` : '';
+  const response = await webApiRequest<AppUserListBreakdownResponse>(
+    `/app-installs/analytics/breakdown?range=${range}${statusQuery}`,
+    { token },
+  );
+  return {
+    byStatus: response.data?.byStatus ?? [],
+    byTownship: response.data?.byTownship ?? [],
+    byTag: response.data?.byTag ?? [],
+    townshipStatus: response.data?.townshipStatus ?? 'installed',
+    tagStatus:
+      response.data?.tagStatus ?? response.data?.townshipStatus ?? 'installed',
   };
 }
 

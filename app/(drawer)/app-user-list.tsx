@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import {
   ActivityIndicator,
@@ -11,17 +11,21 @@ import {
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { AreaLineChart } from '@/components/overview/AreaLineChart';
+import { HorizontalBarChart } from '@/components/overview/HorizontalBarChart';
+import { PieChart } from '@/components/overview/PieChart';
 import { useAuth } from '@/contexts/auth-context';
 import { useSearch } from '@/contexts/search-context';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
 import {
+  fetchAppUserListBreakdown,
   fetchAppUserListSummary,
   fetchAppUserListTimeline,
   APP_INSTALL_STATUS_OPTIONS,
   MongoSaveErrorDialog,
   mongoSaveErrorMessage,
   type AppInstallStatus,
+  type AppUserListBreakdownItem,
   type AppUserListRange,
 } from '@/features/app-install';
 import type { OverviewAreaSeries } from '@/types/overview';
@@ -38,12 +42,46 @@ const STATUS_OPTIONS: Array<{ id: AppInstallStatus | 'all'; label: string }> = [
   ...APP_INSTALL_STATUS_OPTIONS,
 ];
 
+const STATUS_PIE_COLORS: Record<string, string> = {
+  installed: '#2FB344',
+  waiting: '#467FCF',
+  not_pick_up: '#D63939',
+  please_come_and_install: '#AE3EC9',
+  new: '#0CA678',
+  not_installed: '#F59F00',
+};
+
 function parseRange(raw: unknown): AppUserListRange {
   const value = String(raw ?? 'week').trim().toLowerCase();
   if (value === 'today') return 'today';
   if (value === 'yesterday') return 'yesterday';
   if (value === 'month') return 'month';
   return 'week';
+}
+
+function ChartCard({
+  title,
+  subtitle,
+  children,
+  borderColor,
+}: {
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+  borderColor: string;
+}) {
+  const detail = useDetailTheme();
+  return (
+    <View style={[styles.card, { borderColor }]}>
+      <Text style={[styles.cardTitle, { color: detail.onSurface }]}>{title}</Text>
+      {subtitle ? (
+        <Text style={[styles.cardSubtitle, { color: detail.label }]}>
+          {subtitle}
+        </Text>
+      ) : null}
+      <View style={styles.cardBody}>{children}</View>
+    </View>
+  );
 }
 
 export default function AppUserListDetailScreen() {
@@ -80,6 +118,15 @@ export default function AppUserListDetailScreen() {
   const [count, setCount] = useState(0);
   const [buckets, setBuckets] = useState<string[]>([]);
   const [series, setSeries] = useState<OverviewAreaSeries[]>([]);
+  const [byStatus, setByStatus] = useState<AppUserListBreakdownItem[]>([]);
+  const [byTownship, setByTownship] = useState<AppUserListBreakdownItem[]>([]);
+  const [byTag, setByTag] = useState<AppUserListBreakdownItem[]>([]);
+  const [townshipStatus, setTownshipStatus] = useState<
+    AppInstallStatus | 'all'
+  >('installed');
+  const [tagStatus, setTagStatus] = useState<AppInstallStatus | 'all'>(
+    'installed',
+  );
 
   const goBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -112,9 +159,10 @@ export default function AppUserListDetailScreen() {
     setError('');
     void (async () => {
       try {
-        const [summary, timeline] = await Promise.all([
+        const [summary, timeline, breakdown] = await Promise.all([
           fetchAppUserListSummary(token, range, status),
           fetchAppUserListTimeline(token, range, status),
+          fetchAppUserListBreakdown(token, range, status),
         ]);
 
         if (cancelled) {
@@ -124,6 +172,11 @@ export default function AppUserListDetailScreen() {
         setCount(summary);
         setBuckets(timeline.buckets);
         setSeries(timeline.series);
+        setByStatus(breakdown.byStatus);
+        setByTownship(breakdown.byTownship);
+        setByTag(breakdown.byTag);
+        setTownshipStatus(breakdown.townshipStatus);
+        setTagStatus(breakdown.tagStatus);
       } catch (err) {
         if (!cancelled) {
           const message =
@@ -152,6 +205,51 @@ export default function AppUserListDetailScreen() {
     const found = STATUS_OPTIONS.find(o => o.id === status);
     return found?.label ?? 'Installed';
   }, [status]);
+
+  const townshipStatusLabel = useMemo(() => {
+    if (townshipStatus === 'all') return 'all statuses';
+    return (
+      STATUS_OPTIONS.find(o => o.id === townshipStatus)?.label ?? 'Installed'
+    );
+  }, [townshipStatus]);
+
+  const tagStatusLabel = useMemo(() => {
+    if (tagStatus === 'all') return 'all statuses';
+    return STATUS_OPTIONS.find(o => o.id === tagStatus)?.label ?? 'Installed';
+  }, [tagStatus]);
+
+  const pieItems = useMemo(
+    () =>
+      byStatus.map(row => ({
+        id: row.id,
+        label: row.label,
+        value: row.count,
+        color: STATUS_PIE_COLORS[row.id],
+      })),
+    [byStatus],
+  );
+
+  const tagPieItems = useMemo(
+    () =>
+      byTag.map(row => ({
+        id: row.id,
+        label: row.label,
+        value: row.count,
+      })),
+    [byTag],
+  );
+
+  const townshipBars = useMemo(
+    () =>
+      byTownship.map(row => ({
+        id: row.id,
+        label: row.label,
+        value: row.count,
+      })),
+    [byTownship],
+  );
+
+  const chartGridStyle = isMobile ? styles.chartsStack : styles.chartsRow;
 
   return (
     <View style={[styles.container, { backgroundColor: detail.background }]}>
@@ -225,12 +323,56 @@ export default function AppUserListDetailScreen() {
               {error}
             </Text>
           ) : (
-            <View style={[styles.card, { borderColor: detail.border }]}>
-              <AreaLineChart
-                buckets={buckets}
-                series={series}
-                emptyLabel="No App User List data in this period."
-              />
+            <View style={styles.charts}>
+              <ChartCard
+                title="Trend"
+                subtitle={`${statusLabel} over ${rangeLabel.toLowerCase()}`}
+                borderColor={detail.border}>
+                <AreaLineChart
+                  buckets={buckets}
+                  series={series}
+                  emptyLabel="No App User List data in this period."
+                />
+              </ChartCard>
+
+              <View style={chartGridStyle}>
+                <View style={styles.chartHalf}>
+                  <ChartCard
+                    title="By status"
+                    subtitle={`All call statuses · ${rangeLabel.toLowerCase()}`}
+                    borderColor={detail.border}>
+                    <PieChart
+                      items={pieItems}
+                      emptyLabel="No status data in this period."
+                      size={isMobile ? 180 : 200}
+                    />
+                  </ChartCard>
+                </View>
+                <View style={styles.chartHalf}>
+                  <ChartCard
+                    title="By tag"
+                    subtitle={`${tagStatusLabel} by Odoo tag · ${rangeLabel.toLowerCase()}`}
+                    borderColor={detail.border}>
+                    <PieChart
+                      items={tagPieItems}
+                      emptyLabel="No tag data in this period."
+                      size={isMobile ? 180 : 200}
+                    />
+                  </ChartCard>
+                </View>
+              </View>
+
+              <ChartCard
+                title="By township"
+                subtitle={`${townshipStatusLabel} installs by area · ${rangeLabel.toLowerCase()}`}
+                borderColor={detail.border}>
+                <HorizontalBarChart
+                  items={townshipBars}
+                  emptyLabel="No township installs in this period."
+                  formatValue={value => value.toLocaleString()}
+                  maxItems={12}
+                />
+              </ChartCard>
             </View>
           )}
         </View>
@@ -277,10 +419,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  charts: {
+    gap: 16,
+  },
+  chartsRow: {
+    flexDirection: 'row',
+    gap: 16,
+    alignItems: 'stretch',
+  },
+  chartsStack: {
+    flexDirection: 'column',
+    gap: 16,
+  },
+  chartHalf: {
+    flex: 1,
+    minWidth: 0,
+  },
   card: {
     borderWidth: 1,
     borderRadius: 12,
     padding: 12,
+    gap: 4,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  cardSubtitle: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  cardBody: {
+    marginTop: 4,
   },
   rangeRow: {
     flexDirection: 'row',
@@ -289,4 +459,3 @@ const styles = StyleSheet.create({
   },
   chip: {},
 });
-

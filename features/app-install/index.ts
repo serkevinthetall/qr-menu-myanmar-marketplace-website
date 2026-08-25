@@ -13,13 +13,14 @@ export {
   fetchCallListNewCount,
   fetchAppUserListSummary,
   fetchAppUserListTimeline,
+  fetchAppUserListBreakdown,
   notifyCallListBadgeChanged,
   removeFromCallList,
   requestAppInstall,
   updateAppInstallStatus,
 } from './api';
 
-export type { AppUserListRange } from './api';
+export type { AppUserListRange, AppUserListBreakdownItem } from './api';
 export {
   APP_INSTALL_REASON_OPTIONS,
   APP_INSTALL_STATUS_OPTIONS,

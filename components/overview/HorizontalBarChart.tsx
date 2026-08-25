@@ -16,6 +16,8 @@ type HorizontalBarChartProps = {
   items: HorizontalBarItem[];
   emptyLabel?: string;
   formatValue?: (value: number) => string;
+  /** Max rows to show (default 8). */
+  maxItems?: number;
 };
 
 function defaultFormatValue(value: number): string {
@@ -33,6 +35,7 @@ export function HorizontalBarChart({
   items,
   emptyLabel = 'No data in this period.',
   formatValue = defaultFormatValue,
+  maxItems = 8,
 }: HorizontalBarChartProps) {
   const theme = useTheme();
   const detail = useDetailTheme();
@@ -41,8 +44,8 @@ export function HorizontalBarChart({
     () =>
       items
         .filter(item => Number.isFinite(item.value) && item.value > 0)
-        .slice(0, 8),
-    [items],
+        .slice(0, maxItems),
+    [items, maxItems],
   );
 
   const maxValue = useMemo(() => {
