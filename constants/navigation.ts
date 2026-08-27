@@ -78,7 +78,7 @@ const APP_PROMOTERS: NavItem = {
   label: 'App Promoter',
   icon: 'account-star-outline',
   title: 'App Promoter',
-  description: 'Manage App Promoter names for Mark Installed.',
+  description: 'View App Promoter names from Odoo (manage rates in Odoo).',
 };
 
 const PRODUCTS: NavItem = {
