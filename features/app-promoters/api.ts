@@ -3,8 +3,9 @@ import { webApiRequest } from '@/services/web/client';
 import type { AppPromoter } from './types';
 
 type ListResponse = { data: AppPromoter[] };
+type OneResponse = { data: AppPromoter };
 
-/** App Promoters from Odoo (read-only). Manage in Odoo Contacts → App Promoter. */
+/** App Promoters from Odoo (create/edit on website writes to Odoo). */
 export async function fetchAppPromoters(
   token: string,
   options?: { activeOnly?: boolean },
@@ -18,4 +19,39 @@ export async function fetchAppPromoters(
     token,
   });
   return response.data ?? [];
+}
+
+export async function createAppPromoter(
+  token: string,
+  body: { name: string; amountPerCustomer?: number; active?: boolean },
+): Promise<AppPromoter> {
+  const response = await webApiRequest<OneResponse>('/app-promoters', {
+    method: 'POST',
+    token,
+    body,
+  });
+  return response.data;
+}
+
+export async function updateAppPromoter(
+  token: string,
+  id: string,
+  body: { name?: string; amountPerCustomer?: number; active?: boolean },
+): Promise<AppPromoter> {
+  const response = await webApiRequest<OneResponse>(`/app-promoters/${id}`, {
+    method: 'PUT',
+    token,
+    body,
+  });
+  return response.data;
+}
+
+export async function deleteAppPromoter(
+  token: string,
+  id: string,
+): Promise<void> {
+  await webApiRequest<{ data: { id: string; removed: boolean } }>(
+    `/app-promoters/${id}`,
+    { method: 'DELETE', token },
+  );
 }

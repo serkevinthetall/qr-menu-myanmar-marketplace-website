@@ -71,7 +71,7 @@ export function AppPromoterInstallDialog({
             </View>
           ) : options.length === 0 ? (
             <Text style={styles.empty}>
-              No App Promoters yet. Add names in the App Promoter module first.
+              No App Promoters yet. Add names under App List → App Promoter.
             </Text>
           ) : (
             <DropdownField
