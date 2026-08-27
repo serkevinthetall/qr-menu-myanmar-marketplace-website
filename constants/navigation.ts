@@ -78,7 +78,7 @@ const APP_PROMOTERS: NavItem = {
   label: 'App Promoter',
   icon: 'account-star-outline',
   title: 'App Promoter',
-  description: 'Manage App Promoter names for install requests.',
+  description: 'Manage App Promoter names for Mark Installed.',
 };
 
 const PRODUCTS: NavItem = {
@@ -129,7 +129,7 @@ const SETTINGS: NavItem = {
   description: 'Odoo connection, users, and app preferences.',
 };
 
-/** Drawer menu structure (supports nested Orders / Membership groups). */
+/** Drawer menu structure (supports nested Orders / App List / Membership groups). */
 export const NAV_ENTRIES: NavEntry[] = [
   { type: 'item', item: OVERVIEW },
   {
@@ -142,11 +142,16 @@ export const NAV_ENTRIES: NavEntry[] = [
   { type: 'item', item: CUSTOMERS },
   { type: 'item', item: PRODUCTS },
   { type: 'item', item: PURCHASE_ORDERS },
-  // @temp-feature app-install-call-list — own module, kept away from Orders / App Order
+  // @temp-feature app-install-call-list — App User List + App Promoter under App List
   ...(ENABLE_APP_INSTALL_CALL_LIST
     ? [
-        { type: 'item' as const, item: CALL_LIST },
-        { type: 'item' as const, item: APP_PROMOTERS },
+        {
+          type: 'group' as const,
+          id: 'app-list',
+          label: 'App List',
+          icon: 'cellphone-arrow-down',
+          children: [CALL_LIST, APP_PROMOTERS],
+        },
       ]
     : []),
   {

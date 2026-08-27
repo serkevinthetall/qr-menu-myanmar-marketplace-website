@@ -117,13 +117,19 @@ export function DrawerContent(props: DrawerContentComponentProps) {
           const expanded = Boolean(openGroups[entry.id]);
           const showGroupBadge =
             (entry.id === 'orders' && unreadCount > 0 && !expanded) ||
-            (entry.id === 'membership' && requestedCount > 0 && !expanded);
+            (entry.id === 'membership' && requestedCount > 0 && !expanded) ||
+            (entry.id === 'app-list' &&
+              ENABLE_APP_INSTALL_CALL_LIST &&
+              newCount > 0 &&
+              !expanded);
           const groupBadgeCount =
             entry.id === 'orders'
               ? unreadCount
               : entry.id === 'membership'
                 ? requestedCount
-                : 0;
+                : entry.id === 'app-list'
+                  ? newCount
+                  : 0;
 
           return (
             <View key={entry.id}>
