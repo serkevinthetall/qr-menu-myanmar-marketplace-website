@@ -22,6 +22,8 @@ type RequestSnapshot = {
 /**
  * Contact-list side of the temporary Call List feature.
  * Drop this hook (and its JSX dialog) when removing the feature.
+ *
+ * App Promoter dropdown only appears when marking Installed — not on Request.
  */
 export function useContactAppInstall(token: string | undefined) {
   const enabled = ENABLE_APP_INSTALL_CALL_LIST;
@@ -33,12 +35,10 @@ export function useContactAppInstall(token: string | undefined) {
   const [installBusyId, setInstallBusyId] = useState<string | null>(null);
   const [reasonForId, setReasonForId] = useState<string | null>(null);
   const [waitingForId, setWaitingForId] = useState<string | null>(null);
-  const [requestForId, setRequestForId] = useState<string | null>(null);
-  const [requestSnapshot, setRequestSnapshot] = useState<RequestSnapshot>({});
-  /** Dialog mode: new Request vs Mark Installed. */
-  const [promoterDialogMode, setPromoterDialogMode] = useState<
-    'request' | 'installed'
-  >('request');
+  /** Partner id waiting for App Promoter pick before Mark Installed. */
+  const [installPromoterForId, setInstallPromoterForId] = useState<string | null>(
+    null,
+  );
   const [promoterNames, setPromoterNames] = useState<string[]>([]);
   const [promotersLoading, setPromotersLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -89,70 +89,54 @@ export function useContactAppInstall(token: string | undefined) {
     [enabled, appInstallFilter, installMap],
   );
 
+  /** Request = add to App User List immediately (no promoter). */
   const handleRequestInstall = useCallback(
-    (id: string, snapshot?: RequestSnapshot) => {
+    async (id: string, snapshot?: RequestSnapshot) => {
       if (!enabled || !token) return;
-      setPromoterDialogMode('request');
-      setRequestSnapshot(snapshot ?? {});
-      setRequestForId(id);
+      setInstallBusyId(id);
+      try {
+        const record = await requestAppInstall(token, id, snapshot);
+        setInstallMap(prev => ({ ...prev, [id]: record }));
+        setMessage('Added to App User List (New).');
+      } catch (err) {
+        setSaveError(mongoSaveErrorMessage(err, 'Request'));
+      } finally {
+        setInstallBusyId(null);
+      }
+    },
+    [enabled, token],
+  );
+
+  /** Opens App Promoter dropdown; confirm marks Installed. */
+  const handleMarkInstalled = useCallback(
+    (id: string) => {
+      if (!enabled || !token) return;
+      setInstallPromoterForId(id);
       void loadActivePromoters();
     },
     [enabled, token, loadActivePromoters],
   );
 
-  const confirmRequestInstall = useCallback(
+  const confirmMarkInstalled = useCallback(
     async (appPromoter: string) => {
-      if (!enabled || !token || !requestForId) return;
-      const id = requestForId;
-      const snapshot = requestSnapshot;
-      const mode = promoterDialogMode;
+      if (!enabled || !token || !installPromoterForId) return;
+      const id = installPromoterForId;
       setInstallBusyId(id);
       try {
-        const record =
-          mode === 'installed'
-            ? await updateAppInstallStatus(token, id, {
-                status: 'installed',
-                appPromoter,
-              })
-            : await requestAppInstall(token, id, {
-                ...snapshot,
-                appPromoter,
-              });
+        const record = await updateAppInstallStatus(token, id, {
+          status: 'installed',
+          appPromoter,
+        });
         setInstallMap(prev => ({ ...prev, [id]: record }));
-        setMessage(
-          mode === 'installed'
-            ? 'Marked as Installed.'
-            : 'Added to App User List (New).',
-        );
-        setRequestForId(null);
-        setRequestSnapshot({});
-        setPromoterDialogMode('request');
+        setMessage('Marked as Installed.');
+        setInstallPromoterForId(null);
       } catch (err) {
-        setSaveError(
-          mongoSaveErrorMessage(
-            err,
-            mode === 'installed' ? 'Status update' : 'Request',
-          ),
-        );
+        setSaveError(mongoSaveErrorMessage(err, 'Status update'));
       } finally {
         setInstallBusyId(null);
       }
     },
-    [enabled, token, requestForId, requestSnapshot, promoterDialogMode],
-  );
-
-  const handleMarkInstalled = useCallback(
-    (id: string) => {
-      if (!enabled || !token) return;
-      setPromoterDialogMode('installed');
-      setRequestSnapshot({
-        name: installMap[id]?.name,
-        phone: installMap[id]?.phone,
-      });
-      setRequestForId(id);
-      void loadActivePromoters();
-    },
-    [enabled, token, installMap, loadActivePromoters],
+    [enabled, token, installPromoterForId],
   );
 
   const handleMarkWaiting = useCallback(
@@ -304,9 +288,8 @@ export function useContactAppInstall(token: string | undefined) {
     setReasonForId,
     waitingForId,
     setWaitingForId,
-    requestForId,
-    setRequestForId,
-    promoterDialogMode,
+    installPromoterForId,
+    setInstallPromoterForId,
     promoterNames,
     promotersLoading,
     message,
@@ -316,7 +299,7 @@ export function useContactAppInstall(token: string | undefined) {
     loadInstallMap,
     matchesInstallFilter,
     handleRequestInstall,
-    confirmRequestInstall,
+    confirmMarkInstalled,
     handleMarkInstalled,
     handleMarkWaiting,
     confirmWaitingNote,

@@ -187,7 +187,7 @@ export async function fetchAppUserListBreakdown(
 export async function requestAppInstall(
   token: string,
   partnerId: string,
-  snapshot?: { name?: string; phone?: string; appPromoter?: string },
+  snapshot?: { name?: string; phone?: string },
 ): Promise<AppInstallRecord> {
   const response = await webApiRequest<OneResponse>(
     `/app-installs/${partnerId}/request`,
@@ -197,7 +197,6 @@ export async function requestAppInstall(
       body: {
         name: snapshot?.name ?? '',
         phone: snapshot?.phone ?? '',
-        appPromoter: snapshot?.appPromoter ?? '',
       },
     },
   );

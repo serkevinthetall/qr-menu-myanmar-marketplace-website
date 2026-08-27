@@ -26,7 +26,7 @@ export function AppPromoterInstallDialog({
   loadingPromoters = false,
   busy = false,
   initialValue = '',
-  confirmLabel = 'Request install',
+  confirmLabel = 'Mark installed',
   helpText,
   onDismiss,
   onConfirm,

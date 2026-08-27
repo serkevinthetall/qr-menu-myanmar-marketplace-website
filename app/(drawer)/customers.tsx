@@ -1140,41 +1140,34 @@ export default function CustomersScreen() {
 
       {appInstall.enabled ? (
         <AppPromoterInstallDialog
-          visible={Boolean(appInstall.requestForId)}
+          visible={Boolean(appInstall.installPromoterForId)}
           contactName={
-            appInstall.requestForId
-              ? customers.find(c => c.id === appInstall.requestForId)?.name
+            appInstall.installPromoterForId
+              ? customers.find(c => c.id === appInstall.installPromoterForId)?.name
               : undefined
           }
           promoterNames={appInstall.promoterNames}
           loadingPromoters={appInstall.promotersLoading}
           busy={Boolean(
-            appInstall.requestForId &&
-              appInstall.installBusyId === appInstall.requestForId,
+            appInstall.installPromoterForId &&
+              appInstall.installBusyId === appInstall.installPromoterForId,
           )}
           initialValue={
-            appInstall.requestForId
-              ? appInstall.installMap[appInstall.requestForId]?.appPromoter || ''
+            appInstall.installPromoterForId
+              ? appInstall.installMap[appInstall.installPromoterForId]
+                  ?.appPromoter || ''
               : ''
           }
-          confirmLabel={
-            appInstall.promoterDialogMode === 'installed'
-              ? 'Mark installed'
-              : 'Request install'
-          }
-          helpText={
-            appInstall.promoterDialogMode === 'installed'
-              ? `Choose who promoted the app for ${
-                  appInstall.requestForId
-                    ? customers.find(c => c.id === appInstall.requestForId)?.name ||
-                      'this contact'
-                    : 'this contact'
-                } before marking Installed.`
-              : undefined
-          }
-          onDismiss={() => appInstall.setRequestForId(null)}
+          confirmLabel="Mark installed"
+          helpText={`Choose who promoted the app for ${
+            appInstall.installPromoterForId
+              ? customers.find(c => c.id === appInstall.installPromoterForId)
+                  ?.name || 'this contact'
+              : 'this contact'
+          } before marking Installed.`}
+          onDismiss={() => appInstall.setInstallPromoterForId(null)}
           onConfirm={appPromoter => {
-            void appInstall.confirmRequestInstall(appPromoter);
+            void appInstall.confirmMarkInstalled(appPromoter);
           }}
         />
       ) : null}
