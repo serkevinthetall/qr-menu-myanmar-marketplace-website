@@ -43,7 +43,7 @@ export default function AppPromotersScreen() {
   const { session } = useAuth();
   const { isDesktop } = useResponsive();
   const enabled = ENABLE_APP_INSTALL_CALL_LIST;
-  const { query } = useModuleSearch('Search App Promoters by name', enabled);
+  const query = useModuleSearch('Search App Promoters by name', enabled);
 
   const [rows, setRows] = useState<AppPromoter[]>([]);
   const [loading, setLoading] = useState(true);
