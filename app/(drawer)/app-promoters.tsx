@@ -16,7 +16,6 @@ import {
   IconButton,
   Portal,
   Snackbar,
-  Switch,
   Text,
   TextInput,
   useTheme,
@@ -212,31 +211,6 @@ export default function AppPromotersScreen() {
     }
   }, [session?.token, editRow, editName, editAmount]);
 
-  const onToggleActive = useCallback(
-    async (row: AppPromoter, active: boolean) => {
-      if (!session?.token) return;
-      setBusyId(row.id);
-      try {
-        const updated = await updateAppPromoter(session.token, row.id, {
-          active,
-        });
-        setRows(prev =>
-          prev.map(item => (item.id === updated.id ? updated : item)),
-        );
-        setSnack(
-          active
-            ? `"${row.name}" is active.`
-            : `"${row.name}" is hidden from dropdown.`,
-        );
-      } catch (err) {
-        setError(mongoSaveErrorMessage(err, 'Update'));
-      } finally {
-        setBusyId(null);
-      }
-    },
-    [session?.token],
-  );
-
   const onDelete = useCallback(async () => {
     if (!session?.token || !deleteRow) return;
     const id = deleteRow.id;
@@ -356,16 +330,6 @@ export default function AppPromotersScreen() {
           </View>
         ) : null}
 
-        <View style={[styles.cell, styles.activeCol]}>
-          <Switch
-            value={row.active}
-            disabled={busyId === row.id}
-            onValueChange={value => {
-              void onToggleActive(row, value);
-            }}
-          />
-        </View>
-
         <View style={[styles.cell, styles.actionsCol]}>
           <IconButton
             icon="pencil-outline"
@@ -481,7 +445,6 @@ export default function AppPromotersScreen() {
                 Status
               </Text>
             ) : null}
-            <Text style={[styles.listHeaderText, styles.activeCol]}>Show</Text>
             <Text style={[styles.listHeaderText, styles.actionsCol]}>
               Actions
             </Text>
@@ -712,7 +675,6 @@ const styles = StyleSheet.create({
   nameText: { fontWeight: '600', fontSize: 15 },
   amountCol: { width: 140 },
   statusCol: { width: 100 },
-  activeCol: { width: 72, alignItems: 'flex-start' },
   actionsCol: {
     width: 112,
     flexDirection: 'row',
