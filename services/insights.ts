@@ -73,6 +73,31 @@ export async function fetchOverviewDemand(
   return response.data;
 }
 
+export type OverviewSixMonthExportTopic = 'customers' | 'sales' | 'products';
+
+export type OverviewSixMonthExport = {
+  topic: OverviewSixMonthExportTopic;
+  range: { from: string; to: string };
+  months: string[];
+  headers: string[];
+  rows: Array<Array<string | number>>;
+  filename: string;
+  sheetName: string;
+};
+
+type SixMonthExportResponse = { data: OverviewSixMonthExport };
+
+export async function fetchOverviewSixMonthExport(
+  token: string,
+  topic: OverviewSixMonthExportTopic,
+): Promise<OverviewSixMonthExport> {
+  const response = await webApiRequest<SixMonthExportResponse>(
+    `/insights/export/six-month?topic=${encodeURIComponent(topic)}`,
+    { token },
+  );
+  return response.data;
+}
+
 export async function fetchAiSuggestions(
   token: string,
 ): Promise<AiSuggestionsStatus> {

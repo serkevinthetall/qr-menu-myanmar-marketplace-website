@@ -13,11 +13,19 @@ import { VerticalBarChart } from '@/components/overview/VerticalBarChart';
 import { CompareAiPanel } from '@/components/overview/CompareAiPanel';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { useAuth } from '@/contexts/auth-context';
-import { useSearch } from '@/contexts/search-context';
+import {
+  HeaderAction,
+  useHeaderActions,
+  useSearch,
+} from '@/contexts/search-context';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
 import { useCompareAi } from '@/hooks/use-compare-ai';
-import { fetchOverviewOrders } from '@/services/insights';
+import {
+  fetchOverviewOrders,
+  fetchOverviewSixMonthExport,
+} from '@/services/insights';
+import { exportOverviewSixMonthExcel } from '@/utils/export-overview-six-month-excel';
 import {
   OverviewCompareMode,
   OverviewOrderType,
@@ -104,6 +112,7 @@ export function OverviewOrdersDetailView({
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<'total' | 'date' | 'partner'>('total');
   const [compareLoaded, setCompareLoaded] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const goBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -112,6 +121,49 @@ export function OverviewOrdersDetailView({
     }
     router.replace('/overview');
   }, [router]);
+
+  const exportSixMonth = useCallback(async () => {
+    if (isPurchase || !token || exporting) {
+      return;
+    }
+    setExporting(true);
+    setError(null);
+    try {
+      const payload = await fetchOverviewSixMonthExport(token, 'sales');
+      const ok = exportOverviewSixMonthExcel(payload);
+      if (!ok) {
+        setError('Excel export is only available on web.');
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to export six-month sale orders.',
+      );
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, isPurchase, token]);
+
+  const headerActions = useMemo<HeaderAction[]>(
+    () =>
+      isPurchase
+        ? []
+        : [
+            {
+              key: 'excel-6m',
+              icon: exporting ? 'loading' : 'microsoft-excel',
+              onPress: () => {
+                void exportSixMonth();
+              },
+              accessibilityLabel: 'Export six months sale orders to Excel',
+              label: exporting ? 'Exporting…' : 'Export 6 months',
+            },
+          ],
+    [exportSixMonth, exporting, isPurchase],
+  );
+
+  useHeaderActions(headerActions);
 
   useFocusEffect(
     useCallback(() => {

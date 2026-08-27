@@ -12,11 +12,19 @@ import { Menu, Text, TextInput, useTheme } from 'react-native-paper';
 import { CompareAiPanel } from '@/components/overview/CompareAiPanel';
 import { VerticalBarChart } from '@/components/overview/VerticalBarChart';
 import { useAuth } from '@/contexts/auth-context';
-import { useSearch } from '@/contexts/search-context';
+import {
+  HeaderAction,
+  useHeaderActions,
+  useSearch,
+} from '@/contexts/search-context';
 import { useCompareAi } from '@/hooks/use-compare-ai';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
-import { fetchOverviewDemand } from '@/services/insights';
+import {
+  fetchOverviewDemand,
+  fetchOverviewSixMonthExport,
+} from '@/services/insights';
+import { exportOverviewSixMonthExcel } from '@/utils/export-overview-six-month-excel';
 import {
   OverviewCompareMode,
   OverviewDemand,
@@ -61,6 +69,7 @@ export function OverviewDemandDetailView({
   const [compareMenuOpen, setCompareMenuOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [compareLoaded, setCompareLoaded] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const goBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -69,6 +78,46 @@ export function OverviewDemandDetailView({
     }
     router.replace('/overview');
   }, [router]);
+
+  const exportSixMonth = useCallback(async () => {
+    if (!token || exporting) {
+      return;
+    }
+    setExporting(true);
+    setError(null);
+    try {
+      const payload = await fetchOverviewSixMonthExport(token, 'products');
+      const ok = exportOverviewSixMonthExcel(payload);
+      if (!ok) {
+        setError('Excel export is only available on web.');
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to export six-month products.',
+      );
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, token]);
+
+  const headerActions = useMemo<HeaderAction[]>(
+    () => [
+      {
+        key: 'excel-6m',
+        icon: exporting ? 'loading' : 'microsoft-excel',
+        onPress: () => {
+          void exportSixMonth();
+        },
+        accessibilityLabel: 'Export six months products to Excel',
+        label: exporting ? 'Exporting…' : 'Export 6 months',
+      },
+    ],
+    [exportSixMonth, exporting],
+  );
+
+  useHeaderActions(headerActions);
 
   useFocusEffect(
     useCallback(() => {

@@ -16,6 +16,7 @@ export function buildCallListExportRows(items: AppInstallRecord[]): Cell[][] {
       'Partner ID',
       'Name',
       'Phone',
+      'App Promoter',
       'Township',
       'Address',
       'Tags',
@@ -30,6 +31,7 @@ export function buildCallListExportRows(items: AppInstallRecord[]): Cell[][] {
       item.odooPartnerId,
       item.name || '',
       item.phone || '',
+      item.appPromoter || '',
       item.township || '',
       item.address ||
         [item.street, item.street2, item.city].filter(Boolean).join(', '),

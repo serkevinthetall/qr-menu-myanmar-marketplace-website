@@ -73,6 +73,14 @@ const CALL_LIST: NavItem = {
     'App install follow-ups for contacts. Separate from App Order notifications.',
 };
 
+const APP_PROMOTERS: NavItem = {
+  name: 'app-promoters',
+  label: 'App Promoter',
+  icon: 'account-star-outline',
+  title: 'App Promoter',
+  description: 'Manage App Promoter names for install requests.',
+};
+
 const PRODUCTS: NavItem = {
   name: 'products',
   label: 'Product',
@@ -136,7 +144,10 @@ export const NAV_ENTRIES: NavEntry[] = [
   { type: 'item', item: PURCHASE_ORDERS },
   // @temp-feature app-install-call-list — own module, kept away from Orders / App Order
   ...(ENABLE_APP_INSTALL_CALL_LIST
-    ? [{ type: 'item' as const, item: CALL_LIST }]
+    ? [
+        { type: 'item' as const, item: CALL_LIST },
+        { type: 'item' as const, item: APP_PROMOTERS },
+      ]
     : []),
   {
     type: 'group',

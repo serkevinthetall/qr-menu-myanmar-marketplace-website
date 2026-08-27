@@ -1,6 +1,8 @@
 /** @temp-feature app-install-call-list */
 import { useCallback, useState } from 'react';
 
+import { fetchAppPromoters } from '@/features/app-promoters';
+
 import {
   fetchAppInstallMap,
   removeFromCallList,
@@ -11,6 +13,11 @@ import type { AppInstallFilter } from './ContactAppInstallFilters';
 import { ENABLE_APP_INSTALL_CALL_LIST } from './enabled';
 import { mongoSaveErrorMessage } from './MongoSaveErrorDialog';
 import type { AppInstallReason, AppInstallRecord } from './types';
+
+type RequestSnapshot = {
+  name?: string;
+  phone?: string;
+};
 
 /**
  * Contact-list side of the temporary Call List feature.
@@ -26,6 +33,10 @@ export function useContactAppInstall(token: string | undefined) {
   const [installBusyId, setInstallBusyId] = useState<string | null>(null);
   const [reasonForId, setReasonForId] = useState<string | null>(null);
   const [waitingForId, setWaitingForId] = useState<string | null>(null);
+  const [requestForId, setRequestForId] = useState<string | null>(null);
+  const [requestSnapshot, setRequestSnapshot] = useState<RequestSnapshot>({});
+  const [promoterNames, setPromoterNames] = useState<string[]>([]);
+  const [promotersLoading, setPromotersLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [saveError, setSaveError] = useState('');
 
@@ -40,6 +51,23 @@ export function useContactAppInstall(token: string | undefined) {
     } catch (err) {
       setInstallMap({});
       setSaveError(mongoSaveErrorMessage(err, 'Loading App User List'));
+    }
+  }, [enabled, token]);
+
+  const loadActivePromoters = useCallback(async () => {
+    if (!enabled || !token) {
+      setPromoterNames([]);
+      return;
+    }
+    setPromotersLoading(true);
+    try {
+      const rows = await fetchAppPromoters(token, { activeOnly: true });
+      setPromoterNames(rows.map(row => row.name).filter(Boolean));
+    } catch (err) {
+      setPromoterNames([]);
+      setSaveError(mongoSaveErrorMessage(err, 'Loading App Promoters'));
+    } finally {
+      setPromotersLoading(false);
     }
   }, [enabled, token]);
 
@@ -58,20 +86,37 @@ export function useContactAppInstall(token: string | undefined) {
   );
 
   const handleRequestInstall = useCallback(
-    async (id: string, snapshot?: { name?: string; phone?: string }) => {
+    (id: string, snapshot?: RequestSnapshot) => {
       if (!enabled || !token) return;
+      setRequestSnapshot(snapshot ?? {});
+      setRequestForId(id);
+      void loadActivePromoters();
+    },
+    [enabled, token, loadActivePromoters],
+  );
+
+  const confirmRequestInstall = useCallback(
+    async (appPromoter: string) => {
+      if (!enabled || !token || !requestForId) return;
+      const id = requestForId;
+      const snapshot = requestSnapshot;
       setInstallBusyId(id);
       try {
-        const record = await requestAppInstall(token, id, snapshot);
+        const record = await requestAppInstall(token, id, {
+          ...snapshot,
+          appPromoter,
+        });
         setInstallMap(prev => ({ ...prev, [id]: record }));
         setMessage('Added to App User List (New).');
+        setRequestForId(null);
+        setRequestSnapshot({});
       } catch (err) {
         setSaveError(mongoSaveErrorMessage(err, 'Request'));
       } finally {
         setInstallBusyId(null);
       }
     },
-    [enabled, token],
+    [enabled, token, requestForId, requestSnapshot],
   );
 
   const handleMarkInstalled = useCallback(
@@ -242,6 +287,10 @@ export function useContactAppInstall(token: string | undefined) {
     setReasonForId,
     waitingForId,
     setWaitingForId,
+    requestForId,
+    setRequestForId,
+    promoterNames,
+    promotersLoading,
     message,
     setMessage,
     saveError,
@@ -249,6 +298,7 @@ export function useContactAppInstall(token: string | undefined) {
     loadInstallMap,
     matchesInstallFilter,
     handleRequestInstall,
+    confirmRequestInstall,
     handleMarkInstalled,
     handleMarkWaiting,
     confirmWaitingNote,

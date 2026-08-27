@@ -42,6 +42,8 @@ export type AppInstallRecord = {
   updatedAt: string | null;
   updatedByEmail: string;
   updatedByName: string;
+  /** App Promoter name chosen at Request time. */
+  appPromoter?: string;
   /** How many App Orders this partner has (0 if none). */
   appOrderCount?: number;
   lastAppOrderNumber?: string;

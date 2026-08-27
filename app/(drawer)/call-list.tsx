@@ -347,6 +347,14 @@ function CallListRow({
               {item.township}
             </Text>
           ) : null}
+          {item.appPromoter ? (
+            <Text
+              style={{ color: theme.colors.onSurfaceVariant, fontSize: 13 }}
+              numberOfLines={1}>
+              {' · '}
+              {item.appPromoter}
+            </Text>
+          ) : null}
         </View>
         {item.address ? (
           <Text
@@ -467,6 +475,13 @@ function CallListCard({
           style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}
           numberOfLines={1}>
           {item.township}
+        </Text>
+      ) : null}
+      {item.appPromoter ? (
+        <Text
+          style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}
+          numberOfLines={1}>
+          App Promoter: {item.appPromoter}
         </Text>
       ) : null}
       {item.address ? (

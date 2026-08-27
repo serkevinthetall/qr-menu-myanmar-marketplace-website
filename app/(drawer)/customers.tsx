@@ -51,6 +51,7 @@ import {
   type AppInstallRecord,
   type AppInstallStatus,
 } from '@/features/app-install';
+import { AppPromoterInstallDialog } from '@/features/app-promoters';
 import { fetchCustomerDetail, fetchCustomers, fetchTownships } from '@/services/customers';
 import { Customer, CustomerDetail, Township } from '@/types/customer';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
@@ -1136,6 +1137,27 @@ export default function CustomersScreen() {
         onChange={setPage}
         centerLabel={`${customers.length} from Odoo`}
       />
+
+      {appInstall.enabled ? (
+        <AppPromoterInstallDialog
+          visible={Boolean(appInstall.requestForId)}
+          contactName={
+            appInstall.requestForId
+              ? customers.find(c => c.id === appInstall.requestForId)?.name
+              : undefined
+          }
+          promoterNames={appInstall.promoterNames}
+          loadingPromoters={appInstall.promotersLoading}
+          busy={Boolean(
+            appInstall.requestForId &&
+              appInstall.installBusyId === appInstall.requestForId,
+          )}
+          onDismiss={() => appInstall.setRequestForId(null)}
+          onConfirm={appPromoter => {
+            void appInstall.confirmRequestInstall(appPromoter);
+          }}
+        />
+      ) : null}
 
       {appInstall.enabled ? (
         <NotInstalledReasonDialog
