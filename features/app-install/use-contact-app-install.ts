@@ -35,6 +35,10 @@ export function useContactAppInstall(token: string | undefined) {
   const [waitingForId, setWaitingForId] = useState<string | null>(null);
   const [requestForId, setRequestForId] = useState<string | null>(null);
   const [requestSnapshot, setRequestSnapshot] = useState<RequestSnapshot>({});
+  /** Dialog mode: new Request vs Mark Installed. */
+  const [promoterDialogMode, setPromoterDialogMode] = useState<
+    'request' | 'installed'
+  >('request');
   const [promoterNames, setPromoterNames] = useState<string[]>([]);
   const [promotersLoading, setPromotersLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -88,6 +92,7 @@ export function useContactAppInstall(token: string | undefined) {
   const handleRequestInstall = useCallback(
     (id: string, snapshot?: RequestSnapshot) => {
       if (!enabled || !token) return;
+      setPromoterDialogMode('request');
       setRequestSnapshot(snapshot ?? {});
       setRequestForId(id);
       void loadActivePromoters();
@@ -100,42 +105,54 @@ export function useContactAppInstall(token: string | undefined) {
       if (!enabled || !token || !requestForId) return;
       const id = requestForId;
       const snapshot = requestSnapshot;
+      const mode = promoterDialogMode;
       setInstallBusyId(id);
       try {
-        const record = await requestAppInstall(token, id, {
-          ...snapshot,
-          appPromoter,
-        });
+        const record =
+          mode === 'installed'
+            ? await updateAppInstallStatus(token, id, {
+                status: 'installed',
+                appPromoter,
+              })
+            : await requestAppInstall(token, id, {
+                ...snapshot,
+                appPromoter,
+              });
         setInstallMap(prev => ({ ...prev, [id]: record }));
-        setMessage('Added to App User List (New).');
+        setMessage(
+          mode === 'installed'
+            ? 'Marked as Installed.'
+            : 'Added to App User List (New).',
+        );
         setRequestForId(null);
         setRequestSnapshot({});
+        setPromoterDialogMode('request');
       } catch (err) {
-        setSaveError(mongoSaveErrorMessage(err, 'Request'));
+        setSaveError(
+          mongoSaveErrorMessage(
+            err,
+            mode === 'installed' ? 'Status update' : 'Request',
+          ),
+        );
       } finally {
         setInstallBusyId(null);
       }
     },
-    [enabled, token, requestForId, requestSnapshot],
+    [enabled, token, requestForId, requestSnapshot, promoterDialogMode],
   );
 
   const handleMarkInstalled = useCallback(
-    async (id: string) => {
+    (id: string) => {
       if (!enabled || !token) return;
-      setInstallBusyId(id);
-      try {
-        const record = await updateAppInstallStatus(token, id, {
-          status: 'installed',
-        });
-        setInstallMap(prev => ({ ...prev, [id]: record }));
-        setMessage('Marked as Installed.');
-      } catch (err) {
-        setSaveError(mongoSaveErrorMessage(err, 'Status update'));
-      } finally {
-        setInstallBusyId(null);
-      }
+      setPromoterDialogMode('installed');
+      setRequestSnapshot({
+        name: installMap[id]?.name,
+        phone: installMap[id]?.phone,
+      });
+      setRequestForId(id);
+      void loadActivePromoters();
     },
-    [enabled, token],
+    [enabled, token, installMap, loadActivePromoters],
   );
 
   const handleMarkWaiting = useCallback(
@@ -289,6 +306,7 @@ export function useContactAppInstall(token: string | undefined) {
     setWaitingForId,
     requestForId,
     setRequestForId,
+    promoterDialogMode,
     promoterNames,
     promotersLoading,
     message,

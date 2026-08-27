@@ -212,6 +212,7 @@ export async function updateAppInstallStatus(
     status: AppInstallStatus;
     reason?: AppInstallReason;
     reasonNote?: string;
+    appPromoter?: string;
   },
 ): Promise<AppInstallRecord> {
   const response = await webApiRequest<OneResponse>(`/app-installs/${partnerId}`, {

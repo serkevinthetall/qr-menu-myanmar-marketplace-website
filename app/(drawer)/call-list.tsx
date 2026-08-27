@@ -57,6 +57,10 @@ import {
   type AppInstallTag,
   type AppUserListDateFilters,
 } from '@/features/app-install';
+import {
+  AppPromoterInstallDialog,
+  fetchAppPromoters,
+} from '@/features/app-promoters';
 import { useListUiCache } from '@/utils/list-ui-cache';
 import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
 import { toTelUri } from '@/utils/myanmar-phone';
@@ -565,6 +569,9 @@ export default function CallListScreen() {
   const [menuForId, setMenuForId] = useState<string | null>(null);
   const [reasonFor, setReasonFor] = useState<AppInstallRecord | null>(null);
   const [waitingFor, setWaitingFor] = useState<AppInstallRecord | null>(null);
+  const [installFor, setInstallFor] = useState<AppInstallRecord | null>(null);
+  const [promoterNames, setPromoterNames] = useState<string[]>([]);
+  const [promotersLoading, setPromotersLoading] = useState(false);
   const [removeFor, setRemoveFor] = useState<AppInstallRecord | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -899,6 +906,7 @@ export default function CallListScreen() {
       status: AppInstallStatus,
       reason?: AppInstallReason,
       reasonNote?: string,
+      appPromoter?: string,
     ) => {
       if (!session?.token) return;
       setBusyId(item.odooPartnerId);
@@ -906,7 +914,7 @@ export default function CallListScreen() {
         const updated = await updateAppInstallStatus(
           session.token,
           item.odooPartnerId,
-          { status, reason, reasonNote },
+          { status, reason, reasonNote, appPromoter },
         );
         setItems(prev =>
           prev.map(row =>
@@ -923,12 +931,14 @@ export default function CallListScreen() {
                   street2: updated.street2 || row.street2,
                   city: updated.city || row.city,
                   address: updated.address || row.address,
+                  appPromoter: updated.appPromoter || row.appPromoter,
                 }
               : row,
           ),
         );
         setReasonFor(null);
         setWaitingFor(null);
+        setInstallFor(null);
         setOtherReasonNote('');
         setWaitingNote('');
       } catch (err) {
@@ -939,6 +949,39 @@ export default function CallListScreen() {
       }
     },
     [session?.token],
+  );
+
+  const openInstalledPromoter = useCallback(
+    async (item: AppInstallRecord) => {
+      setInstallFor(item);
+      setMenuForId(null);
+      if (!session?.token) {
+        setPromoterNames([]);
+        return;
+      }
+      setPromotersLoading(true);
+      try {
+        const rows = await fetchAppPromoters(session.token, { activeOnly: true });
+        setPromoterNames(rows.map(row => row.name).filter(Boolean));
+      } catch (err) {
+        setPromoterNames([]);
+        setSaveError(mongoSaveErrorMessage(err, 'Loading App Promoters'));
+      } finally {
+        setPromotersLoading(false);
+      }
+    },
+    [session?.token],
+  );
+
+  const handleStatusPick = useCallback(
+    (item: AppInstallRecord, status: AppInstallStatus) => {
+      if (status === 'installed') {
+        void openInstalledPromoter(item);
+        return;
+      }
+      void setStatus(item, status);
+    },
+    [openInstalledPromoter, setStatus],
   );
 
   const removeItem = useCallback(
@@ -1040,7 +1083,7 @@ export default function CallListScreen() {
                   onOpenMenu={() => setMenuForId(item.odooPartnerId)}
                   onCloseMenu={() => setMenuForId(null)}
                   onStatus={status => {
-                    void setStatus(item, status);
+                    handleStatusPick(item, status);
                   }}
                   onNotInstalled={() => setReasonFor(item)}
                   onWaiting={() => setWaitingFor(item)}
@@ -1069,7 +1112,7 @@ export default function CallListScreen() {
                 onOpenMenu={() => setMenuForId(item.odooPartnerId)}
                 onCloseMenu={() => setMenuForId(null)}
                 onStatus={status => {
-                  void setStatus(item, status);
+                  handleStatusPick(item, status);
                 }}
                 onNotInstalled={() => setReasonFor(item)}
                 onWaiting={() => setWaitingFor(item)}
@@ -1093,6 +1136,24 @@ export default function CallListScreen() {
       <MongoSaveErrorDialog
         message={saveError}
         onDismiss={() => setSaveError('')}
+      />
+
+      <AppPromoterInstallDialog
+        visible={Boolean(installFor)}
+        contactName={installFor?.name}
+        promoterNames={promoterNames}
+        loadingPromoters={promotersLoading}
+        busy={Boolean(installFor && busyId === installFor.odooPartnerId)}
+        initialValue={installFor?.appPromoter || ''}
+        confirmLabel="Mark installed"
+        helpText={`Choose who promoted the app for ${
+          installFor?.name || 'this contact'
+        } before marking Installed.`}
+        onDismiss={() => setInstallFor(null)}
+        onConfirm={appPromoter => {
+          if (!installFor) return;
+          void setStatus(installFor, 'installed', undefined, undefined, appPromoter);
+        }}
       />
 
       <Portal>

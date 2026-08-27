@@ -1152,6 +1152,26 @@ export default function CustomersScreen() {
             appInstall.requestForId &&
               appInstall.installBusyId === appInstall.requestForId,
           )}
+          initialValue={
+            appInstall.requestForId
+              ? appInstall.installMap[appInstall.requestForId]?.appPromoter || ''
+              : ''
+          }
+          confirmLabel={
+            appInstall.promoterDialogMode === 'installed'
+              ? 'Mark installed'
+              : 'Request install'
+          }
+          helpText={
+            appInstall.promoterDialogMode === 'installed'
+              ? `Choose who promoted the app for ${
+                  appInstall.requestForId
+                    ? customers.find(c => c.id === appInstall.requestForId)?.name ||
+                      'this contact'
+                    : 'this contact'
+                } before marking Installed.`
+              : undefined
+          }
           onDismiss={() => appInstall.setRequestForId(null)}
           onConfirm={appPromoter => {
             void appInstall.confirmRequestInstall(appPromoter);

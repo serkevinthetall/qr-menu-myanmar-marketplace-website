@@ -1,4 +1,4 @@
-/** App Promoter picker shown before adding a contact to App User List. */
+/** App Promoter picker for install Request / Mark Installed. */
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Button, Dialog, Portal, Text } from 'react-native-paper';
@@ -11,6 +11,10 @@ type AppPromoterInstallDialogProps = {
   promoterNames: string[];
   loadingPromoters?: boolean;
   busy?: boolean;
+  /** Pre-select when the contact already has a promoter. */
+  initialValue?: string;
+  confirmLabel?: string;
+  helpText?: string;
   onDismiss: () => void;
   onConfirm: (appPromoter: string) => void;
 };
@@ -21,6 +25,9 @@ export function AppPromoterInstallDialog({
   promoterNames,
   loadingPromoters = false,
   busy = false,
+  initialValue = '',
+  confirmLabel = 'Request install',
+  helpText,
   onDismiss,
   onConfirm,
 }: AppPromoterInstallDialogProps) {
@@ -36,10 +43,15 @@ export function AppPromoterInstallDialog({
       setSelected('');
       return;
     }
+    const initial = initialValue.trim();
+    if (initial && options.includes(initial)) {
+      setSelected(initial);
+      return;
+    }
     if (options.length === 1) {
       setSelected(options[0]);
     }
-  }, [visible, options]);
+  }, [visible, options, initialValue]);
 
   const canConfirm = Boolean(selected.trim()) && !busy && !loadingPromoters;
 
@@ -49,7 +61,8 @@ export function AppPromoterInstallDialog({
         <Dialog.Title>App Promoter</Dialog.Title>
         <Dialog.Content>
           <Text style={styles.help}>
-            Choose who promoted the app for {contactName || 'this contact'}.
+            {helpText ||
+              `Choose who promoted the app for ${contactName || 'this contact'}.`}
           </Text>
           {loadingPromoters ? (
             <View style={styles.loadingRow}>
@@ -85,7 +98,7 @@ export function AppPromoterInstallDialog({
               if (!name) return;
               onConfirm(name);
             }}>
-            Request install
+            {confirmLabel}
           </Button>
         </Dialog.Actions>
       </Dialog>
