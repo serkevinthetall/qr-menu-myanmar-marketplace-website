@@ -20,6 +20,8 @@ import { DropdownField } from '@/components/ui/DropdownField';
 import { Pagination } from '@/components/ui/Pagination';
 import { useAuth } from '@/contexts/auth-context';
 import {
+  HeaderAction,
+  useHeaderActions,
   useModuleFilters,
   useModuleSearch,
   useSearch,
@@ -29,6 +31,7 @@ import { mongoSaveErrorMessage } from '@/features/app-install/MongoSaveErrorDial
 import {
   buildMonthOptions,
   currentMonthKey,
+  exportAppPromoterCommissionsExcel,
   fetchAppPromoterCommissions,
   formatMonthLabel,
   monthLabelToKey,
@@ -231,6 +234,39 @@ export default function AppPromoterCommissionsScreen() {
   );
 
   useModuleFilters(filterPanel, enabled);
+
+  const exportExcel = useCallback(() => {
+    if (rows.length === 0) {
+      setError('Nothing to export. Adjust filters or wait for commission lines.');
+      return;
+    }
+    setError('');
+    const ok = exportAppPromoterCommissionsExcel(rows, {
+      monthKey,
+      monthLabel: selectedMonthLabel,
+      promoterName: selectedPromoterName,
+      totalAmount,
+    });
+    if (!ok) {
+      setError('Excel export is only available on web.');
+    }
+  }, [rows, monthKey, selectedMonthLabel, selectedPromoterName, totalAmount]);
+
+  const headerActions = useMemo<HeaderAction[]>(
+    () =>
+      enabled
+        ? [
+            {
+              key: 'excel',
+              icon: 'microsoft-excel',
+              onPress: exportExcel,
+              accessibilityLabel: 'Export App Promoter Commission to Excel',
+            },
+          ]
+        : [],
+    [enabled, exportExcel],
+  );
+  useHeaderActions(headerActions);
 
   const refreshControl = (
     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />

@@ -58,5 +58,6 @@ export function monthLabelToKey(label: string, options: MonthOption[]): string {
   return found?.value ?? currentMonthKey();
 }
 
+export { exportAppPromoterCommissionsExcel } from './export-commissions-excel';
 export { fetchAppPromoterCommissions } from './api';
 export type { AppPromoterCommission, AppPromoterCommissionMeta } from './types';
