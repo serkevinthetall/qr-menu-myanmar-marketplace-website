@@ -100,4 +100,5 @@ export type CustomerDetail = {
   countryId: number | null;
   tags: string;
   memberCode: string;
+  appPromoter: string;
 };

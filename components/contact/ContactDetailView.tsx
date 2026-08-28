@@ -321,6 +321,7 @@ export function ContactDetailView({
               <InfoRow label="Email" value={detail.email} link />
               <InfoRow label="Phone" value={detail.phone} />
               <InfoRow label="Member code" value={detail.memberCode} />
+              <InfoRow label="App Promoter" value={detail.appPromoter} />
               <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
                 <Text style={[styles.infoLabel, { color: detailTheme.label }]}>Tags</Text>
                 <TagChips tags={detail.tags} />
