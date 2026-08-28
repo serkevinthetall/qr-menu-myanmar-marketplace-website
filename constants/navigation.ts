@@ -81,6 +81,14 @@ const APP_PROMOTERS: NavItem = {
   description: 'View App Promoter names from Odoo (manage rates in Odoo).',
 };
 
+const APP_PROMOTER_COMMISSIONS: NavItem = {
+  name: 'app-promoter-commissions',
+  label: 'App Commission',
+  icon: 'cash-multiple',
+  title: 'App Promoter Commission',
+  description: 'Commission lines from Odoo when app orders are confirmed.',
+};
+
 const PRODUCTS: NavItem = {
   name: 'products',
   label: 'Product',
@@ -150,7 +158,7 @@ export const NAV_ENTRIES: NavEntry[] = [
           id: 'app-list',
           label: 'App List',
           icon: 'cellphone-arrow-down',
-          children: [CALL_LIST, APP_PROMOTERS],
+          children: [CALL_LIST, APP_PROMOTERS, APP_PROMOTER_COMMISSIONS],
         },
       ]
     : []),
