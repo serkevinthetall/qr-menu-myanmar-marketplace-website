@@ -91,6 +91,7 @@ export default function AppPromoterCommissionsScreen() {
   useFocusEffect(
     useCallback(() => {
       if (enabled) {
+        setMonthKey(currentMonthKey());
         setFiltersExpanded(true);
       }
       return () => setFiltersExpanded(false);
