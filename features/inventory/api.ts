@@ -17,6 +17,20 @@ type MovesResponse = {
   meta: StockMovesMeta;
 };
 
+type CategoriesResponse = {
+  data: string[];
+};
+
+export async function fetchProductCategories(
+  token: string,
+): Promise<string[]> {
+  const response = await webApiRequest<CategoriesResponse>(
+    '/inventory/categories',
+    { token },
+  );
+  return response.data ?? [];
+}
+
 export async function fetchOnHandProducts(
   token: string,
   options?: {
@@ -56,6 +70,7 @@ export async function fetchStockMoves(
   options?: {
     month?: string;
     q?: string;
+    category?: string;
     limit?: number;
     offset?: number;
   },
@@ -63,6 +78,7 @@ export async function fetchStockMoves(
   const params = new URLSearchParams();
   if (options?.month) params.set('month', options.month);
   if (options?.q) params.set('q', options.q);
+  if (options?.category) params.set('category', options.category);
   if (options?.limit != null) params.set('limit', String(options.limit));
   if (options?.offset != null) params.set('offset', String(options.offset));
   const query = params.toString() ? `?${params.toString()}` : '';

@@ -16,6 +16,7 @@ import {
   useTheme,
 } from 'react-native-paper';
 
+import { DropdownField } from '@/components/ui/DropdownField';
 import { Pagination } from '@/components/ui/Pagination';
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -28,11 +29,13 @@ import {
 import {
   exportOnHandExcel,
   fetchOnHandProducts,
+  fetchProductCategories,
   type OnHandProduct,
 } from '@/features/inventory';
 import { useResponsive } from '@/hooks/use-responsive';
 
 const PAGE_SIZE = 50;
+const ALL_CATEGORIES = 'All categories';
 
 function formatQty(value: number): string {
   if (!Number.isFinite(value)) return '—';
@@ -47,7 +50,16 @@ export default function OnHandScreen() {
   const { session } = useAuth();
   const { isDesktop } = useResponsive();
   const { setFiltersExpanded } = useSearch();
-  const query = useModuleSearch('Search products by name or SKU');
+
+  const [category, setCategory] = useState('');
+  const [categories, setCategories] = useState<string[]>([]);
+  const selectedCategoryLabel = category || ALL_CATEGORIES;
+
+  const searchPlaceholder = useMemo(
+    () => `Search product name or SKU · ${selectedCategoryLabel}`,
+    [selectedCategoryLabel],
+  );
+  const query = useModuleSearch(searchPlaceholder);
 
   const [hideZero, setHideZero] = useState(false);
   const [rows, setRows] = useState<OnHandProduct[]>([]);
@@ -62,6 +74,21 @@ export default function OnHandScreen() {
     return () => setFiltersExpanded(false);
   }, [setFiltersExpanded]);
 
+  useEffect(() => {
+    if (!session?.token) return;
+    let cancelled = false;
+    void fetchProductCategories(session.token)
+      .then(names => {
+        if (!cancelled) setCategories(names);
+      })
+      .catch(() => {
+        if (!cancelled) setCategories([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.token]);
+
   const load = useCallback(
     async (opts?: { soft?: boolean }) => {
       if (!session?.token) {
@@ -74,6 +101,7 @@ export default function OnHandScreen() {
       try {
         const { rows: data, meta } = await fetchOnHandProducts(session.token, {
           q: query.trim() || undefined,
+          category: category || undefined,
           hideZero,
           limit: 500,
           offset: 0,
@@ -90,7 +118,7 @@ export default function OnHandScreen() {
         setRefreshing(false);
       }
     },
-    [session?.token, query, hideZero],
+    [session?.token, query, category, hideZero],
   );
 
   useEffect(() => {
@@ -134,13 +162,33 @@ export default function OnHandScreen() {
   const filterPanel = useMemo(
     () => (
       <View style={styles.headerFilterPanel}>
-        <View style={styles.hideZeroRow}>
-          <Text variant="bodyMedium">Hide zero stock</Text>
-          <Switch value={hideZero} onValueChange={setHideZero} />
+        <View style={styles.headerFilterControls}>
+          <View style={styles.filterField}>
+            <DropdownField
+              compact
+              variant="header"
+              placeholder="Category"
+              value={selectedCategoryLabel}
+              options={
+                categories.length > 0
+                  ? [ALL_CATEGORIES, ...categories]
+                  : [ALL_CATEGORIES]
+              }
+              onChange={label => {
+                setCategory(label === ALL_CATEGORIES ? '' : label);
+              }}
+              sortOptions={false}
+              showClearOption={false}
+            />
+          </View>
+          <View style={styles.hideZeroRow}>
+            <Text variant="bodyMedium">Hide zero stock</Text>
+            <Switch value={hideZero} onValueChange={setHideZero} />
+          </View>
         </View>
       </View>
     ),
-    [hideZero],
+    [selectedCategoryLabel, categories, hideZero],
   );
   useModuleFilters(filterPanel);
 
@@ -176,6 +224,7 @@ export default function OnHandScreen() {
             variant="bodySmall"
             style={{ color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
             {rows.length} product{rows.length === 1 ? '' : 's'}
+            {category ? ` · ${category}` : ''}
             {hideZero ? ' · zeros hidden' : ''}
           </Text>
         </View>
@@ -325,6 +374,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
   },
+  headerFilterControls: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterField: { minWidth: 180 },
   hideZeroRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -52,7 +52,7 @@ export function monthLabelToKey(label: string, options: MonthOption[]): string {
   return found?.value ?? currentMonthKey();
 }
 
-export { fetchOnHandProducts, fetchStockMoves } from './api';
+export { fetchOnHandProducts, fetchProductCategories, fetchStockMoves } from './api';
 export { exportOnHandExcel } from './export-on-hand-excel';
 export { exportStockMovesExcel } from './export-moves-excel';
 export type {
@@ -61,3 +61,4 @@ export type {
   StockMoveLine,
   StockMovesMeta,
 } from './types';
+

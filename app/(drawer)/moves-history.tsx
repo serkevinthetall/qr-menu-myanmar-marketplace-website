@@ -30,6 +30,7 @@ import {
   buildMonthOptions,
   currentMonthKey,
   exportStockMovesExcel,
+  fetchProductCategories,
   fetchStockMoves,
   formatMonthLabel,
   monthLabelToKey,
@@ -63,9 +64,16 @@ export default function MovesHistoryScreen() {
   const [monthKey, setMonthKey] = useState(currentMonthKey);
   const selectedMonthLabel = formatMonthLabel(monthKey);
 
+  const [category, setCategory] = useState('');
+  const [categories, setCategories] = useState<string[]>([]);
+  const ALL_CATEGORIES = 'All categories';
+
+  const selectedCategoryLabel = category || ALL_CATEGORIES;
+
   const searchPlaceholder = useMemo(
-    () => `Search · ${selectedMonthLabel}`,
-    [selectedMonthLabel],
+    () =>
+      `Search product name · ${selectedMonthLabel} · ${selectedCategoryLabel}`,
+    [selectedMonthLabel, selectedCategoryLabel],
   );
   const query = useModuleSearch(searchPlaceholder);
 
@@ -84,6 +92,21 @@ export default function MovesHistoryScreen() {
     }, [setFiltersExpanded]),
   );
 
+  useEffect(() => {
+    if (!session?.token) return;
+    let cancelled = false;
+    void fetchProductCategories(session.token)
+      .then(names => {
+        if (!cancelled) setCategories(names);
+      })
+      .catch(() => {
+        if (!cancelled) setCategories([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.token]);
+
   const load = useCallback(
     async (opts?: { soft?: boolean }) => {
       if (!session?.token) {
@@ -97,6 +120,7 @@ export default function MovesHistoryScreen() {
         const { rows: data, meta } = await fetchStockMoves(session.token, {
           month: monthKey,
           q: query.trim() || undefined,
+          category: category || undefined,
           limit: 500,
           offset: 0,
         });
@@ -112,7 +136,7 @@ export default function MovesHistoryScreen() {
         setRefreshing(false);
       }
     },
-    [session?.token, monthKey, query],
+    [session?.token, monthKey, query, category],
   );
 
   useEffect(() => {
@@ -192,10 +216,34 @@ export default function MovesHistoryScreen() {
               showClearOption={false}
             />
           </View>
+          <View style={styles.filterField}>
+            <DropdownField
+              compact
+              variant="header"
+              placeholder="Category"
+              value={selectedCategoryLabel}
+              options={
+                categories.length > 0
+                  ? [ALL_CATEGORIES, ...categories]
+                  : [ALL_CATEGORIES]
+              }
+              onChange={label => {
+                setCategory(label === ALL_CATEGORIES ? '' : label);
+              }}
+              sortOptions={false}
+              showClearOption={false}
+            />
+          </View>
         </View>
       </View>
     ),
-    [selectedMonthLabel, monthLabels, monthOptions],
+    [
+      selectedMonthLabel,
+      monthLabels,
+      monthOptions,
+      selectedCategoryLabel,
+      categories,
+    ],
   );
   useModuleFilters(filterPanel);
 
@@ -231,6 +279,7 @@ export default function MovesHistoryScreen() {
             variant="bodySmall"
             style={{ color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
             Done moves · {rows.length} line{rows.length === 1 ? '' : 's'}
+            {category ? ` · ${category}` : ''}
           </Text>
         </View>
         <View
