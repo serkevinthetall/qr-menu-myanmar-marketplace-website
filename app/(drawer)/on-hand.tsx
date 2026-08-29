@@ -64,7 +64,11 @@ export default function OnHandScreen() {
 
   const load = useCallback(
     async (opts?: { soft?: boolean }) => {
-      if (!session?.token) return;
+      if (!session?.token) {
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
       if (!opts?.soft) setLoading(true);
       setError('');
       try {
@@ -114,28 +118,31 @@ export default function OnHandScreen() {
     if (!ok) setError('Excel export is available on web only.');
   }, [rows, totalOnHand]);
 
-  useHeaderActions(
-    useMemo<HeaderAction[]>(
-      () => [
-        {
-          key: 'excel',
-          icon: 'microsoft-excel',
-          onPress: exportExcel,
-          accessibilityLabel: 'Export On Hand to Excel',
-        },
-      ],
-      [exportExcel],
-    ),
+  const headerActions = useMemo<HeaderAction[]>(
+    () => [
+      {
+        key: 'excel',
+        icon: 'microsoft-excel',
+        onPress: exportExcel,
+        accessibilityLabel: 'Export On Hand to Excel',
+      },
+    ],
+    [exportExcel],
   );
+  useHeaderActions(headerActions);
 
-  useModuleFilters(
-    <View style={styles.headerFilterPanel}>
-      <View style={styles.hideZeroRow}>
-        <Text variant="bodyMedium">Hide zero stock</Text>
-        <Switch value={hideZero} onValueChange={setHideZero} />
+  const filterPanel = useMemo(
+    () => (
+      <View style={styles.headerFilterPanel}>
+        <View style={styles.hideZeroRow}>
+          <Text variant="bodyMedium">Hide zero stock</Text>
+          <Switch value={hideZero} onValueChange={setHideZero} />
+        </View>
       </View>
-    </View>,
+    ),
+    [hideZero],
   );
+  useModuleFilters(filterPanel);
 
   const refreshControl = (
     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />

@@ -86,7 +86,11 @@ export default function MovesHistoryScreen() {
 
   const load = useCallback(
     async (opts?: { soft?: boolean }) => {
-      if (!session?.token) return;
+      if (!session?.token) {
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
       if (!opts?.soft) setLoading(true);
       setError('');
       try {
@@ -139,38 +143,43 @@ export default function MovesHistoryScreen() {
     if (!ok) setError('Excel export is available on web only.');
   }, [rows, monthKey, totalQuantity]);
 
-  useHeaderActions(
-    useMemo<HeaderAction[]>(
-      () => [
-        {
-          key: 'excel',
-          icon: 'microsoft-excel',
-          onPress: exportExcel,
-          accessibilityLabel: 'Export Moves History to Excel',
-        },
-      ],
-      [exportExcel],
-    ),
+  const headerActions = useMemo<HeaderAction[]>(
+    () => [
+      {
+        key: 'excel',
+        icon: 'microsoft-excel',
+        onPress: exportExcel,
+        accessibilityLabel: 'Export Moves History to Excel',
+      },
+    ],
+    [exportExcel],
   );
+  useHeaderActions(headerActions);
 
-  useModuleFilters(
-    <View style={styles.headerFilterPanel}>
-      <View style={styles.headerFilterControls}>
-        <View style={styles.filterField}>
-          <DropdownField
-            compact
-            variant="header"
-            placeholder="Month"
-            value={selectedMonthLabel}
-            options={monthLabels}
-            onChange={label => setMonthKey(monthLabelToKey(label, monthOptions))}
-            sortOptions={false}
-            showClearOption={false}
-          />
+  const filterPanel = useMemo(
+    () => (
+      <View style={styles.headerFilterPanel}>
+        <View style={styles.headerFilterControls}>
+          <View style={styles.filterField}>
+            <DropdownField
+              compact
+              variant="header"
+              placeholder="Month"
+              value={selectedMonthLabel}
+              options={monthLabels}
+              onChange={label =>
+                setMonthKey(monthLabelToKey(label, monthOptions))
+              }
+              sortOptions={false}
+              showClearOption={false}
+            />
+          </View>
         </View>
       </View>
-    </View>,
+    ),
+    [selectedMonthLabel, monthLabels, monthOptions],
   );
+  useModuleFilters(filterPanel);
 
   const refreshControl = (
     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
