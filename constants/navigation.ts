@@ -97,6 +97,22 @@ const PRODUCTS: NavItem = {
   description: 'Products synced from Odoo.',
 };
 
+const ON_HAND: NavItem = {
+  name: 'on-hand',
+  label: 'On Hand',
+  icon: 'warehouse',
+  title: 'On Hand',
+  description: 'Current stock quantities from Odoo for accounting.',
+};
+
+const MOVES_HISTORY: NavItem = {
+  name: 'moves-history',
+  label: 'Moves History',
+  icon: 'swap-horizontal',
+  title: 'Moves History',
+  description: 'Done stock move lines from Odoo (audit trail).',
+};
+
 const PURCHASE_ORDERS: NavItem = {
   name: 'purchase-orders',
   label: 'Purchase Order',
@@ -149,6 +165,13 @@ export const NAV_ENTRIES: NavEntry[] = [
   },
   { type: 'item', item: CUSTOMERS },
   { type: 'item', item: PRODUCTS },
+  {
+    type: 'group',
+    id: 'inventory',
+    label: 'Inventory',
+    icon: 'warehouse',
+    children: [ON_HAND, MOVES_HISTORY],
+  },
   { type: 'item', item: PURCHASE_ORDERS },
   // @temp-feature app-install-call-list — App User List + App Promoter under App List
   ...(ENABLE_APP_INSTALL_CALL_LIST
