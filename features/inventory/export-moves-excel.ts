@@ -14,22 +14,32 @@ export function buildStockMovesExportRows(
   items: StockMoveLine[],
   totalQuantity: number,
 ): Cell[][] {
+  const sorted = [...items].sort((a, b) => {
+    const cat = (a.category || '').localeCompare(b.category || '', undefined, {
+      sensitivity: 'base',
+    });
+    if (cat !== 0) return cat;
+    return (a.productName || '').localeCompare(b.productName || '', undefined, {
+      sensitivity: 'base',
+    });
+  });
+
   const header = [
     'Date',
-    'Reference',
-    'Product',
     'Category',
+    'Product',
+    'Reference',
     'From',
     'To',
     'Quantity',
     'Unit',
     'Status',
   ];
-  const dataRows = items.map(row => [
+  const dataRows = sorted.map(row => [
     formatDate(row.date),
-    row.reference || '',
-    row.productName || '',
     row.category || '',
+    row.productName || '',
+    row.reference || '',
     row.fromLocation || '',
     row.toLocation || '',
     Number.isFinite(row.quantity) ? row.quantity : 0,

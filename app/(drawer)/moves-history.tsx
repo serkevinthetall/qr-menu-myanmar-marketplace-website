@@ -126,10 +126,28 @@ export default function MovesHistoryScreen() {
 
   const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
+
+  /** Category first, then product — mirrors Odoo Category > Product grouping. */
+  const sortedRows = useMemo(() => {
+    return [...rows].sort((a, b) => {
+      const cat = (a.category || '').localeCompare(b.category || '', undefined, {
+        sensitivity: 'base',
+      });
+      if (cat !== 0) return cat;
+      const prod = (a.productName || '').localeCompare(
+        b.productName || '',
+        undefined,
+        { sensitivity: 'base' },
+      );
+      if (prod !== 0) return prod;
+      return String(b.date || '').localeCompare(String(a.date || ''));
+    });
+  }, [rows]);
+
   const paged = useMemo(() => {
     const start = (safePage - 1) * PAGE_SIZE;
-    return rows.slice(start, start + PAGE_SIZE);
-  }, [rows, safePage]);
+    return sortedRows.slice(start, start + PAGE_SIZE);
+  }, [sortedRows, safePage]);
 
   const exportExcel = useCallback(() => {
     if (rows.length === 0) {
@@ -252,6 +270,11 @@ export default function MovesHistoryScreen() {
               { backgroundColor: theme.colors.primary },
             ]}>
             <Text style={[styles.listHeaderText, styles.dateCol]}>Date</Text>
+            {isDesktop ? (
+              <Text style={[styles.listHeaderText, styles.catCol]}>
+                Category
+              </Text>
+            ) : null}
             <Text style={[styles.listHeaderText, styles.productCol]}>
               Product
             </Text>
@@ -271,75 +294,115 @@ export default function MovesHistoryScreen() {
           <ScrollView style={styles.flex} refreshControl={refreshControl}>
             {paged.map((row, index) => {
               const zebra = index % 2 === 1;
+              const prevCategory =
+                index > 0 ? paged[index - 1]?.category || '' : null;
+              const categoryLabel = row.category?.trim() || 'Uncategorized';
+              const showCategoryBreak =
+                isDesktop &&
+                (index === 0 || prevCategory !== (row.category || ''));
               return (
-                <View
-                  key={row.id}
-                  style={[
-                    styles.listRow,
-                    {
-                      backgroundColor: zebra
-                        ? theme.colors.surfaceVariant
-                        : theme.colors.surface,
-                      borderBottomColor:
-                        theme.colors.outlineVariant ?? theme.colors.outline,
-                    },
-                  ]}>
-                  <View style={[styles.cell, styles.dateCol]}>
-                    <Text style={styles.cellText}>
-                      {row.date ? formatMyanmarDate(row.date) : '—'}
-                    </Text>
-                  </View>
-                  <View style={[styles.cell, styles.productCol]}>
-                    <Text style={styles.cellText} numberOfLines={2}>
-                      {row.productName || '—'}
-                    </Text>
-                    {!isDesktop ? (
+                <View key={row.id}>
+                  {showCategoryBreak ? (
+                    <View
+                      style={[
+                        styles.categoryBreak,
+                        {
+                          backgroundColor: theme.colors.secondaryContainer,
+                          borderBottomColor:
+                            theme.colors.outlineVariant ?? theme.colors.outline,
+                        },
+                      ]}>
                       <Text
                         style={{
+                          color: theme.colors.onSecondaryContainer,
+                          fontWeight: '700',
                           fontSize: 12,
-                          color: theme.colors.onSurfaceVariant,
                         }}
                         numberOfLines={1}>
-                        {[row.fromLocation, row.toLocation]
-                          .filter(Boolean)
-                          .join(' → ') || row.reference || '—'}
+                        {categoryLabel}
                       </Text>
+                    </View>
+                  ) : null}
+                  <View
+                    style={[
+                      styles.listRow,
+                      {
+                        backgroundColor: zebra
+                          ? theme.colors.surfaceVariant
+                          : theme.colors.surface,
+                        borderBottomColor:
+                          theme.colors.outlineVariant ?? theme.colors.outline,
+                      },
+                    ]}>
+                    <View style={[styles.cell, styles.dateCol]}>
+                      <Text style={styles.cellText}>
+                        {row.date ? formatMyanmarDate(row.date) : '—'}
+                      </Text>
+                    </View>
+                    {isDesktop ? (
+                      <View style={[styles.cell, styles.catCol]}>
+                        <Text style={styles.cellText} numberOfLines={2}>
+                          {row.category || '—'}
+                        </Text>
+                      </View>
+                    ) : null}
+                    <View style={[styles.cell, styles.productCol]}>
+                      <Text style={styles.cellText} numberOfLines={2}>
+                        {row.productName || '—'}
+                      </Text>
+                      {!isDesktop ? (
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            color: theme.colors.onSurfaceVariant,
+                          }}
+                          numberOfLines={1}>
+                          {[
+                            row.category || 'Uncategorized',
+                            [row.fromLocation, row.toLocation]
+                              .filter(Boolean)
+                              .join(' → ') || row.reference,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {isDesktop ? (
+                      <View style={[styles.cell, styles.fromCol]}>
+                        <Text style={styles.cellText} numberOfLines={2}>
+                          {row.fromLocation || '—'}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {isDesktop ? (
+                      <View style={[styles.cell, styles.toCol]}>
+                        <Text style={styles.cellText} numberOfLines={2}>
+                          {row.toLocation || '—'}
+                        </Text>
+                      </View>
+                    ) : null}
+                    <View style={[styles.cell, styles.qtyCol]}>
+                      <Text style={styles.qtyText}>
+                        {formatQty(row.quantity)}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          color: theme.colors.onSurfaceVariant,
+                          textAlign: 'right',
+                        }}>
+                        {row.unit || ''}
+                      </Text>
+                    </View>
+                    {isDesktop ? (
+                      <View style={[styles.cell, styles.refCol]}>
+                        <Text style={styles.cellText} numberOfLines={1}>
+                          {row.reference || '—'}
+                        </Text>
+                      </View>
                     ) : null}
                   </View>
-                  {isDesktop ? (
-                    <View style={[styles.cell, styles.fromCol]}>
-                      <Text style={styles.cellText} numberOfLines={2}>
-                        {row.fromLocation || '—'}
-                      </Text>
-                    </View>
-                  ) : null}
-                  {isDesktop ? (
-                    <View style={[styles.cell, styles.toCol]}>
-                      <Text style={styles.cellText} numberOfLines={2}>
-                        {row.toLocation || '—'}
-                      </Text>
-                    </View>
-                  ) : null}
-                  <View style={[styles.cell, styles.qtyCol]}>
-                    <Text style={styles.qtyText}>
-                      {formatQty(row.quantity)}
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        color: theme.colors.onSurfaceVariant,
-                        textAlign: 'right',
-                      }}>
-                      {row.unit || ''}
-                    </Text>
-                  </View>
-                  {isDesktop ? (
-                    <View style={[styles.cell, styles.refCol]}>
-                      <Text style={styles.cellText} numberOfLines={1}>
-                        {row.reference || '—'}
-                      </Text>
-                    </View>
-                  ) : null}
                 </View>
               );
             })}
@@ -433,10 +496,16 @@ const styles = StyleSheet.create({
   cell: { paddingRight: 8, minWidth: 0 },
   cellText: { fontSize: 13 },
   qtyText: { fontSize: 13, fontWeight: '700', textAlign: 'right' },
-  dateCol: { flex: 1.1 },
-  productCol: { flex: 2.2 },
-  fromCol: { flex: 1.5 },
-  toCol: { flex: 1.5 },
-  qtyCol: { flex: 0.9, alignItems: 'flex-end' },
-  refCol: { flex: 1.2 },
+  categoryBreak: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  dateCol: { flex: 1 },
+  catCol: { flex: 1.3 },
+  productCol: { flex: 2 },
+  fromCol: { flex: 1.3 },
+  toCol: { flex: 1.3 },
+  qtyCol: { flex: 0.85, alignItems: 'flex-end' },
+  refCol: { flex: 1.1 },
 });
