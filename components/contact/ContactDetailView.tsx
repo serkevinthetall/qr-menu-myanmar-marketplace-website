@@ -189,7 +189,11 @@ type ContactDetailViewProps = {
   loading: boolean;
   error: string;
   portalBusy?: boolean;
+  /** Ensure App User List = New before password (first grant only). */
+  onPrepareGrantPortal?: () => Promise<void>;
   onGrantPortalAccess?: (password: string) => Promise<void>;
+  /** After first successful grant — open App Promoter → Installed. */
+  onAfterPortalGranted?: () => void;
 };
 
 export function ContactDetailView({
@@ -197,7 +201,9 @@ export function ContactDetailView({
   loading,
   error,
   portalBusy = false,
+  onPrepareGrantPortal,
   onGrantPortalAccess,
+  onAfterPortalGranted,
 }: ContactDetailViewProps) {
   const theme = useTheme();
   const detailTheme = useDetailTheme();
@@ -208,6 +214,7 @@ export function ContactDetailView({
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [password, setPassword] = useState('');
   const [formError, setFormError] = useState('');
+  const [prepareBusy, setPrepareBusy] = useState(false);
 
   const closePasswordDialog = useCallback(() => {
     if (portalBusy) return;
@@ -216,31 +223,51 @@ export function ContactDetailView({
     setFormError('');
   }, [portalBusy]);
 
-  const onPressGrantPortal = useCallback(() => {
+  const onPressGrantPortal = useCallback(async () => {
     if (!detail) return;
     const email = (detail.email || detail.portalAccess?.email || '').trim();
     if (!email) {
       setEmailNoticeOpen(true);
       return;
     }
+
+    const isFirstGrant = !detail.portalAccess?.granted;
+    if (isFirstGrant && onPrepareGrantPortal) {
+      setPrepareBusy(true);
+      try {
+        await onPrepareGrantPortal();
+      } catch (err) {
+        setFormError(
+          err instanceof Error ? err.message : 'Failed to prepare portal grant.',
+        );
+        setPrepareBusy(false);
+        return;
+      }
+      setPrepareBusy(false);
+    }
+
     setFormError('');
     setPassword('');
     setPasswordOpen(true);
-  }, [detail]);
+  }, [detail, onPrepareGrantPortal]);
 
   const onConfirmPassword = useCallback(async () => {
-    if (!onGrantPortalAccess) return;
+    if (!onGrantPortalAccess || !detail) return;
+    const isFirstGrant = !detail.portalAccess?.granted;
     setFormError('');
     try {
       await onGrantPortalAccess(password);
       setPasswordOpen(false);
       setPassword('');
+      if (isFirstGrant) {
+        onAfterPortalGranted?.();
+      }
     } catch (err) {
       setFormError(
         err instanceof Error ? err.message : 'Failed to grant portal access.',
       );
     }
-  }, [onGrantPortalAccess, password]);
+  }, [onGrantPortalAccess, onAfterPortalGranted, password, detail]);
 
   if (loading) {
     return (
@@ -362,6 +389,58 @@ export function ContactDetailView({
             </View>
           </SurfaceCard>
 
+          {onGrantPortalAccess ? (
+            <View style={styles.portalUnderHero}>
+              {portalGranted ? (
+                <View style={styles.portalUnderHeroRow}>
+                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                    <Text
+                      style={{
+                        color: detailTheme.label,
+                        fontSize: 12,
+                        fontWeight: '700',
+                        letterSpacing: 0.4,
+                      }}>
+                      PORTAL ACCESS
+                    </Text>
+                    <Text
+                      style={{ color: detailTheme.onSurface, fontSize: 14 }}
+                      numberOfLines={1}>
+                      Granted · {portalLogin || '—'}
+                    </Text>
+                  </View>
+                  <Button
+                    mode="outlined"
+                    compact
+                    icon="lock-reset"
+                    loading={portalBusy || prepareBusy}
+                    disabled={portalBusy || prepareBusy}
+                    onPress={() => {
+                      void onPressGrantPortal();
+                    }}>
+                    Reset password
+                  </Button>
+                </View>
+              ) : (
+                <Button
+                  mode="contained"
+                  icon="account-plus-outline"
+                  loading={portalBusy || prepareBusy}
+                  disabled={portalBusy || prepareBusy}
+                  onPress={() => {
+                    void onPressGrantPortal();
+                  }}>
+                  Grant portal access
+                </Button>
+              )}
+              {formError && !passwordOpen ? (
+                <Text style={{ color: theme.colors.error, fontSize: 13 }}>
+                  {formError}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+
           <View style={[styles.metaGrid, isMobile && styles.metaGridStack]}>
             <MetaTile
               icon="phone"
@@ -413,63 +492,6 @@ export function ContactDetailView({
                 </Text>
                 <TagChips tags={detail.tags} />
               </View>
-            </View>
-          </SurfaceCard>
-
-          <SurfaceCard noPadding>
-            <View
-              style={[
-                styles.sectionBar,
-                { borderBottomColor: detailTheme.border },
-              ]}>
-              <View style={styles.sectionBarLeft}>
-                <Icon
-                  source="account-key-outline"
-                  size={18}
-                  color={theme.colors.primary}
-                />
-                <Text
-                  style={[styles.sectionTitle, { color: detailTheme.onSurface }]}>
-                  External account
-                </Text>
-              </View>
-            </View>
-            <View style={styles.sectionBody}>
-              <Text
-                style={{
-                  color: detailTheme.label,
-                  fontSize: 13,
-                  marginBottom: 12,
-                  lineHeight: 18,
-                }}>
-                Grant Odoo Portal access so this contact can log in with their
-                email and a password you set.
-              </Text>
-              {portalGranted ? (
-                <View style={{ gap: 10 }}>
-                  <InfoRow label="Portal status" value="Granted" />
-                  <InfoRow label="Login" value={portalLogin} />
-                  {onGrantPortalAccess ? (
-                    <Button
-                      mode="outlined"
-                      icon="lock-reset"
-                      loading={portalBusy}
-                      disabled={portalBusy}
-                      onPress={onPressGrantPortal}>
-                      Reset portal password
-                    </Button>
-                  ) : null}
-                </View>
-              ) : (
-                <Button
-                  mode="contained"
-                  icon="account-plus-outline"
-                  loading={portalBusy}
-                  disabled={portalBusy || !onGrantPortalAccess}
-                  onPress={onPressGrantPortal}>
-                  Grant portal access
-                </Button>
-              )}
             </View>
           </SurfaceCard>
 
@@ -668,6 +690,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+  },
+  portalUnderHero: {
+    gap: 8,
+  },
+  portalUnderHeroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   heroChip: {
     flexDirection: 'row',

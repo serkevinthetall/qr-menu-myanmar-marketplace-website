@@ -281,6 +281,7 @@ export function useContactAppInstall(token: string | undefined) {
   return {
     enabled,
     installMap,
+    setInstallMap,
     appInstallFilter,
     setAppInstallFilter,
     installBusyId,

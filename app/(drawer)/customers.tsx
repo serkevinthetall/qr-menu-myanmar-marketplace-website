@@ -46,6 +46,7 @@ import {
   MongoSaveErrorDialog,
   NotInstalledReasonDialog,
   WaitingNoteDialog,
+  requestAppInstall,
   useContactAppInstall,
   type AppInstallFilter,
   type AppInstallRecord,
@@ -824,6 +825,51 @@ export default function CustomersScreen() {
     [session?.token, detailId, detail?.portalAccess?.granted],
   );
 
+  const prepareGrantPortal = useCallback(async () => {
+    if (!appInstall.enabled || !session?.token || !detailId) {
+      return;
+    }
+    if (appInstall.installMap[detailId]) {
+      return;
+    }
+    try {
+      const record = await requestAppInstall(session.token, detailId, {
+        name: detail?.name,
+        phone: detail?.phone,
+      });
+      appInstall.setInstallMap(prev => ({ ...prev, [detailId]: record }));
+      setSnackbar('Added to App User List (New).');
+    } catch (err) {
+      throw err instanceof Error
+        ? err
+        : new Error('Failed to mark contact as New.');
+    }
+  }, [
+    appInstall.enabled,
+    appInstall.installMap,
+    appInstall.setInstallMap,
+    session?.token,
+    detailId,
+    detail?.name,
+    detail?.phone,
+  ]);
+
+  const afterPortalGranted = useCallback(() => {
+    if (!appInstall.enabled || !detailId) {
+      return;
+    }
+    const existing = appInstall.installMap[detailId];
+    if (existing?.status === 'installed') {
+      return;
+    }
+    appInstall.handleMarkInstalled(detailId);
+  }, [
+    appInstall.enabled,
+    appInstall.installMap,
+    appInstall.handleMarkInstalled,
+    detailId,
+  ]);
+
   const navigateToCreateQuotation = useCallback(
     (customerId: string) => {
       if (customerId.startsWith('local-')) {
@@ -1019,8 +1065,49 @@ export default function CustomersScreen() {
           loading={detailLoading}
           error={detailError}
           portalBusy={portalBusy}
+          onPrepareGrantPortal={
+            appInstall.enabled ? prepareGrantPortal : undefined
+          }
           onGrantPortalAccess={grantPortalAccess}
+          onAfterPortalGranted={
+            appInstall.enabled ? afterPortalGranted : undefined
+          }
         />
+        {appInstall.enabled ? (
+          <AppPromoterInstallDialog
+            visible={Boolean(
+              appInstall.installPromoterForId &&
+                appInstall.installPromoterForId === detailId,
+            )}
+            contactName={detail?.name}
+            promoterNames={appInstall.promoterNames}
+            loadingPromoters={appInstall.promotersLoading}
+            busy={
+              appInstall.installPromoterForId === detailId &&
+              appInstall.installBusyId === detailId
+            }
+            initialValue={
+              appInstall.installPromoterForId
+                ? appInstall.installMap[appInstall.installPromoterForId]
+                    ?.appPromoter ||
+                  detail?.appPromoter ||
+                  ''
+                : ''
+            }
+            confirmLabel="Mark installed"
+            helpText="Portal password saved. Choose the App Promoter, then this contact is marked Installed."
+            onDismiss={() => appInstall.setInstallPromoterForId(null)}
+            onConfirm={appPromoter => {
+              void appInstall.confirmMarkInstalled(appPromoter);
+            }}
+          />
+        ) : null}
+        {appInstall.enabled ? (
+          <MongoSaveErrorDialog
+            message={appInstall.saveError}
+            onDismiss={() => appInstall.setSaveError('')}
+          />
+        ) : null}
         <Snackbar
           visible={!!snackbar}
           onDismiss={() => setSnackbar('')}
