@@ -1,6 +1,16 @@
-import { ReactNode } from 'react';
+import { ReactNode, useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Avatar, Icon, Text, useTheme } from 'react-native-paper';
+import {
+  ActivityIndicator,
+  Avatar,
+  Button,
+  Dialog,
+  Icon,
+  Portal,
+  Text,
+  TextInput,
+  useTheme,
+} from 'react-native-paper';
 
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
@@ -160,7 +170,15 @@ function initials(name: string) {
 }
 
 function addressLines(detail: CustomerDetail): string {
-  return [detail.street, detail.street2, detail.township, detail.city, detail.state, detail.zip, detail.country]
+  return [
+    detail.street,
+    detail.street2,
+    detail.township,
+    detail.city,
+    detail.state,
+    detail.zip,
+    detail.country,
+  ]
     .map(part => part?.trim())
     .filter(Boolean)
     .join(', ');
@@ -170,17 +188,59 @@ type ContactDetailViewProps = {
   detail: CustomerDetail | null;
   loading: boolean;
   error: string;
+  portalBusy?: boolean;
+  onGrantPortalAccess?: (password: string) => Promise<void>;
 };
 
 export function ContactDetailView({
   detail,
   loading,
   error,
+  portalBusy = false,
+  onGrantPortalAccess,
 }: ContactDetailViewProps) {
   const theme = useTheme();
   const detailTheme = useDetailTheme();
   const { width } = useResponsive();
   const isMobile = width < 768;
+
+  const [emailNoticeOpen, setEmailNoticeOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [password, setPassword] = useState('');
+  const [formError, setFormError] = useState('');
+
+  const closePasswordDialog = useCallback(() => {
+    if (portalBusy) return;
+    setPasswordOpen(false);
+    setPassword('');
+    setFormError('');
+  }, [portalBusy]);
+
+  const onPressGrantPortal = useCallback(() => {
+    if (!detail) return;
+    const email = (detail.email || detail.portalAccess?.email || '').trim();
+    if (!email) {
+      setEmailNoticeOpen(true);
+      return;
+    }
+    setFormError('');
+    setPassword('');
+    setPasswordOpen(true);
+  }, [detail]);
+
+  const onConfirmPassword = useCallback(async () => {
+    if (!onGrantPortalAccess) return;
+    setFormError('');
+    try {
+      await onGrantPortalAccess(password);
+      setPasswordOpen(false);
+      setPassword('');
+    } catch (err) {
+      setFormError(
+        err instanceof Error ? err.message : 'Failed to grant portal access.',
+      );
+    }
+  }, [onGrantPortalAccess, password]);
 
   if (loading) {
     return (
@@ -201,7 +261,11 @@ export function ContactDetailView({
         <View style={styles.centerOverlay}>
           <Text
             variant="titleMedium"
-            style={{ fontWeight: '600', marginBottom: 8, color: theme.colors.onSurface }}>
+            style={{
+              fontWeight: '600',
+              marginBottom: 8,
+              color: theme.colors.onSurface,
+            }}>
             Could not load contact
           </Text>
           <Text style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center' }}>
@@ -216,13 +280,21 @@ export function ContactDetailView({
     return (
       <View style={[styles.container, { backgroundColor: detailTheme.background }]}>
         <View style={styles.centerOverlay}>
-          <Text style={{ color: theme.colors.onSurfaceVariant }}>Contact not found.</Text>
+          <Text style={{ color: theme.colors.onSurfaceVariant }}>
+            Contact not found.
+          </Text>
         </View>
       </View>
     );
   }
 
   const summaryAddress = addressLines(detail);
+  const portalGranted = Boolean(detail.portalAccess?.granted);
+  const portalLogin =
+    detail.portalAccess?.login ||
+    detail.email ||
+    detail.portalAccess?.email ||
+    '';
 
   return (
     <View style={[styles.container, { backgroundColor: detailTheme.background }]}>
@@ -235,7 +307,9 @@ export function ContactDetailView({
         showsVerticalScrollIndicator={false}>
         <View style={styles.page}>
           {error ? (
-            <Text style={{ color: theme.colors.error, paddingHorizontal: 4 }}>{error}</Text>
+            <Text style={{ color: theme.colors.error, paddingHorizontal: 4 }}>
+              {error}
+            </Text>
           ) : null}
 
           <SurfaceCard noPadding>
@@ -256,7 +330,9 @@ export function ContactDetailView({
                     {detail.name || '—'}
                   </CustomerNameText>
                   {detail.memberCode ? (
-                    <Text style={styles.heroMeta}>Member · {detail.memberCode}</Text>
+                    <Text style={styles.heroMeta}>
+                      Member · {detail.memberCode}
+                    </Text>
                   ) : detail.relatedCompany ? (
                     <Text style={styles.heroMeta} numberOfLines={1}>
                       {detail.relatedCompany}
@@ -273,7 +349,11 @@ export function ContactDetailView({
                   </Text>
                 </View>
                 <View style={styles.heroChip}>
-                  <Icon source="email-outline" size={14} color="rgba(255,255,255,0.9)" />
+                  <Icon
+                    source="email-outline"
+                    size={14}
+                    color="rgba(255,255,255,0.9)"
+                  />
                   <Text style={styles.heroChipText} numberOfLines={1}>
                     {detail.email?.trim() || 'No email'}
                   </Text>
@@ -309,8 +389,13 @@ export function ContactDetailView({
                 { borderBottomColor: detailTheme.border },
               ]}>
               <View style={styles.sectionBarLeft}>
-                <Icon source="account-outline" size={18} color={theme.colors.primary} />
-                <Text style={[styles.sectionTitle, { color: detailTheme.onSurface }]}>
+                <Icon
+                  source="account-outline"
+                  size={18}
+                  color={theme.colors.primary}
+                />
+                <Text
+                  style={[styles.sectionTitle, { color: detailTheme.onSurface }]}>
                   Contact details
                 </Text>
               </View>
@@ -323,7 +408,9 @@ export function ContactDetailView({
               <InfoRow label="Member code" value={detail.memberCode} />
               <InfoRow label="App Promoter" value={detail.appPromoter} />
               <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-                <Text style={[styles.infoLabel, { color: detailTheme.label }]}>Tags</Text>
+                <Text style={[styles.infoLabel, { color: detailTheme.label }]}>
+                  Tags
+                </Text>
                 <TagChips tags={detail.tags} />
               </View>
             </View>
@@ -336,8 +423,70 @@ export function ContactDetailView({
                 { borderBottomColor: detailTheme.border },
               ]}>
               <View style={styles.sectionBarLeft}>
-                <Icon source="home-map-marker" size={18} color={theme.colors.primary} />
-                <Text style={[styles.sectionTitle, { color: detailTheme.onSurface }]}>
+                <Icon
+                  source="account-key-outline"
+                  size={18}
+                  color={theme.colors.primary}
+                />
+                <Text
+                  style={[styles.sectionTitle, { color: detailTheme.onSurface }]}>
+                  External account
+                </Text>
+              </View>
+            </View>
+            <View style={styles.sectionBody}>
+              <Text
+                style={{
+                  color: detailTheme.label,
+                  fontSize: 13,
+                  marginBottom: 12,
+                  lineHeight: 18,
+                }}>
+                Grant Odoo Portal access so this contact can log in with their
+                email and a password you set.
+              </Text>
+              {portalGranted ? (
+                <View style={{ gap: 10 }}>
+                  <InfoRow label="Portal status" value="Granted" />
+                  <InfoRow label="Login" value={portalLogin} />
+                  {onGrantPortalAccess ? (
+                    <Button
+                      mode="outlined"
+                      icon="lock-reset"
+                      loading={portalBusy}
+                      disabled={portalBusy}
+                      onPress={onPressGrantPortal}>
+                      Reset portal password
+                    </Button>
+                  ) : null}
+                </View>
+              ) : (
+                <Button
+                  mode="contained"
+                  icon="account-plus-outline"
+                  loading={portalBusy}
+                  disabled={portalBusy || !onGrantPortalAccess}
+                  onPress={onPressGrantPortal}>
+                  Grant portal access
+                </Button>
+              )}
+            </View>
+          </SurfaceCard>
+
+          <SurfaceCard noPadding>
+            <View
+              style={[
+                styles.sectionBar,
+                { borderBottomColor: detailTheme.border },
+              ]}>
+              <View style={styles.sectionBarLeft}>
+                <Icon
+                  source="home-map-marker"
+                  size={18}
+                  color={theme.colors.primary}
+                />
+                <Text
+                  style={[styles.sectionTitle, { color: detailTheme.onSurface }]}>
                   Address
                 </Text>
               </View>
@@ -347,12 +496,16 @@ export function ContactDetailView({
                 <Text
                   style={[
                     styles.addressSummary,
-                    { color: detailTheme.onSurface, backgroundColor: detailTheme.panelBg },
+                    {
+                      color: detailTheme.onSurface,
+                      backgroundColor: detailTheme.panelBg,
+                    },
                   ]}>
                   {summaryAddress}
                 </Text>
               ) : null}
-              <View style={[styles.addressGrid, isMobile && styles.addressGridStack]}>
+              <View
+                style={[styles.addressGrid, isMobile && styles.addressGridStack]}>
                 <View style={styles.addressCol}>
                   <InfoRow label="Address 1" value={detail.street} />
                   <InfoRow label="Address 2" value={detail.street2} />
@@ -369,6 +522,77 @@ export function ContactDetailView({
           </SurfaceCard>
         </View>
       </ScrollView>
+
+      <Portal>
+        <Dialog
+          visible={emailNoticeOpen}
+          onDismiss={() => setEmailNoticeOpen(false)}>
+          <Dialog.Title>Email required</Dialog.Title>
+          <Dialog.Content>
+            <Text>Please enter the email.</Text>
+            <Text
+              style={{
+                marginTop: 8,
+                color: theme.colors.onSurfaceVariant,
+                fontSize: 13,
+              }}>
+              Add an email on this contact in Odoo, then try Grant portal access
+              again.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setEmailNoticeOpen(false)}>OK</Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        <Dialog visible={passwordOpen} onDismiss={closePasswordDialog}>
+          <Dialog.Title>
+            {portalGranted ? 'Reset portal password' : 'Grant portal access'}
+          </Dialog.Title>
+          <Dialog.Content>
+            <Text
+              style={{
+                marginBottom: 12,
+                color: theme.colors.onSurfaceVariant,
+                fontSize: 13,
+              }}>
+              Login will be{' '}
+              <Text style={{ fontWeight: '700' }}>
+                {(detail.email || '').trim() || '—'}
+              </Text>
+              . Set a password for this external account.
+            </Text>
+            <TextInput
+              mode="outlined"
+              dense
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+            {formError ? (
+              <Text style={{ color: theme.colors.error, marginTop: 10 }}>
+                {formError}
+              </Text>
+            ) : null}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={closePasswordDialog} disabled={portalBusy}>
+              Cancel
+            </Button>
+            <Button
+              mode="contained"
+              loading={portalBusy}
+              disabled={portalBusy}
+              onPress={() => {
+                void onConfirmPassword();
+              }}>
+              {portalGranted ? 'Save password' : 'Grant access'}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
@@ -517,6 +741,7 @@ const styles = StyleSheet.create({
   sectionBody: {
     paddingHorizontal: 16,
     paddingVertical: 4,
+    paddingBottom: 16,
   },
   infoRow: {
     paddingVertical: 12,

@@ -112,6 +112,21 @@ export async function fetchCustomerDetail(
   return response.data;
 }
 
+export async function grantCustomerPortalAccess(
+  token: string,
+  id: string,
+  password: string,
+): Promise<NonNullable<CustomerDetail['portalAccess']>> {
+  const response = await webApiRequest<{
+    data: NonNullable<CustomerDetail['portalAccess']>;
+  }>(`/customers/${id}/portal-access`, {
+    token,
+    method: 'POST',
+    body: { password },
+  });
+  return response.data;
+}
+
 export async function fetchTownships(token: string): Promise<Township[]> {
   const response = await webApiRequest<TownshipsResponse>('/customers/townships', {
     token,

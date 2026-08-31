@@ -52,7 +52,12 @@ import {
   type AppInstallStatus,
 } from '@/features/app-install';
 import { AppPromoterInstallDialog } from '@/features/app-promoters';
-import { fetchCustomerDetail, fetchCustomers, fetchTownships } from '@/services/customers';
+import {
+  fetchCustomerDetail,
+  fetchCustomers,
+  fetchTownships,
+  grantCustomerPortalAccess,
+} from '@/services/customers';
 import { Customer, CustomerDetail, Township } from '@/types/customer';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
 import { normalizeMyanmarPhone } from '@/utils/myanmar-phone';
@@ -633,6 +638,7 @@ export default function CustomersScreen() {
   const [detail, setDetail] = useState<CustomerDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
+  const [portalBusy, setPortalBusy] = useState(false);
 
   // @temp-feature app-install-call-list — remove this hook when dropping the campaign
   const appInstall = useContactAppInstall(session?.token);
@@ -749,6 +755,7 @@ export default function CustomersScreen() {
     setDetailId(null);
     setDetail(null);
     setDetailError('');
+    setPortalBusy(false);
   }, []);
 
   const openDetail = useCallback(
@@ -778,6 +785,43 @@ export default function CustomersScreen() {
       }
     },
     [session?.token],
+  );
+
+  const grantPortalAccess = useCallback(
+    async (password: string) => {
+      if (!session?.token || !detailId) {
+        throw new Error('Not signed in.');
+      }
+      setPortalBusy(true);
+      try {
+        const wasGranted = Boolean(detail?.portalAccess?.granted);
+        const portal = await grantCustomerPortalAccess(
+          session.token,
+          detailId,
+          password,
+        );
+        setDetail(prev =>
+          prev
+            ? {
+                ...prev,
+                portalAccess: portal,
+              }
+            : prev,
+        );
+        setSnackbar(
+          wasGranted
+            ? 'Portal password updated.'
+            : 'Portal access granted.',
+        );
+      } catch (err) {
+        throw err instanceof Error
+          ? err
+          : new Error('Failed to grant portal access.');
+      } finally {
+        setPortalBusy(false);
+      }
+    },
+    [session?.token, detailId, detail?.portalAccess?.granted],
   );
 
   const navigateToCreateQuotation = useCallback(
@@ -974,6 +1018,8 @@ export default function CustomersScreen() {
           detail={detail}
           loading={detailLoading}
           error={detailError}
+          portalBusy={portalBusy}
+          onGrantPortalAccess={grantPortalAccess}
         />
         <Snackbar
           visible={!!snackbar}

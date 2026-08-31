@@ -101,4 +101,10 @@ export type CustomerDetail = {
   tags: string;
   memberCode: string;
   appPromoter: string;
+  portalAccess?: {
+    hasEmail: boolean;
+    email: string;
+    granted: boolean;
+    login: string;
+  };
 };
