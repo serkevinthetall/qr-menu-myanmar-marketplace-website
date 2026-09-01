@@ -127,6 +127,21 @@ export async function grantCustomerPortalAccess(
   return response.data;
 }
 
+export async function updateCustomerEmail(
+  token: string,
+  id: string,
+  email: string,
+): Promise<Pick<CustomerDetail, 'email' | 'portalAccess'>> {
+  const response = await webApiRequest<{
+    data: Pick<CustomerDetail, 'email' | 'portalAccess'>;
+  }>(`/customers/${id}`, {
+    token,
+    method: 'PATCH',
+    body: { email },
+  });
+  return response.data;
+}
+
 export async function fetchTownships(token: string): Promise<Township[]> {
   const response = await webApiRequest<TownshipsResponse>('/customers/townships', {
     token,

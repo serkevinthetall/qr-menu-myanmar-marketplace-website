@@ -189,6 +189,8 @@ type ContactDetailViewProps = {
   loading: boolean;
   error: string;
   portalBusy?: boolean;
+  emailBusy?: boolean;
+  onSaveEmail?: (email: string) => Promise<void>;
   /** Ensure App User List = New before password (first grant only). */
   onPrepareGrantPortal?: () => Promise<void>;
   onGrantPortalAccess?: (password: string) => Promise<void>;
@@ -201,6 +203,8 @@ export function ContactDetailView({
   loading,
   error,
   portalBusy = false,
+  emailBusy = false,
+  onSaveEmail,
   onPrepareGrantPortal,
   onGrantPortalAccess,
   onAfterPortalGranted,
@@ -210,46 +214,110 @@ export function ContactDetailView({
   const { width } = useResponsive();
   const isMobile = width < 768;
 
-  const [emailNoticeOpen, setEmailNoticeOpen] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailDraft, setEmailDraft] = useState('');
+  const [emailFormError, setEmailFormError] = useState('');
+  const [grantAfterEmail, setGrantAfterEmail] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [password, setPassword] = useState('');
   const [formError, setFormError] = useState('');
   const [prepareBusy, setPrepareBusy] = useState(false);
+  const [portalLoginEmail, setPortalLoginEmail] = useState('');
+
+  const closeEmailDialog = useCallback(() => {
+    if (emailBusy) return;
+    setEmailDialogOpen(false);
+    setEmailDraft('');
+    setEmailFormError('');
+    setGrantAfterEmail(false);
+  }, [emailBusy]);
 
   const closePasswordDialog = useCallback(() => {
     if (portalBusy) return;
     setPasswordOpen(false);
     setPassword('');
     setFormError('');
+    setPortalLoginEmail('');
   }, [portalBusy]);
+
+  const continueGrantPortal = useCallback(
+    async (knownEmail?: string) => {
+      if (!detail) return;
+      const email = (
+        knownEmail ||
+        detail.email ||
+        detail.portalAccess?.email ||
+        ''
+      ).trim();
+      if (!email) {
+        setGrantAfterEmail(true);
+        setEmailDialogOpen(true);
+        return;
+      }
+
+      setPortalLoginEmail(email);
+      const isFirstGrant = !detail.portalAccess?.granted;
+      if (isFirstGrant && onPrepareGrantPortal) {
+        setPrepareBusy(true);
+        try {
+          await onPrepareGrantPortal();
+        } catch (err) {
+          setFormError(
+            err instanceof Error ? err.message : 'Failed to prepare portal grant.',
+          );
+          setPrepareBusy(false);
+          return;
+        }
+        setPrepareBusy(false);
+      }
+
+      setFormError('');
+      setPassword('');
+      setPasswordOpen(true);
+    },
+    [detail, onPrepareGrantPortal],
+  );
+
+  const openEmailDialog = useCallback((forPortal: boolean) => {
+    setEmailDraft('');
+    setEmailFormError('');
+    setGrantAfterEmail(forPortal);
+    setEmailDialogOpen(true);
+  }, []);
 
   const onPressGrantPortal = useCallback(async () => {
     if (!detail) return;
     const email = (detail.email || detail.portalAccess?.email || '').trim();
     if (!email) {
-      setEmailNoticeOpen(true);
+      openEmailDialog(true);
       return;
     }
+    await continueGrantPortal(email);
+  }, [detail, openEmailDialog, continueGrantPortal]);
 
-    const isFirstGrant = !detail.portalAccess?.granted;
-    if (isFirstGrant && onPrepareGrantPortal) {
-      setPrepareBusy(true);
-      try {
-        await onPrepareGrantPortal();
-      } catch (err) {
-        setFormError(
-          err instanceof Error ? err.message : 'Failed to prepare portal grant.',
-        );
-        setPrepareBusy(false);
-        return;
-      }
-      setPrepareBusy(false);
+  const onConfirmEmail = useCallback(async () => {
+    if (!onSaveEmail) return;
+    const trimmed = emailDraft.trim();
+    if (!trimmed) {
+      setEmailFormError('Please enter the email.');
+      return;
     }
-
-    setFormError('');
-    setPassword('');
-    setPasswordOpen(true);
-  }, [detail, onPrepareGrantPortal]);
+    setEmailFormError('');
+    try {
+      await onSaveEmail(trimmed);
+      const shouldGrant = grantAfterEmail;
+      setEmailDialogOpen(false);
+      setEmailDraft('');
+      setGrantAfterEmail(false);
+      if (shouldGrant) {
+        await continueGrantPortal(trimmed);
+      }
+    } catch (err) {
+      setEmailFormError(
+        err instanceof Error ? err.message : 'Failed to save email.',
+      );
+    }
+  }, [onSaveEmail, emailDraft, grantAfterEmail, continueGrantPortal]);
 
   const onConfirmPassword = useCallback(async () => {
     if (!onGrantPortalAccess || !detail) return;
@@ -259,6 +327,7 @@ export function ContactDetailView({
       await onGrantPortalAccess(password);
       setPasswordOpen(false);
       setPassword('');
+      setPortalLoginEmail('');
       if (isFirstGrant) {
         onAfterPortalGranted?.();
       }
@@ -322,6 +391,7 @@ export function ContactDetailView({
     detail.email ||
     detail.portalAccess?.email ||
     '';
+  const hasEmail = Boolean((detail.email || detail.portalAccess?.email || '').trim());
 
   return (
     <View style={[styles.container, { backgroundColor: detailTheme.background }]}>
@@ -389,50 +459,62 @@ export function ContactDetailView({
             </View>
           </SurfaceCard>
 
-          {onGrantPortalAccess ? (
+          {onGrantPortalAccess || onSaveEmail ? (
             <View style={styles.portalUnderHero}>
-              {portalGranted ? (
-                <View style={styles.portalUnderHeroRow}>
-                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                    <Text
-                      style={{
-                        color: detailTheme.label,
-                        fontSize: 12,
-                        fontWeight: '700',
-                        letterSpacing: 0.4,
+              {!hasEmail && onSaveEmail ? (
+                <Button
+                  mode="outlined"
+                  icon="email-plus-outline"
+                  loading={emailBusy}
+                  disabled={emailBusy || portalBusy || prepareBusy}
+                  onPress={() => openEmailDialog(false)}>
+                  Set email
+                </Button>
+              ) : null}
+              {onGrantPortalAccess ? (
+                portalGranted ? (
+                  <View style={styles.portalUnderHeroRow}>
+                    <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                      <Text
+                        style={{
+                          color: detailTheme.label,
+                          fontSize: 12,
+                          fontWeight: '700',
+                          letterSpacing: 0.4,
+                        }}>
+                        PORTAL ACCESS
+                      </Text>
+                      <Text
+                        style={{ color: detailTheme.onSurface, fontSize: 14 }}
+                        numberOfLines={1}>
+                        Granted · {portalLogin || '—'}
+                      </Text>
+                    </View>
+                    <Button
+                      mode="outlined"
+                      compact
+                      icon="lock-reset"
+                      loading={portalBusy || prepareBusy}
+                      disabled={portalBusy || prepareBusy || emailBusy}
+                      onPress={() => {
+                        void onPressGrantPortal();
                       }}>
-                      PORTAL ACCESS
-                    </Text>
-                    <Text
-                      style={{ color: detailTheme.onSurface, fontSize: 14 }}
-                      numberOfLines={1}>
-                      Granted · {portalLogin || '—'}
-                    </Text>
+                      Reset password
+                    </Button>
                   </View>
+                ) : (
                   <Button
-                    mode="outlined"
-                    compact
-                    icon="lock-reset"
+                    mode="contained"
+                    icon="account-plus-outline"
                     loading={portalBusy || prepareBusy}
-                    disabled={portalBusy || prepareBusy}
+                    disabled={portalBusy || prepareBusy || emailBusy}
                     onPress={() => {
                       void onPressGrantPortal();
                     }}>
-                    Reset password
+                    Grant portal access
                   </Button>
-                </View>
-              ) : (
-                <Button
-                  mode="contained"
-                  icon="account-plus-outline"
-                  loading={portalBusy || prepareBusy}
-                  disabled={portalBusy || prepareBusy}
-                  onPress={() => {
-                    void onPressGrantPortal();
-                  }}>
-                  Grant portal access
-                </Button>
-              )}
+                )
+              ) : null}
               {formError && !passwordOpen ? (
                 <Text style={{ color: theme.colors.error, fontSize: 13 }}>
                   {formError}
@@ -482,7 +564,26 @@ export function ContactDetailView({
             <View style={styles.sectionBody}>
               <InfoRow label="Name" value={detail.name} />
               <InfoRow label="Related company" value={detail.relatedCompany} />
-              <InfoRow label="Email" value={detail.email} link />
+              {hasEmail ? (
+                <InfoRow label="Email" value={detail.email} link />
+              ) : onSaveEmail ? (
+                <View style={[styles.infoRow, { borderBottomColor: detailTheme.border }]}>
+                  <Text style={[styles.infoLabel, { color: detailTheme.label }]}>
+                    Email
+                  </Text>
+                  <Button
+                    mode="outlined"
+                    compact
+                    icon="email-plus-outline"
+                    loading={emailBusy}
+                    disabled={emailBusy}
+                    onPress={() => openEmailDialog(false)}>
+                    Set email
+                  </Button>
+                </View>
+              ) : (
+                <InfoRow label="Email" value={detail.email} link />
+              )}
               <InfoRow label="Phone" value={detail.phone} />
               <InfoRow label="Member code" value={detail.memberCode} />
               <InfoRow label="App Promoter" value={detail.appPromoter} />
@@ -546,24 +647,50 @@ export function ContactDetailView({
       </ScrollView>
 
       <Portal>
-        <Dialog
-          visible={emailNoticeOpen}
-          onDismiss={() => setEmailNoticeOpen(false)}>
-          <Dialog.Title>Email required</Dialog.Title>
+        <Dialog visible={emailDialogOpen} onDismiss={closeEmailDialog}>
+          <Dialog.Title>
+            {grantAfterEmail ? 'Email required' : 'Set email'}
+          </Dialog.Title>
           <Dialog.Content>
-            <Text>Please enter the email.</Text>
             <Text
               style={{
-                marginTop: 8,
+                marginBottom: 12,
                 color: theme.colors.onSurfaceVariant,
                 fontSize: 13,
               }}>
-              Add an email on this contact in Odoo, then try Grant portal access
-              again.
+              {grantAfterEmail
+                ? 'Enter an email for this contact before granting portal access.'
+                : 'Save an email address on this contact in Odoo.'}
             </Text>
+            <TextInput
+              mode="outlined"
+              dense
+              label="Email"
+              value={emailDraft}
+              onChangeText={setEmailDraft}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+            />
+            {emailFormError ? (
+              <Text style={{ color: theme.colors.error, marginTop: 10 }}>
+                {emailFormError}
+              </Text>
+            ) : null}
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setEmailNoticeOpen(false)}>OK</Button>
+            <Button onPress={closeEmailDialog} disabled={emailBusy}>
+              Cancel
+            </Button>
+            <Button
+              mode="contained"
+              loading={emailBusy}
+              disabled={emailBusy || !emailDraft.trim()}
+              onPress={() => {
+                void onConfirmEmail();
+              }}>
+              Save
+            </Button>
           </Dialog.Actions>
         </Dialog>
 
@@ -580,7 +707,9 @@ export function ContactDetailView({
               }}>
               Login will be{' '}
               <Text style={{ fontWeight: '700' }}>
-                {(detail.email || '').trim() || '—'}
+                {portalLoginEmail ||
+                  (detail.email || '').trim() ||
+                  '—'}
               </Text>
               . Set a password for this external account.
             </Text>

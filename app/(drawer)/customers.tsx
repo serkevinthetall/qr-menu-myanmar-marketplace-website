@@ -58,6 +58,7 @@ import {
   fetchCustomers,
   fetchTownships,
   grantCustomerPortalAccess,
+  updateCustomerEmail,
 } from '@/services/customers';
 import { Customer, CustomerDetail, Township } from '@/types/customer';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
@@ -640,6 +641,7 @@ export default function CustomersScreen() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
   const [portalBusy, setPortalBusy] = useState(false);
+  const [emailBusy, setEmailBusy] = useState(false);
 
   // @temp-feature app-install-call-list — remove this hook when dropping the campaign
   const appInstall = useContactAppInstall(session?.token);
@@ -757,6 +759,7 @@ export default function CustomersScreen() {
     setDetail(null);
     setDetailError('');
     setPortalBusy(false);
+    setEmailBusy(false);
   }, []);
 
   const openDetail = useCallback(
@@ -823,6 +826,33 @@ export default function CustomersScreen() {
       }
     },
     [session?.token, detailId, detail?.portalAccess?.granted],
+  );
+
+  const saveContactEmail = useCallback(
+    async (email: string) => {
+      if (!session?.token || !detailId) {
+        throw new Error('Not signed in.');
+      }
+      setEmailBusy(true);
+      try {
+        const updated = await updateCustomerEmail(session.token, detailId, email);
+        setDetail(prev =>
+          prev
+            ? {
+                ...prev,
+                email: updated.email,
+                portalAccess: updated.portalAccess ?? prev.portalAccess,
+              }
+            : prev,
+        );
+        setSnackbar('Email saved.');
+      } catch (err) {
+        throw err instanceof Error ? err : new Error('Failed to save email.');
+      } finally {
+        setEmailBusy(false);
+      }
+    },
+    [session?.token, detailId],
   );
 
   const prepareGrantPortal = useCallback(async () => {
@@ -1065,6 +1095,8 @@ export default function CustomersScreen() {
           loading={detailLoading}
           error={detailError}
           portalBusy={portalBusy}
+          emailBusy={emailBusy}
+          onSaveEmail={saveContactEmail}
           onPrepareGrantPortal={
             appInstall.enabled ? prepareGrantPortal : undefined
           }
