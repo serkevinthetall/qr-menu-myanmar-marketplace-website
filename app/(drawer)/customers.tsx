@@ -58,7 +58,6 @@ import {
   fetchCustomers,
   fetchTownships,
   grantCustomerPortalAccess,
-  updateCustomerEmail,
 } from '@/services/customers';
 import { Customer, CustomerDetail, Township } from '@/types/customer';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
@@ -620,9 +619,10 @@ export default function CustomersScreen() {
   const { session } = useAuth();
   const { width } = useResponsive();
   const router = useRouter();
-  const { detailId: routeDetailId, created } = useLocalSearchParams<{
+  const { detailId: routeDetailId, created, updated } = useLocalSearchParams<{
     detailId?: string;
     created?: string;
+    updated?: string;
   }>();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -641,7 +641,6 @@ export default function CustomersScreen() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
   const [portalBusy, setPortalBusy] = useState(false);
-  const [emailBusy, setEmailBusy] = useState(false);
 
   // @temp-feature app-install-call-list — remove this hook when dropping the campaign
   const appInstall = useContactAppInstall(session?.token);
@@ -759,7 +758,6 @@ export default function CustomersScreen() {
     setDetail(null);
     setDetailError('');
     setPortalBusy(false);
-    setEmailBusy(false);
   }, []);
 
   const openDetail = useCallback(
@@ -828,32 +826,15 @@ export default function CustomersScreen() {
     [session?.token, detailId, detail?.portalAccess?.granted],
   );
 
-  const saveContactEmail = useCallback(
-    async (email: string) => {
-      if (!session?.token || !detailId) {
-        throw new Error('Not signed in.');
-      }
-      setEmailBusy(true);
-      try {
-        const updated = await updateCustomerEmail(session.token, detailId, email);
-        setDetail(prev =>
-          prev
-            ? {
-                ...prev,
-                email: updated.email,
-                portalAccess: updated.portalAccess ?? prev.portalAccess,
-              }
-            : prev,
-        );
-        setSnackbar('Email saved.');
-      } catch (err) {
-        throw err instanceof Error ? err : new Error('Failed to save email.');
-      } finally {
-        setEmailBusy(false);
-      }
-    },
-    [session?.token, detailId],
-  );
+  const editContact = useCallback(() => {
+    if (!detailId) {
+      return;
+    }
+    router.push({
+      pathname: '/contact-edit',
+      params: { id: detailId },
+    });
+  }, [detailId, router]);
 
   const prepareGrantPortal = useCallback(async () => {
     if (!appInstall.enabled || !session?.token || !detailId) {
@@ -1078,8 +1059,12 @@ export default function CustomersScreen() {
       setSnackbar('Contact created in Odoo.');
     }
 
+    if (updated === '1') {
+      setSnackbar('Contact updated.');
+    }
+
     openDetail(String(routeDetailId));
-  }, [routeDetailId, created, session?.token, openDetail, loadCustomers]);
+  }, [routeDetailId, created, updated, session?.token, openDetail, loadCustomers]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -1095,8 +1080,7 @@ export default function CustomersScreen() {
           loading={detailLoading}
           error={detailError}
           portalBusy={portalBusy}
-          emailBusy={emailBusy}
-          onSaveEmail={saveContactEmail}
+          onEditContact={editContact}
           onPrepareGrantPortal={
             appInstall.enabled ? prepareGrantPortal : undefined
           }

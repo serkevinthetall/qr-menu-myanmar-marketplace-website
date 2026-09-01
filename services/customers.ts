@@ -8,6 +8,7 @@ import {
   CustomerAddressesResult,
   CustomerDetail,
   Township,
+  UpdateCustomerInput,
 } from '@/types/customer';
 import { webApiRequest } from '@/services/web/client';
 
@@ -127,17 +128,15 @@ export async function grantCustomerPortalAccess(
   return response.data;
 }
 
-export async function updateCustomerEmail(
+export async function updateCustomer(
   token: string,
   id: string,
-  email: string,
-): Promise<Pick<CustomerDetail, 'email' | 'portalAccess'>> {
-  const response = await webApiRequest<{
-    data: Pick<CustomerDetail, 'email' | 'portalAccess'>;
-  }>(`/customers/${id}`, {
+  input: UpdateCustomerInput,
+): Promise<CustomerDetail> {
+  const response = await webApiRequest<CustomerDetailResponse>(`/customers/${id}`, {
     token,
     method: 'PATCH',
-    body: { email },
+    body: input,
   });
   return response.data;
 }

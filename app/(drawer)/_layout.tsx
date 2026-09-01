@@ -85,6 +85,13 @@ export default function DrawerLayout() {
           }}
         />
         <Drawer.Screen
+          name="contact-edit"
+          options={{
+            title: 'Edit Contact',
+            drawerItemStyle: { display: 'none' },
+          }}
+        />
+        <Drawer.Screen
           name="overview-detail"
           options={{
             title: 'Overview detail',

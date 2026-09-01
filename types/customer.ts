@@ -13,6 +13,8 @@ export type CreateCustomerInput = {
   tagIds?: string[];
 };
 
+export type UpdateCustomerInput = CreateCustomerInput;
+
 export type ContactTag = {
   id: string;
   name: string;
@@ -99,6 +101,8 @@ export type CustomerDetail = {
   country: string;
   countryId: number | null;
   tags: string;
+  tagIds?: string[];
+  townshipId?: string | null;
   memberCode: string;
   appPromoter: string;
   portalAccess?: {

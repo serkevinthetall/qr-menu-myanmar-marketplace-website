@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Button,
-  Card,
   Chip,
   HelperText,
   Snackbar,
@@ -13,39 +12,37 @@ import {
   useTheme,
 } from 'react-native-paper';
 
-import { SearchableDropdownField } from '@/components/ui/SearchableDropdownField';
-import { useAuth } from '@/contexts/auth-context';
-import { useOptionalSearch } from '@/contexts/search-context';
-import { useResponsive } from '@/hooks/use-responsive';
-import {
-  createCustomer,
-  fetchContactTags,
-  fetchTownships,
-  searchContactsByPhone,
-} from '@/services/customers';
-import { ContactSearchResult, ContactTag, Customer, Township } from '@/types/customer';
-import { validateMyanmarPhone } from '@/utils/myanmar-phone';
-
 import {
   ContactForm,
   EMPTY_CONTACT_FORM,
   findMatchingTownship,
   toggleTag,
 } from '@/components/contact/contact-form-shared';
+import { SearchableDropdownField } from '@/components/ui/SearchableDropdownField';
+import { useAuth } from '@/contexts/auth-context';
+import { useOptionalSearch } from '@/contexts/search-context';
+import { useResponsive } from '@/hooks/use-responsive';
+import {
+  fetchContactTags,
+  fetchCustomerDetail,
+  fetchTownships,
+  searchContactsByPhone,
+  updateCustomer,
+} from '@/services/customers';
+import { ContactSearchResult, ContactTag, CustomerDetail, Township } from '@/types/customer';
+import { validateMyanmarPhone } from '@/utils/myanmar-phone';
 
-type CreateContactViewProps = {
-  initialPhone?: string;
-  embedded?: boolean;
-  onCreated?: (customer: Customer) => void;
+type EditContactViewProps = {
+  contactId: string;
+  onUpdated?: (detail: CustomerDetail) => void;
   onCancel?: () => void;
 };
 
-export function CreateContactView({
-  initialPhone = '',
-  embedded = false,
-  onCreated,
+export function EditContactView({
+  contactId,
+  onUpdated,
   onCancel,
-}: CreateContactViewProps = {}) {
+}: EditContactViewProps) {
   const theme = useTheme();
   const router = useRouter();
   const { session } = useAuth();
@@ -53,22 +50,17 @@ export function CreateContactView({
   const search = useOptionalSearch();
   const setDetailHeader = search?.setDetailHeader;
 
-  const [form, setForm] = useState<ContactForm>({
-    ...EMPTY_CONTACT_FORM,
-    phone: initialPhone,
-  });
+  const [form, setForm] = useState<ContactForm>(EMPTY_CONTACT_FORM);
   const [townshipOptions, setTownshipOptions] = useState<Township[]>([]);
   const [tagOptions, setTagOptions] = useState<ContactTag[]>([]);
-  const [loadingMeta, setLoadingMeta] = useState(true);
-  const [checkingPhone, setCheckingPhone] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [phoneError, setPhoneError] = useState('');
   const [formError, setFormError] = useState('');
   const [snackbar, setSnackbar] = useState('');
   const [matches, setMatches] = useState<ContactSearchResult[]>([]);
-  const [checkingPhoneOnBlur, setCheckingPhoneOnBlur] = useState(false);
 
-  const phoneDuplicate = matches.length > 0;
+  const phoneDuplicate = matches.some(match => match.id !== contactId);
 
   const townshipNames = useMemo(
     () => townshipOptions.map(township => township.name).sort((a, b) => a.localeCompare(b)),
@@ -84,47 +76,49 @@ export function CreateContactView({
   }, [onCancel, router]);
 
   useEffect(() => {
-    if (embedded || !setDetailHeader) {
+    if (!setDetailHeader) {
       return;
     }
 
     setDetailHeader({
-      title: 'New Contact',
+      title: 'Edit Contact',
       breadcrumbParent: 'Contacts',
       onBack: goBack,
     });
 
     return () => setDetailHeader(null);
-  }, [embedded, goBack, setDetailHeader]);
+  }, [goBack, setDetailHeader]);
 
   useEffect(() => {
-    if (!initialPhone) {
-      return;
-    }
-    setForm(current =>
-      current.phone === initialPhone ? current : { ...current, phone: initialPhone },
-    );
-  }, [initialPhone]);
-
-  useEffect(() => {
-    if (!session?.token) {
+    if (!session?.token || !contactId) {
       return;
     }
 
-    setLoadingMeta(true);
+    setLoading(true);
     Promise.all([
+      fetchCustomerDetail(session.token, contactId),
       fetchTownships(session.token),
       fetchContactTags(session.token),
     ])
-      .then(([townships, tags]) => {
+      .then(([detail, townships, tags]) => {
         setTownshipOptions(townships);
         setTagOptions(tags);
+        setForm({
+          name: detail.name ?? '',
+          email: detail.email ?? '',
+          phone: detail.phone ?? '',
+          street: detail.street ?? '',
+          street2: detail.street2 ?? '',
+          township: detail.township ?? '',
+          townshipId: detail.townshipId ?? '',
+          tagIds: detail.tagIds ?? [],
+        });
       })
       .catch(() => {
-        setSnackbar('Could not load townships or tags.');
+        setFormError('Could not load contact details.');
       })
-      .finally(() => setLoadingMeta(false));
-  }, [session?.token]);
+      .finally(() => setLoading(false));
+  }, [session?.token, contactId]);
 
   const handleTownshipChange = (townshipName: string) => {
     const match = townshipOptions.find(township => township.name === townshipName);
@@ -134,19 +128,6 @@ export function CreateContactView({
       townshipId: match?.id ?? '',
     }));
   };
-
-  const lookupDuplicates = useCallback(
-    async (normalizedPhone: string) => {
-      if (!session?.token) {
-        return [];
-      }
-
-      const results = await searchContactsByPhone(session.token, normalizedPhone);
-      setMatches(results);
-      return results;
-    },
-    [session?.token],
-  );
 
   const handlePhoneChange = (value: string) => {
     setForm(prev => ({ ...prev, phone: value }));
@@ -162,7 +143,6 @@ export function CreateContactView({
     }
 
     let normalized = '';
-
     try {
       normalized = validateMyanmarPhone(form.phone, 'ဖုန်းနံပါတ်');
       setForm(prev => ({ ...prev, phone: normalized }));
@@ -177,64 +157,12 @@ export function CreateContactView({
       return;
     }
 
-    setCheckingPhoneOnBlur(true);
-
     try {
-      await lookupDuplicates(normalized);
+      const results = await searchContactsByPhone(session.token, normalized);
+      setMatches(results.filter(match => match.id !== contactId));
     } catch {
-      // Keep manual check available if auto lookup fails.
-    } finally {
-      setCheckingPhoneOnBlur(false);
+      setMatches([]);
     }
-  };
-
-  const handleCheckPhone = async () => {
-    if (!session?.token) {
-      return;
-    }
-
-    setFormError('');
-    setMatches([]);
-
-    let normalized = '';
-
-    try {
-      normalized = validateMyanmarPhone(form.phone, 'ဖုန်းနံပါတ်');
-      setForm(prev => ({ ...prev, phone: normalized }));
-      setPhoneError('');
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Invalid phone number.';
-      setPhoneError(message);
-      return;
-    }
-
-    setCheckingPhone(true);
-
-    try {
-      const results = await lookupDuplicates(normalized);
-
-      if (results.length === 0) {
-        setSnackbar('No existing contact found for this phone number.');
-      } else {
-        setFormError(
-          'This phone number already belongs to an existing contact. You cannot create a duplicate.',
-        );
-      }
-    } catch (error) {
-      setFormError(
-        error instanceof Error ? error.message : 'Failed to search contacts.',
-      );
-    } finally {
-      setCheckingPhone(false);
-    }
-  };
-
-  const openExistingContact = (contactId: string) => {
-    router.replace({
-      pathname: '/customers',
-      params: { detailId: contactId },
-    });
   };
 
   const handleSave = async () => {
@@ -252,7 +180,6 @@ export function CreateContactView({
     }
 
     let phone = '';
-
     try {
       phone = validateMyanmarPhone(form.phone, 'ဖုန်းနံပါတ်');
     } catch (error) {
@@ -272,7 +199,7 @@ export function CreateContactView({
 
     if (phoneDuplicate) {
       setFormError(
-        'This phone number already belongs to an existing contact. Open the existing contact instead of creating a new one.',
+        'This phone number already belongs to another contact. Use a different number.',
       );
       return;
     }
@@ -280,16 +207,17 @@ export function CreateContactView({
     setSaving(true);
 
     try {
-      const existing = await lookupDuplicates(phone);
-      if (existing.length > 0) {
+      const existing = await searchContactsByPhone(session.token, phone);
+      const duplicate = existing.some(match => match.id !== contactId);
+      if (duplicate) {
         setFormError(
-          'This phone number already belongs to an existing contact. Open the existing contact instead of creating a new one.',
+          'This phone number already belongs to another contact. Use a different number.',
         );
         setSaving(false);
         return;
       }
 
-      const created = await createCustomer(session.token, {
+      const updated = await updateCustomer(session.token, contactId, {
         name,
         email: form.email.trim() || undefined,
         phone,
@@ -299,29 +227,29 @@ export function CreateContactView({
         tagIds: form.tagIds.length > 0 ? form.tagIds : undefined,
       });
 
-      if (onCreated) {
-        onCreated(created);
+      if (onUpdated) {
+        onUpdated(updated);
         return;
       }
 
       router.replace({
         pathname: '/customers',
-        params: { detailId: created.id, created: '1' },
+        params: { detailId: contactId, updated: '1' },
       });
     } catch (error) {
       setFormError(
-        error instanceof Error ? error.message : 'Failed to create contact in Odoo.',
+        error instanceof Error ? error.message : 'Failed to update contact in Odoo.',
       );
     } finally {
       setSaving(false);
     }
   };
 
-  if (loadingMeta) {
+  if (loading) {
     return (
       <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator />
-        <Text style={{ marginTop: 12 }}>Loading form...</Text>
+        <Text style={{ marginTop: 12 }}>Loading contact...</Text>
       </View>
     );
   }
@@ -336,10 +264,10 @@ export function CreateContactView({
         ]}
         keyboardShouldPersistTaps="handled">
         <Text variant="headlineSmall" style={styles.title}>
-          Create New Contact
+          Edit Contact
         </Text>
         <Text style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
-          Fill in customer details. Phone, name, and township are required.
+          Update customer details. Phone, name, and township are required.
         </Text>
 
         <TextInput
@@ -354,63 +282,8 @@ export function CreateContactView({
         {phoneError ? <HelperText type="error">{phoneError}</HelperText> : null}
         {phoneDuplicate ? (
           <HelperText type="error">
-            This phone number already exists. Open the contact below or use a different
-            number. New customers cannot be created with a duplicate phone.
+            This phone number already belongs to another contact.
           </HelperText>
-        ) : null}
-        {checkingPhoneOnBlur ? (
-          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            Checking phone number...
-          </Text>
-        ) : null}
-
-        <Button
-          mode="contained-tonal"
-          icon="account-search-outline"
-          loading={checkingPhone}
-          disabled={checkingPhone || !form.phone.trim()}
-          onPress={handleCheckPhone}
-          style={styles.checkButton}>
-          Check Existing Contact
-        </Button>
-
-        {matches.length > 0 ? (
-          <View style={styles.matchesSection}>
-            <Text variant="titleSmall" style={[styles.matchesTitle, { color: theme.colors.error }]}>
-              Existing contact found — creation blocked
-            </Text>
-            {matches.map(match => (
-              <Card key={match.id} style={styles.matchCard}>
-                <Card.Content>
-                  <Text variant="titleMedium">{match.name}</Text>
-                  <Text style={{ color: theme.colors.onSurfaceVariant }}>
-                    Phone: {match.phone || '—'}
-                  </Text>
-                  {match.street ? (
-                    <Text style={{ color: theme.colors.onSurfaceVariant }}>
-                      Address 1: {match.street}
-                    </Text>
-                  ) : null}
-                  {match.street2 ? (
-                    <Text style={{ color: theme.colors.onSurfaceVariant }}>
-                      Address 2: {match.street2}
-                    </Text>
-                  ) : null}
-                  {match.township || match.city ? (
-                    <Text style={{ color: theme.colors.onSurfaceVariant }}>
-                      {[match.township, match.city].filter(Boolean).join(', ')}
-                    </Text>
-                  ) : null}
-                  <Button
-                    mode="outlined"
-                    style={styles.useContactButton}
-                    onPress={() => openExistingContact(match.id)}>
-                    Open This Contact
-                  </Button>
-                </Card.Content>
-              </Card>
-            ))}
-          </View>
         ) : null}
 
         <TextInput
@@ -504,7 +377,7 @@ export function CreateContactView({
           loading={saving}
           disabled={saving || phoneDuplicate || !!phoneError}
           onPress={handleSave}>
-          Create Contact
+          Save Changes
         </Button>
       </View>
 
@@ -549,24 +422,6 @@ const styles = StyleSheet.create({
   subtitle: {
     marginBottom: 8,
   },
-  checkButton: {
-    alignSelf: 'flex-start',
-  },
-  matchesSection: {
-    gap: 10,
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  matchesTitle: {
-    fontWeight: '600',
-  },
-  matchCard: {
-    borderRadius: 10,
-  },
-  useContactButton: {
-    marginTop: 12,
-    alignSelf: 'flex-start',
-  },
   tagSuggestions: {
     gap: 8,
   },
@@ -590,5 +445,3 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
 });
-
-export default CreateContactView;

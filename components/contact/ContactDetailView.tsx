@@ -189,8 +189,7 @@ type ContactDetailViewProps = {
   loading: boolean;
   error: string;
   portalBusy?: boolean;
-  emailBusy?: boolean;
-  onSaveEmail?: (email: string) => Promise<void>;
+  onEditContact?: () => void;
   /** Ensure App User List = New before password (first grant only). */
   onPrepareGrantPortal?: () => Promise<void>;
   onGrantPortalAccess?: (password: string) => Promise<void>;
@@ -203,8 +202,7 @@ export function ContactDetailView({
   loading,
   error,
   portalBusy = false,
-  emailBusy = false,
-  onSaveEmail,
+  onEditContact,
   onPrepareGrantPortal,
   onGrantPortalAccess,
   onAfterPortalGranted,
@@ -214,23 +212,12 @@ export function ContactDetailView({
   const { width } = useResponsive();
   const isMobile = width < 768;
 
-  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
-  const [emailDraft, setEmailDraft] = useState('');
-  const [emailFormError, setEmailFormError] = useState('');
-  const [grantAfterEmail, setGrantAfterEmail] = useState(false);
+  const [emailRequiredOpen, setEmailRequiredOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [password, setPassword] = useState('');
   const [formError, setFormError] = useState('');
   const [prepareBusy, setPrepareBusy] = useState(false);
   const [portalLoginEmail, setPortalLoginEmail] = useState('');
-
-  const closeEmailDialog = useCallback(() => {
-    if (emailBusy) return;
-    setEmailDialogOpen(false);
-    setEmailDraft('');
-    setEmailFormError('');
-    setGrantAfterEmail(false);
-  }, [emailBusy]);
 
   const closePasswordDialog = useCallback(() => {
     if (portalBusy) return;
@@ -250,8 +237,7 @@ export function ContactDetailView({
         ''
       ).trim();
       if (!email) {
-        setGrantAfterEmail(true);
-        setEmailDialogOpen(true);
+        setEmailRequiredOpen(true);
         return;
       }
 
@@ -278,46 +264,15 @@ export function ContactDetailView({
     [detail, onPrepareGrantPortal],
   );
 
-  const openEmailDialog = useCallback((forPortal: boolean) => {
-    setEmailDraft('');
-    setEmailFormError('');
-    setGrantAfterEmail(forPortal);
-    setEmailDialogOpen(true);
-  }, []);
-
   const onPressGrantPortal = useCallback(async () => {
     if (!detail) return;
     const email = (detail.email || detail.portalAccess?.email || '').trim();
     if (!email) {
-      openEmailDialog(true);
+      setEmailRequiredOpen(true);
       return;
     }
     await continueGrantPortal(email);
-  }, [detail, openEmailDialog, continueGrantPortal]);
-
-  const onConfirmEmail = useCallback(async () => {
-    if (!onSaveEmail) return;
-    const trimmed = emailDraft.trim();
-    if (!trimmed) {
-      setEmailFormError('Please enter the email.');
-      return;
-    }
-    setEmailFormError('');
-    try {
-      await onSaveEmail(trimmed);
-      const shouldGrant = grantAfterEmail;
-      setEmailDialogOpen(false);
-      setEmailDraft('');
-      setGrantAfterEmail(false);
-      if (shouldGrant) {
-        await continueGrantPortal(trimmed);
-      }
-    } catch (err) {
-      setEmailFormError(
-        err instanceof Error ? err.message : 'Failed to save email.',
-      );
-    }
-  }, [onSaveEmail, emailDraft, grantAfterEmail, continueGrantPortal]);
+  }, [detail, continueGrantPortal]);
 
   const onConfirmPassword = useCallback(async () => {
     if (!onGrantPortalAccess || !detail) return;
@@ -391,7 +346,6 @@ export function ContactDetailView({
     detail.email ||
     detail.portalAccess?.email ||
     '';
-  const hasEmail = Boolean((detail.email || detail.portalAccess?.email || '').trim());
 
   return (
     <View style={[styles.container, { backgroundColor: detailTheme.background }]}>
@@ -459,16 +413,15 @@ export function ContactDetailView({
             </View>
           </SurfaceCard>
 
-          {onGrantPortalAccess || onSaveEmail ? (
+          {onEditContact || onGrantPortalAccess ? (
             <View style={styles.portalUnderHero}>
-              {!hasEmail && onSaveEmail ? (
+              {onEditContact ? (
                 <Button
                   mode="outlined"
-                  icon="email-plus-outline"
-                  loading={emailBusy}
-                  disabled={emailBusy || portalBusy || prepareBusy}
-                  onPress={() => openEmailDialog(false)}>
-                  Set email
+                  icon="account-edit-outline"
+                  disabled={portalBusy || prepareBusy}
+                  onPress={onEditContact}>
+                  Edit contact
                 </Button>
               ) : null}
               {onGrantPortalAccess ? (
@@ -495,7 +448,7 @@ export function ContactDetailView({
                       compact
                       icon="lock-reset"
                       loading={portalBusy || prepareBusy}
-                      disabled={portalBusy || prepareBusy || emailBusy}
+                      disabled={portalBusy || prepareBusy}
                       onPress={() => {
                         void onPressGrantPortal();
                       }}>
@@ -507,7 +460,7 @@ export function ContactDetailView({
                     mode="contained"
                     icon="account-plus-outline"
                     loading={portalBusy || prepareBusy}
-                    disabled={portalBusy || prepareBusy || emailBusy}
+                    disabled={portalBusy || prepareBusy}
                     onPress={() => {
                       void onPressGrantPortal();
                     }}>
@@ -564,26 +517,7 @@ export function ContactDetailView({
             <View style={styles.sectionBody}>
               <InfoRow label="Name" value={detail.name} />
               <InfoRow label="Related company" value={detail.relatedCompany} />
-              {hasEmail ? (
-                <InfoRow label="Email" value={detail.email} link />
-              ) : onSaveEmail ? (
-                <View style={[styles.infoRow, { borderBottomColor: detailTheme.border }]}>
-                  <Text style={[styles.infoLabel, { color: detailTheme.label }]}>
-                    Email
-                  </Text>
-                  <Button
-                    mode="outlined"
-                    compact
-                    icon="email-plus-outline"
-                    loading={emailBusy}
-                    disabled={emailBusy}
-                    onPress={() => openEmailDialog(false)}>
-                    Set email
-                  </Button>
-                </View>
-              ) : (
-                <InfoRow label="Email" value={detail.email} link />
-              )}
+              <InfoRow label="Email" value={detail.email} link />
               <InfoRow label="Phone" value={detail.phone} />
               <InfoRow label="Member code" value={detail.memberCode} />
               <InfoRow label="App Promoter" value={detail.appPromoter} />
@@ -647,50 +581,27 @@ export function ContactDetailView({
       </ScrollView>
 
       <Portal>
-        <Dialog visible={emailDialogOpen} onDismiss={closeEmailDialog}>
-          <Dialog.Title>
-            {grantAfterEmail ? 'Email required' : 'Set email'}
-          </Dialog.Title>
+        <Dialog
+          visible={emailRequiredOpen}
+          onDismiss={() => setEmailRequiredOpen(false)}>
+          <Dialog.Title>Email required</Dialog.Title>
           <Dialog.Content>
-            <Text
-              style={{
-                marginBottom: 12,
-                color: theme.colors.onSurfaceVariant,
-                fontSize: 13,
-              }}>
-              {grantAfterEmail
-                ? 'Enter an email for this contact before granting portal access.'
-                : 'Save an email address on this contact in Odoo.'}
+            <Text>
+              Add an email on this contact before granting portal access.
             </Text>
-            <TextInput
-              mode="outlined"
-              dense
-              label="Email"
-              value={emailDraft}
-              onChangeText={setEmailDraft}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-            />
-            {emailFormError ? (
-              <Text style={{ color: theme.colors.error, marginTop: 10 }}>
-                {emailFormError}
-              </Text>
-            ) : null}
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={closeEmailDialog} disabled={emailBusy}>
-              Cancel
-            </Button>
-            <Button
-              mode="contained"
-              loading={emailBusy}
-              disabled={emailBusy || !emailDraft.trim()}
-              onPress={() => {
-                void onConfirmEmail();
-              }}>
-              Save
-            </Button>
+            <Button onPress={() => setEmailRequiredOpen(false)}>Cancel</Button>
+            {onEditContact ? (
+              <Button
+                mode="contained"
+                onPress={() => {
+                  setEmailRequiredOpen(false);
+                  onEditContact();
+                }}>
+                Edit contact
+              </Button>
+            ) : null}
           </Dialog.Actions>
         </Dialog>
 

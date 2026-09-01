@@ -8,10 +8,11 @@ import {
   useMemo,
   useRef,
   useState,
-  useTransition,
 } from 'react';
 
 import { PrintFormat } from '@/utils/print-quotation';
+
+const SEARCH_DEBOUNCE_MS = 300;
 
 export type HeaderAction = {
   key: string;
@@ -39,7 +40,7 @@ export type DetailHeader = {
 type SearchContextValue = {
   query: string;
   setQuery: (value: string) => void;
-  /** Immediate header input value; may lead the deferred `query` used for filtering. */
+  /** Immediate header input value; may lead the debounced `query` used for filtering. */
   inputQuery: string;
   setInputQuery: (value: string) => void;
   placeholder: string;
@@ -77,19 +78,37 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   const [filtersEnabled, setFiltersEnabled] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [filterPanel, setFilterPanel] = useState<ReactNode | null>(null);
-  const [, startFilterTransition] = useTransition();
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const setInputQuery = useCallback((value: string) => {
-    setInputQueryState(value);
-    startFilterTransition(() => {
-      setQueryState(value);
-    });
-  }, [startFilterTransition]);
-
-  const setQuery = useCallback((value: string) => {
-    setInputQueryState(value);
-    setQueryState(value);
+  const clearSearchDebounce = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
   }, []);
+
+  const setInputQuery = useCallback(
+    (value: string) => {
+      setInputQueryState(value);
+      clearSearchDebounce();
+      debounceTimerRef.current = setTimeout(() => {
+        debounceTimerRef.current = null;
+        setQueryState(value);
+      }, SEARCH_DEBOUNCE_MS);
+    },
+    [clearSearchDebounce],
+  );
+
+  const setQuery = useCallback(
+    (value: string) => {
+      clearSearchDebounce();
+      setInputQueryState(value);
+      setQueryState(value);
+    },
+    [clearSearchDebounce],
+  );
+
+  useEffect(() => () => clearSearchDebounce(), [clearSearchDebounce]);
 
   const enableSearch = useCallback((nextPlaceholder: string) => {
     setPlaceholder(nextPlaceholder);
@@ -97,13 +116,14 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const disableSearch = useCallback(() => {
+    clearSearchDebounce();
     setVisible(false);
     setInputQueryState('');
     setQueryState('');
     setFiltersEnabled(false);
     setFiltersExpanded(false);
     setFilterPanel(null);
-  }, []);
+  }, [clearSearchDebounce]);
 
   const enableFilters = useCallback((panel: ReactNode) => {
     setFilterPanel(panel);
@@ -183,7 +203,7 @@ export function useOptionalSearch() {
 
 /**
  * Enables the navbar search bar while the calling screen is focused and
- * returns the deferred query for local filtering.
+ * returns the debounced query for local filtering.
  */
 export function useModuleSearch(placeholder: string, enabled = true) {
   const { query, enableSearch, disableSearch } = useSearch();
