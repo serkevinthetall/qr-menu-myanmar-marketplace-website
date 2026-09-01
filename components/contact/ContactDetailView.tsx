@@ -215,6 +215,7 @@ export function ContactDetailView({
   const [emailRequiredOpen, setEmailRequiredOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState('');
   const [prepareBusy, setPrepareBusy] = useState(false);
   const [portalLoginEmail, setPortalLoginEmail] = useState('');
@@ -223,6 +224,7 @@ export function ContactDetailView({
     if (portalBusy) return;
     setPasswordOpen(false);
     setPassword('');
+    setShowPassword(false);
     setFormError('');
     setPortalLoginEmail('');
   }, [portalBusy]);
@@ -259,6 +261,7 @@ export function ContactDetailView({
 
       setFormError('');
       setPassword('');
+      setShowPassword(false);
       setPasswordOpen(true);
     },
     [detail, onPrepareGrantPortal],
@@ -282,6 +285,7 @@ export function ContactDetailView({
       await onGrantPortalAccess(password);
       setPasswordOpen(false);
       setPassword('');
+      setShowPassword(false);
       setPortalLoginEmail('');
       if (isFirstGrant) {
         onAfterPortalGranted?.();
@@ -630,8 +634,14 @@ export function ContactDetailView({
               label="Password"
               value={password}
               onChangeText={setPassword}
-              secureTextEntry
+              secureTextEntry={!showPassword}
               autoCapitalize="none"
+              right={
+                <TextInput.Icon
+                  icon={showPassword ? 'eye-off' : 'eye'}
+                  onPress={() => setShowPassword(prev => !prev)}
+                />
+              }
             />
             {formError ? (
               <Text style={{ color: theme.colors.error, marginTop: 10 }}>
