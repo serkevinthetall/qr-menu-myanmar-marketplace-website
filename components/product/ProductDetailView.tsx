@@ -735,7 +735,7 @@ export function ProductDetailView({
                   <Text
                     variant="labelLarge"
                     style={[styles.tagSuggestionsLabel, { color: detailTheme.onSurface }]}>
-                    For you adjustment
+                    App For You Section Adjustment
                   </Text>
                   <Text
                     style={{
@@ -743,8 +743,8 @@ export function ProductDetailView({
                       fontSize: 12,
                       marginBottom: 8,
                     }}>
-                    Contact Tags (Company, Shop, Restaurant…). Tick one and that
-                    name is written onto this product&apos;s tags in Odoo.
+                    Contact Tags (Company, Shop, Restaurant…). Tick carefully:
+                    the product will appear in For You for users with that tag.
                   </Text>
                   {contactTagsLoading ? (
                     <ActivityIndicator size="small" />
