@@ -470,25 +470,32 @@ export default function ProductsScreen() {
     }
   }, [detailId, loadProductTags]);
 
-  const enableQrApp = useCallback(async () => {
-    if (!session?.token || !detailId) return;
-    setAppBusy(true);
-    setAppError('');
-    try {
-      const appAccess = await updateProductAppAccess(session.token, detailId, {
-        enableQrApp: true,
-      });
-      setDetail(prev => (prev ? { ...prev, appAccess } : prev));
-      await loadProductTags();
-    } catch (err) {
-      setAppError(
-        err instanceof Error ? err.message : 'Failed to enable QR App.',
-      );
-      throw err;
-    } finally {
-      setAppBusy(false);
-    }
-  }, [session?.token, detailId, loadProductTags]);
+  const setVisibleToApp = useCallback(
+    async (visible: boolean) => {
+      if (!session?.token || !detailId) return;
+      setAppBusy(true);
+      setAppError('');
+      try {
+        const appAccess = await updateProductAppAccess(session.token, detailId, {
+          enableQrApp: visible,
+        });
+        setDetail(prev => (prev ? { ...prev, appAccess } : prev));
+        await loadProductTags();
+      } catch (err) {
+        setAppError(
+          err instanceof Error
+            ? err.message
+            : visible
+              ? 'Failed to make product visible to app.'
+              : 'Failed to hide product from app.',
+        );
+        throw err;
+      } finally {
+        setAppBusy(false);
+      }
+    },
+    [session?.token, detailId, loadProductTags],
+  );
 
   const updateAppAccess = useCallback(
     async (updates: { websitePublished?: boolean; tagIds?: string[] }) => {
@@ -806,7 +813,7 @@ export default function ProductsScreen() {
           tagsLoading={tagsLoading}
           appBusy={appBusy}
           appError={appError}
-          onEnableQrApp={enableQrApp}
+          onSetVisibleToApp={setVisibleToApp}
           onUpdateAppAccess={updateAppAccess}
         />
       </View>

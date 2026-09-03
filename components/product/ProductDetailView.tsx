@@ -265,42 +265,12 @@ type ProductDetailViewProps = {
   tagsLoading?: boolean;
   appBusy?: boolean;
   appError?: string;
-  onEnableQrApp?: () => Promise<void>;
+  onSetVisibleToApp?: (visible: boolean) => Promise<void>;
   onUpdateAppAccess?: (updates: {
     websitePublished?: boolean;
     tagIds?: string[];
   }) => Promise<void>;
 };
-
-function ChecklistRow({
-  ok,
-  label,
-  detail,
-}: {
-  ok: boolean;
-  label: string;
-  detail?: string;
-}) {
-  const theme = useTheme();
-  const detailTheme = useDetailTheme();
-  return (
-    <View style={styles.checkRow}>
-      <Icon
-        source={ok ? 'check-circle' : 'close-circle-outline'}
-        size={18}
-        color={ok ? theme.colors.primary : theme.colors.error}
-      />
-      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-        <Text style={{ color: detailTheme.onSurface, fontWeight: '600', fontSize: 14 }}>
-          {label}
-        </Text>
-        {detail ? (
-          <Text style={{ color: detailTheme.label, fontSize: 12 }}>{detail}</Text>
-        ) : null}
-      </View>
-    </View>
-  );
-}
 
 export function ProductDetailView({
   detail,
@@ -315,7 +285,7 @@ export function ProductDetailView({
   tagsLoading = false,
   appBusy = false,
   appError = '',
-  onEnableQrApp,
+  onSetVisibleToApp,
   onUpdateAppAccess,
 }: ProductDetailViewProps) {
   const theme = useTheme();
@@ -355,6 +325,29 @@ export function ProductDetailView({
     if (!onUpdateAppAccess) return;
     await onUpdateAppAccess({ tagIds: selectedTagIds });
   }, [onUpdateAppAccess, selectedTagIds]);
+
+  const visibleToApp = Boolean(
+    appAccess?.websitePublished && appAccess?.hasQrAppTag,
+  );
+
+  const displayTags = useMemo(() => {
+    const byId = new Map(productTags.map(tag => [tag.id, tag]));
+    for (const tag of appAccess?.tags ?? []) {
+      byId.set(tag.id, tag);
+    }
+    const qrApp = [...byId.values()].find(
+      tag => tag.name.trim().toLowerCase() === 'qr app',
+    );
+    // Contact-style short list: QR App + currently selected tags only
+    // (Odoo product.tag often contains hundreds of product-name rows).
+    const selected = selectedTagIds
+      .map(id => byId.get(id))
+      .filter((tag): tag is ProductTag => Boolean(tag));
+    const merged = new Map<string, ProductTag>();
+    if (qrApp) merged.set(qrApp.id, qrApp);
+    for (const tag of selected) merged.set(tag.id, tag);
+    return [...merged.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [productTags, appAccess?.tags, selectedTagIds]);
 
   const ecommerceLabel =
     appAccess?.ecommerceCategories?.map(cat => cat.name).filter(Boolean).join(', ') ||
@@ -700,104 +693,75 @@ export function ProductDetailView({
               </View>
             ) : (
               <View style={styles.sectionBody}>
-                <Text
-                  style={{
-                    color: detailTheme.label,
-                    fontSize: 13,
-                    lineHeight: 18,
-                    marginTop: 8,
-                    marginBottom: 12,
-                  }}>
-                  To show in the QR App catalog, this product needs Published on,
-                  the QR App tag, Can be Sold, and at least one eCommerce category.
-                </Text>
-
-                <ChecklistRow
-                  ok={Boolean(appAccess?.websitePublished)}
-                  label="Published on website"
-                />
-                <ChecklistRow
-                  ok={Boolean(appAccess?.hasQrAppTag)}
-                  label='Tag includes "QR App"'
-                />
-                <ChecklistRow
-                  ok={Boolean(appAccess?.saleOk)}
-                  label="Can be Sold"
-                />
-                <ChecklistRow
-                  ok={Boolean(appAccess?.hasEcommerceCategory)}
-                  label="eCommerce category"
-                  detail={ecommerceLabel}
-                />
-
-                <View
-                  style={[
-                    styles.appStatusBanner,
-                    {
-                      backgroundColor: appAccess?.readyForApp
-                        ? theme.colors.primaryContainer
-                        : detailTheme.panelBg,
-                      borderColor: detailTheme.border,
-                    },
-                  ]}>
-                  <Text
-                    style={{
-                      color: appAccess?.readyForApp
-                        ? theme.colors.onPrimaryContainer
-                        : detailTheme.onSurface,
-                      fontWeight: '700',
-                    }}>
-                    {appAccess?.readyForApp
-                      ? 'Ready for QR App'
-                      : 'Not ready for QR App yet'}
-                  </Text>
-                </View>
-
-                <View style={styles.publishedRow}>
-                  <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={styles.visibleToAppRow}>
+                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
                     <Text
-                      style={[styles.infoLabel, { color: detailTheme.label }]}>
-                      Published
+                      variant="labelLarge"
+                      style={{ fontWeight: '700', color: detailTheme.onSurface }}>
+                      Visible to app
                     </Text>
-                    <Text
-                      style={{
-                        color: detailTheme.onSurface,
-                        fontSize: 13,
-                        marginTop: 2,
-                      }}>
-                      Website published for this product
+                    <Text style={{ color: detailTheme.label, fontSize: 13 }}>
+                      Adds QR App tag and turns Published on
                     </Text>
                   </View>
                   <Switch
-                    value={Boolean(appAccess?.websitePublished)}
-                    disabled={appBusy || !onUpdateAppAccess}
+                    value={visibleToApp}
+                    disabled={appBusy || !onSetVisibleToApp}
                     onValueChange={next => {
-                      void onUpdateAppAccess?.({ websitePublished: next });
+                      void onSetVisibleToApp?.(next);
                     }}
                   />
                 </View>
 
-                <View style={{ marginTop: 12, gap: 8 }}>
-                  <Text style={[styles.infoLabel, { color: detailTheme.label }]}>
-                    Product tags
+                {!appAccess?.hasEcommerceCategory ? (
+                  <Text
+                    style={{
+                      color: detailTheme.label,
+                      fontSize: 12,
+                      marginBottom: 8,
+                    }}>
+                    Tip: set an eCommerce category in Odoo so the product is fully
+                    app-ready.
+                    {ecommerceLabel !== 'None selected in Odoo'
+                      ? ` (${ecommerceLabel})`
+                      : ''}
+                  </Text>
+                ) : null}
+
+                <View style={styles.tagSuggestions}>
+                  <Text
+                    variant="labelLarge"
+                    style={[styles.tagSuggestionsLabel, { color: detailTheme.onSurface }]}>
+                    Product Tags
                   </Text>
                   {tagsLoading ? (
                     <ActivityIndicator size="small" />
-                  ) : productTags.length === 0 ? (
+                  ) : displayTags.length === 0 ? (
                     <Text
-                      style={{ color: detailTheme.label, fontSize: 13 }}>
-                      No product tags found in Odoo. Add tags in Odoo first.
+                      variant="bodySmall"
+                      style={{ color: detailTheme.label }}>
+                      No tags on this product yet. Turn on Visible to app to add
+                      QR App.
                     </Text>
                   ) : (
                     <View style={styles.tagChips}>
-                      {productTags.map(tag => {
+                      {displayTags.map(tag => {
                         const selected = selectedTagIds.includes(tag.id);
+                        const isQrApp =
+                          tag.name.trim().toLowerCase() === 'qr app';
                         return (
                           <Chip
                             key={tag.id}
                             compact
                             selected={selected}
-                            onPress={() => toggleTag(tag.id)}
+                            disabled={appBusy || (isQrApp && Boolean(onSetVisibleToApp))}
+                            onPress={() => {
+                              if (isQrApp && onSetVisibleToApp) {
+                                void onSetVisibleToApp(!selected);
+                                return;
+                              }
+                              toggleTag(tag.id);
+                            }}
                             style={styles.tagChip}>
                             {tag.name}
                           </Chip>
@@ -805,16 +769,17 @@ export function ProductDetailView({
                       })}
                     </View>
                   )}
-                  {onUpdateAppAccess ? (
+                  {onUpdateAppAccess && tagsDirty ? (
                     <Button
                       mode="outlined"
+                      compact
                       icon="content-save-outline"
                       loading={appBusy}
-                      disabled={appBusy || !tagsDirty}
+                      disabled={appBusy}
                       onPress={() => {
                         void saveTags();
                       }}
-                      style={{ alignSelf: 'flex-start' }}>
+                      style={{ alignSelf: 'flex-start', marginTop: 4 }}>
                       Save tags
                     </Button>
                   ) : null}
@@ -824,37 +789,6 @@ export function ProductDetailView({
                   <Text style={[styles.priceError, { color: theme.colors.error }]}>
                     {appError}
                   </Text>
-                ) : null}
-
-                {onEnableQrApp ? (
-                  <View style={styles.priceActions}>
-                    <Button
-                      mode="contained"
-                      icon="cellphone-check"
-                      loading={appBusy}
-                      disabled={
-                        appBusy ||
-                        (Boolean(appAccess?.websitePublished) &&
-                          Boolean(appAccess?.hasQrAppTag) &&
-                          Boolean(appAccess?.saleOk))
-                      }
-                      onPress={() => {
-                        void onEnableQrApp();
-                      }}>
-                      Add QR App + Publish
-                    </Button>
-                    {!appAccess?.hasEcommerceCategory ? (
-                      <Text
-                        style={{
-                          color: detailTheme.label,
-                          fontSize: 12,
-                          marginTop: 8,
-                        }}>
-                        Tip: set an eCommerce category (Website Product Category)
-                        in Odoo so the product is fully app-ready.
-                      </Text>
-                    ) : null}
-                  </View>
                 ) : null}
               </View>
             )}
@@ -1125,25 +1059,20 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'flex-start',
   },
-  checkRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    paddingVertical: 8,
-  },
-  appStatusBanner: {
-    marginTop: 8,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  publishedRow: {
+  visibleToAppRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  tagSuggestions: {
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  tagSuggestionsLabel: {
+    fontWeight: '700',
   },
   tagChips: {
     flexDirection: 'row',
