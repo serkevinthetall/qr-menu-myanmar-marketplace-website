@@ -33,6 +33,8 @@ export type ProductAppAccess = {
   tagIds: string[];
   tags: ProductTag[];
   ecommerceCategories: ProductTag[];
+  /** Contact tags currently applied to this product (matched by name on product.tag). */
+  forYouTags: ProductTag[];
 };
 
 export type ProductDetail = Product & {
@@ -55,4 +57,6 @@ export type ProductAppUpdate = {
   enableQrApp?: boolean;
   websitePublished?: boolean;
   tagIds?: string[];
+  /** Contact tag ids — links matching existing product.tag names onto the product. */
+  forYouTagIds?: string[];
 };

@@ -30,11 +30,11 @@ import { useResponsive } from '@/hooks/use-responsive';
 import {
   fetchProductDetail,
   fetchProductsPage,
-  fetchProductTags,
   setProductFavorite,
   updateProductAppAccess,
   updateProductPrices,
 } from '@/services/products';
+import { fetchContactTags } from '@/services/customers';
 import {
   ensureWebProductCatalog,
   filterWebProducts,
@@ -377,7 +377,7 @@ export default function ProductsScreen() {
   const [detailError, setDetailError] = useState('');
   const [pricesSaving, setPricesSaving] = useState(false);
   const [pricesError, setPricesError] = useState('');
-  const [productTags, setProductTags] = useState<ProductTag[]>([]);
+  const [contactTags, setContactTags] = useState<ProductTag[]>([]);
   const [tagsLoading, setTagsLoading] = useState(false);
   const [appBusy, setAppBusy] = useState(false);
   const [appError, setAppError] = useState('');
@@ -451,14 +451,14 @@ export default function ProductsScreen() {
     setAppBusy(false);
   }, []);
 
-  const loadProductTags = useCallback(async () => {
+  const loadContactTags = useCallback(async () => {
     if (!session?.token) return;
     setTagsLoading(true);
     try {
-      const tags = await fetchProductTags(session.token);
-      setProductTags(tags);
+      const tags = await fetchContactTags(session.token);
+      setContactTags(tags);
     } catch {
-      setProductTags([]);
+      setContactTags([]);
     } finally {
       setTagsLoading(false);
     }
@@ -466,9 +466,9 @@ export default function ProductsScreen() {
 
   useEffect(() => {
     if (detailId) {
-      void loadProductTags();
+      void loadContactTags();
     }
-  }, [detailId, loadProductTags]);
+  }, [detailId, loadContactTags]);
 
   const setVisibleToApp = useCallback(
     async (visible: boolean) => {
@@ -480,7 +480,6 @@ export default function ProductsScreen() {
           enableQrApp: visible,
         });
         setDetail(prev => (prev ? { ...prev, appAccess } : prev));
-        await loadProductTags();
       } catch (err) {
         setAppError(
           err instanceof Error
@@ -494,11 +493,15 @@ export default function ProductsScreen() {
         setAppBusy(false);
       }
     },
-    [session?.token, detailId, loadProductTags],
+    [session?.token, detailId],
   );
 
   const updateAppAccess = useCallback(
-    async (updates: { websitePublished?: boolean; tagIds?: string[] }) => {
+    async (updates: {
+      websitePublished?: boolean;
+      tagIds?: string[];
+      forYouTagIds?: string[];
+    }) => {
       if (!session?.token || !detailId) return;
       setAppBusy(true);
       setAppError('');
@@ -809,8 +812,8 @@ export default function ProductsScreen() {
           onSavePrices={savePrices}
           pricesSaving={pricesSaving}
           pricesError={pricesError}
-          productTags={productTags}
-          tagsLoading={tagsLoading}
+          contactTags={contactTags}
+          contactTagsLoading={tagsLoading}
           appBusy={appBusy}
           appError={appError}
           onSetVisibleToApp={setVisibleToApp}

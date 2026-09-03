@@ -261,14 +261,15 @@ type ProductDetailViewProps = {
   onSavePrices?: (updates: ProductPricesUpdate) => Promise<void>;
   pricesSaving?: boolean;
   pricesError?: string;
-  productTags?: ProductTag[];
-  tagsLoading?: boolean;
+  contactTags?: ProductTag[];
+  contactTagsLoading?: boolean;
   appBusy?: boolean;
   appError?: string;
   onSetVisibleToApp?: (visible: boolean) => Promise<void>;
   onUpdateAppAccess?: (updates: {
     websitePublished?: boolean;
     tagIds?: string[];
+    forYouTagIds?: string[];
   }) => Promise<void>;
 };
 
@@ -281,8 +282,8 @@ export function ProductDetailView({
   onSavePrices,
   pricesSaving,
   pricesError,
-  productTags = [],
-  tagsLoading = false,
+  contactTags = [],
+  contactTagsLoading = false,
   appBusy = false,
   appError = '',
   onSetVisibleToApp,
@@ -301,57 +302,42 @@ export function ProductDetailView({
   const [pendingUpdates, setPendingUpdates] = useState<ProductPricesUpdate | null>(
     null,
   );
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedForYouIds, setSelectedForYouIds] = useState<string[]>([]);
 
   const appAccess: ProductAppAccess | null | undefined = detail?.appAccess;
 
   useEffect(() => {
-    setSelectedTagIds(appAccess?.tagIds ?? []);
-  }, [detail?.id, appAccess?.tagIds?.join(',')]);
+    setSelectedForYouIds((appAccess?.forYouTags ?? []).map(tag => tag.id));
+  }, [detail?.id, appAccess?.forYouTags?.map(tag => tag.id).join(',')]);
 
-  const toggleTag = useCallback((tagId: string) => {
-    setSelectedTagIds(prev =>
-      prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId],
-    );
-  }, []);
-
-  const tagsDirty = useMemo(() => {
-    const current = [...(appAccess?.tagIds ?? [])].sort().join(',');
-    const next = [...selectedTagIds].sort().join(',');
-    return current !== next;
-  }, [appAccess?.tagIds, selectedTagIds]);
-
-  const saveTags = useCallback(async () => {
-    if (!onUpdateAppAccess) return;
-    await onUpdateAppAccess({ tagIds: selectedTagIds });
-  }, [onUpdateAppAccess, selectedTagIds]);
+  const toggleForYouTag = useCallback(
+    async (tagId: string) => {
+      const nextIds = selectedForYouIds.includes(tagId)
+        ? selectedForYouIds.filter(id => id !== tagId)
+        : [...selectedForYouIds, tagId];
+      setSelectedForYouIds(nextIds);
+      if (!onUpdateAppAccess) return;
+      try {
+        await onUpdateAppAccess({ forYouTagIds: nextIds });
+      } catch {
+        setSelectedForYouIds((appAccess?.forYouTags ?? []).map(tag => tag.id));
+      }
+    },
+    [selectedForYouIds, onUpdateAppAccess, appAccess?.forYouTags],
+  );
 
   const visibleToApp = Boolean(
     appAccess?.websitePublished && appAccess?.hasQrAppTag,
   );
 
-  const displayTags = useMemo(() => {
-    const byId = new Map(productTags.map(tag => [tag.id, tag]));
-    for (const tag of appAccess?.tags ?? []) {
+  const displayContactTags = useMemo(() => {
+    const byId = new Map(contactTags.map(tag => [tag.id, tag]));
+    for (const tag of appAccess?.forYouTags ?? []) {
       byId.set(tag.id, tag);
     }
-    const qrApp = [...byId.values()].find(
-      tag => tag.name.trim().toLowerCase() === 'qr app',
-    );
-    // Contact-style short list: QR App + currently selected tags only
-    // (Odoo product.tag often contains hundreds of product-name rows).
-    const selected = selectedTagIds
-      .map(id => byId.get(id))
-      .filter((tag): tag is ProductTag => Boolean(tag));
-    const merged = new Map<string, ProductTag>();
-    if (qrApp) merged.set(qrApp.id, qrApp);
-    for (const tag of selected) merged.set(tag.id, tag);
-    return [...merged.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [productTags, appAccess?.tags, selectedTagIds]);
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [contactTags, appAccess?.forYouTags]);
 
-  const ecommerceLabel =
-    appAccess?.ecommerceCategories?.map(cat => cat.name).filter(Boolean).join(', ') ||
-    'None selected in Odoo';
   const [pendingChanges, setPendingChanges] = useState<PendingPriceChange[]>([]);
 
   useEffect(() => {
@@ -713,54 +699,41 @@ export function ProductDetailView({
                   />
                 </View>
 
-                {!appAccess?.hasEcommerceCategory ? (
+                <View style={styles.tagSuggestions}>
+                  <Text
+                    variant="labelLarge"
+                    style={[styles.tagSuggestionsLabel, { color: detailTheme.onSurface }]}>
+                    For you adjustment
+                  </Text>
                   <Text
                     style={{
                       color: detailTheme.label,
                       fontSize: 12,
                       marginBottom: 8,
                     }}>
-                    Tip: set an eCommerce category in Odoo so the product is fully
-                    app-ready.
-                    {ecommerceLabel !== 'None selected in Odoo'
-                      ? ` (${ecommerceLabel})`
-                      : ''}
+                    Same tags as Contacts. Tick to add that name onto this
+                    product&apos;s tags in Odoo.
                   </Text>
-                ) : null}
-
-                <View style={styles.tagSuggestions}>
-                  <Text
-                    variant="labelLarge"
-                    style={[styles.tagSuggestionsLabel, { color: detailTheme.onSurface }]}>
-                    Product Tags
-                  </Text>
-                  {tagsLoading ? (
+                  {contactTagsLoading ? (
                     <ActivityIndicator size="small" />
-                  ) : displayTags.length === 0 ? (
+                  ) : displayContactTags.length === 0 ? (
                     <Text
                       variant="bodySmall"
                       style={{ color: detailTheme.label }}>
-                      No tags on this product yet. Turn on Visible to app to add
-                      QR App.
+                      No contact tags found in Odoo. Add Contact Tags first.
                     </Text>
                   ) : (
                     <View style={styles.tagChips}>
-                      {displayTags.map(tag => {
-                        const selected = selectedTagIds.includes(tag.id);
-                        const isQrApp =
-                          tag.name.trim().toLowerCase() === 'qr app';
+                      {displayContactTags.map(tag => {
+                        const selected = selectedForYouIds.includes(tag.id);
                         return (
                           <Chip
                             key={tag.id}
                             compact
                             selected={selected}
-                            disabled={appBusy || (isQrApp && Boolean(onSetVisibleToApp))}
+                            disabled={appBusy || !onUpdateAppAccess}
                             onPress={() => {
-                              if (isQrApp && onSetVisibleToApp) {
-                                void onSetVisibleToApp(!selected);
-                                return;
-                              }
-                              toggleTag(tag.id);
+                              void toggleForYouTag(tag.id);
                             }}
                             style={styles.tagChip}>
                             {tag.name}
@@ -769,20 +742,6 @@ export function ProductDetailView({
                       })}
                     </View>
                   )}
-                  {onUpdateAppAccess && tagsDirty ? (
-                    <Button
-                      mode="outlined"
-                      compact
-                      icon="content-save-outline"
-                      loading={appBusy}
-                      disabled={appBusy}
-                      onPress={() => {
-                        void saveTags();
-                      }}
-                      style={{ alignSelf: 'flex-start', marginTop: 4 }}>
-                      Save tags
-                    </Button>
-                  ) : null}
                 </View>
 
                 {appError ? (
