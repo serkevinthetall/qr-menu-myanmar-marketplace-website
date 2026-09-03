@@ -703,6 +703,38 @@ export function ProductDetailView({
                   <Text
                     variant="labelLarge"
                     style={[styles.tagSuggestionsLabel, { color: detailTheme.onSurface }]}>
+                    Categories
+                  </Text>
+                  <Text
+                    style={{
+                      color: detailTheme.label,
+                      fontSize: 12,
+                      marginBottom: 8,
+                    }}>
+                    Website eCommerce categories from Odoo (shown as tags in the
+                    app).
+                  </Text>
+                  {(appAccess?.ecommerceCategories ?? []).length > 0 ? (
+                    <View style={styles.tagChips}>
+                      {(appAccess?.ecommerceCategories ?? []).map(cat => (
+                        <Chip key={cat.id} compact style={styles.tagChip}>
+                          {cat.name}
+                        </Chip>
+                      ))}
+                    </View>
+                  ) : (
+                    <View style={styles.odooInsertBanner}>
+                      <Text style={styles.odooInsertBannerText}>
+                        please insert in odoo
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.tagSuggestions}>
+                  <Text
+                    variant="labelLarge"
+                    style={[styles.tagSuggestionsLabel, { color: detailTheme.onSurface }]}>
                     For you adjustment
                   </Text>
                   <Text
@@ -1040,6 +1072,17 @@ const styles = StyleSheet.create({
   },
   tagChip: {
     marginBottom: 4,
+  },
+  odooInsertBanner: {
+    backgroundColor: '#DC2626',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  odooInsertBannerText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
   confirmRow: {
     marginBottom: 10,
