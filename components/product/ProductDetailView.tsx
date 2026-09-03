@@ -711,8 +711,8 @@ export function ProductDetailView({
                       fontSize: 12,
                       marginBottom: 8,
                     }}>
-                    Same tags as Contacts. Tick to add that name onto this
-                    product&apos;s tags in Odoo.
+                    Contact Tags (Company, Shop, Restaurant…). Tick one and that
+                    name is written onto this product&apos;s tags in Odoo.
                   </Text>
                   {contactTagsLoading ? (
                     <ActivityIndicator size="small" />
