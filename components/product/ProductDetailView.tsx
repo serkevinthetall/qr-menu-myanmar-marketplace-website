@@ -305,25 +305,31 @@ export function ProductDetailView({
   const [selectedForYouIds, setSelectedForYouIds] = useState<string[]>([]);
 
   const appAccess: ProductAppAccess | null | undefined = detail?.appAccess;
+  const forYouTagKey = (appAccess?.forYouTags ?? []).map(tag => tag.id).join(',');
 
   useEffect(() => {
     setSelectedForYouIds((appAccess?.forYouTags ?? []).map(tag => tag.id));
-  }, [detail?.id, appAccess?.forYouTags?.map(tag => tag.id).join(',')]);
+  }, [detail?.id, forYouTagKey]);
 
   const toggleForYouTag = useCallback(
     async (tagId: string) => {
+      if (appBusy || !onUpdateAppAccess) return;
       const nextIds = selectedForYouIds.includes(tagId)
         ? selectedForYouIds.filter(id => id !== tagId)
         : [...selectedForYouIds, tagId];
       setSelectedForYouIds(nextIds);
-      if (!onUpdateAppAccess) return;
       try {
         await onUpdateAppAccess({ forYouTagIds: nextIds });
       } catch {
         setSelectedForYouIds((appAccess?.forYouTags ?? []).map(tag => tag.id));
       }
     },
-    [selectedForYouIds, onUpdateAppAccess, appAccess?.forYouTags],
+    [
+      appBusy,
+      selectedForYouIds,
+      onUpdateAppAccess,
+      appAccess?.forYouTags,
+    ],
   );
 
   const visibleToApp = Boolean(
@@ -359,7 +365,12 @@ export function ProductDetailView({
     setConfirmVisible(false);
     setPendingUpdates(null);
     setPendingChanges([]);
-  }, [detail]);
+  }, [
+    detail?.id,
+    detail?.price,
+    detail?.premiumPrice?.price,
+    detail?.proPrice?.price,
+  ]);
 
   const premiumLabel = useMemo(
     () => detail?.premiumPrice?.pricelistName?.trim() || 'Premium Membership',
@@ -434,7 +445,9 @@ export function ProductDetailView({
     const updates: ProductPricesUpdate = {};
     const changes: PendingPriceChange[] = [];
 
-    const currentSales = Number.isFinite(detail.price) ? detail.price : null;
+    const currentSales = Number.isFinite(detail.price)
+      ? Math.round(detail.price)
+      : null;
     if (currentSales == null || salesPrice !== currentSales) {
       updates.salesPrice = salesPrice;
       changes.push({
@@ -446,7 +459,10 @@ export function ProductDetailView({
     }
 
     if (premiumPrice != null) {
-      const currentPremium = detail.premiumPrice?.price ?? null;
+      const currentPremium =
+        detail.premiumPrice?.price != null
+          ? Math.round(detail.premiumPrice.price)
+          : null;
       if (currentPremium == null || premiumPrice !== currentPremium) {
         updates.premiumPrice = premiumPrice;
         changes.push({
@@ -459,7 +475,10 @@ export function ProductDetailView({
     }
 
     if (proPrice != null) {
-      const currentPro = detail.proPrice?.price ?? null;
+      const currentPro =
+        detail.proPrice?.price != null
+          ? Math.round(detail.proPrice.price)
+          : null;
       if (currentPro == null || proPrice !== currentPro) {
         updates.proPrice = proPrice;
         changes.push({
@@ -692,9 +711,8 @@ export function ProductDetailView({
                   </View>
                   <Switch
                     value={visibleToApp}
-                    disabled={!onSetVisibleToApp}
+                    disabled={!onSetVisibleToApp || appBusy}
                     onValueChange={next => {
-                      if (appBusy) return;
                       void onSetVisibleToApp?.(next);
                     }}
                   />
@@ -715,9 +733,15 @@ export function ProductDetailView({
                     Website eCommerce categories from Odoo (shown as tags in the
                     app).
                   </Text>
-                  {(appAccess?.ecommerceCategories ?? []).length > 0 ? (
+                  {appAccess == null ? (
+                    <Text
+                      variant="bodySmall"
+                      style={{ color: detailTheme.label }}>
+                      App settings unavailable. Reopen this product to retry.
+                    </Text>
+                  ) : (appAccess.ecommerceCategories ?? []).length > 0 ? (
                     <View style={styles.tagChips}>
-                      {(appAccess?.ecommerceCategories ?? []).map(cat => (
+                      {(appAccess.ecommerceCategories ?? []).map(cat => (
                         <Chip key={cat.id} compact style={styles.tagChip}>
                           {cat.name}
                         </Chip>

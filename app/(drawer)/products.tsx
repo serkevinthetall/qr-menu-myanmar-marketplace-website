@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -372,6 +372,7 @@ export default function ProductsScreen() {
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [detailId, setDetailId] = useState<string | null>(null);
+  const detailIdRef = useRef<string | null>(null);
   const [detail, setDetail] = useState<ProductDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
@@ -424,25 +425,32 @@ export default function ProductsScreen() {
   const openDetail = useCallback(
     async (id: string) => {
       if (!session?.token) return;
+      detailIdRef.current = id;
       setDetailId(id);
       setDetail(null);
       setDetailLoading(true);
       setDetailError('');
+      setAppError('');
       try {
         const data = await fetchProductDetail(session.token, id);
+        if (detailIdRef.current !== id) return;
         setDetail(data);
       } catch (err) {
+        if (detailIdRef.current !== id) return;
         setDetailError(
           err instanceof Error ? err.message : 'Failed to load product.',
         );
       } finally {
-        setDetailLoading(false);
+        if (detailIdRef.current === id) {
+          setDetailLoading(false);
+        }
       }
     },
     [session?.token],
   );
 
   const closeDetail = useCallback(() => {
+    detailIdRef.current = null;
     setDetailId(null);
     setDetail(null);
     setDetailError('');
@@ -521,7 +529,6 @@ export default function ProductsScreen() {
               ? 'Failed to make product visible to app.'
               : 'Failed to hide product from app.',
         );
-        throw err;
       } finally {
         setAppBusy(false);
       }
@@ -587,9 +594,7 @@ export default function ProductsScreen() {
               p.id === detailId ? { ...p, price: updates.salesPrice! } : p,
             ),
           );
-          if (!qrAppFilter) {
-            patchWebProductPrice(detailId, updates.salesPrice);
-          }
+          patchWebProductPrice(detailId, updates.salesPrice);
         }
       } catch (err) {
         const message =
@@ -600,12 +605,12 @@ export default function ProductsScreen() {
         setPricesSaving(false);
       }
     },
-    [session?.token, detailId, qrAppFilter],
+    [session?.token, detailId],
   );
 
   const toggleFavorite = useCallback(
     async (id: string, next: boolean) => {
-      if (!session?.token || favoriteBusyId) return;
+      if (!session?.token || favoriteBusyId === id) return;
 
       const listed = products.find(p => p.id === id);
       const previous =
@@ -620,9 +625,7 @@ export default function ProductsScreen() {
       setCatalogProducts(prev =>
         prev.map(p => (p.id === id ? { ...p, favorite: next } : p)),
       );
-      if (!qrAppFilter) {
-        patchWebProductFavorite(id, next);
-      }
+      patchWebProductFavorite(id, next);
       if (detail?.id === id) {
         setDetail(prev => (prev ? { ...prev, favorite: next } : prev));
       }
@@ -636,9 +639,7 @@ export default function ProductsScreen() {
         setCatalogProducts(prev =>
           prev.map(p => (p.id === id ? { ...p, favorite: previous } : p)),
         );
-        if (!qrAppFilter) {
-          patchWebProductFavorite(id, previous);
-        }
+        patchWebProductFavorite(id, previous);
         if (detail?.id === id) {
           setDetail(prev => (prev ? { ...prev, favorite: previous } : prev));
         }
@@ -649,7 +650,7 @@ export default function ProductsScreen() {
         setFavoriteBusyId(null);
       }
     },
-    [session?.token, favoriteBusyId, products, detail, qrAppFilter],
+    [session?.token, favoriteBusyId, products, detail],
   );
 
   useEffect(() => {
