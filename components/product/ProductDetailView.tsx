@@ -692,8 +692,9 @@ export function ProductDetailView({
                   </View>
                   <Switch
                     value={visibleToApp}
-                    disabled={appBusy || !onSetVisibleToApp}
+                    disabled={!onSetVisibleToApp}
                     onValueChange={next => {
+                      if (appBusy) return;
                       void onSetVisibleToApp?.(next);
                     }}
                   />

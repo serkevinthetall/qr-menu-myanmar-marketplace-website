@@ -473,14 +473,47 @@ export default function ProductsScreen() {
   const setVisibleToApp = useCallback(
     async (visible: boolean) => {
       if (!session?.token || !detailId) return;
-      setAppBusy(true);
       setAppError('');
+
+      // Flip UI immediately; sync to Odoo in the background.
+      let snapshot: ProductDetail | null = null;
+      setDetail(prev => {
+        snapshot = prev;
+        if (!prev?.appAccess) return prev;
+        const tags = prev.appAccess.tags ?? [];
+        const withoutQr = tags.filter(
+          tag => tag.name.trim().toLowerCase() !== 'qr app',
+        );
+        const nextTags = visible
+          ? [...withoutQr, { id: 'qr-app-optimistic', name: 'QR App' }]
+          : withoutQr;
+        return {
+          ...prev,
+          appAccess: {
+            ...prev.appAccess,
+            websitePublished: visible,
+            hasQrAppTag: visible,
+            saleOk: visible ? true : prev.appAccess.saleOk,
+            tags: nextTags,
+            tagIds: nextTags.map(tag => tag.id),
+            readyForApp:
+              (visible ? true : prev.appAccess.saleOk) &&
+              visible &&
+              prev.appAccess.hasEcommerceCategory,
+          },
+        };
+      });
+
+      setAppBusy(true);
       try {
         const appAccess = await updateProductAppAccess(session.token, detailId, {
           enableQrApp: visible,
         });
         setDetail(prev => (prev ? { ...prev, appAccess } : prev));
       } catch (err) {
+        if (snapshot) {
+          setDetail(snapshot);
+        }
         setAppError(
           err instanceof Error
             ? err.message
