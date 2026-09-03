@@ -30,7 +30,9 @@ import { useResponsive } from '@/hooks/use-responsive';
 import {
   fetchProductDetail,
   fetchProductsPage,
+  fetchProductTags,
   setProductFavorite,
+  updateProductAppAccess,
   updateProductPrices,
 } from '@/services/products';
 import {
@@ -41,7 +43,12 @@ import {
   subscribeWebProductCatalog,
   WebProductCatalog,
 } from '@/services/web/product-catalog-cache';
-import { Product, ProductDetail, ProductPricesUpdate } from '@/types/product';
+import {
+  Product,
+  ProductDetail,
+  ProductPricesUpdate,
+  ProductTag,
+} from '@/types/product';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
 
 const PAGE_SIZE = 50;
@@ -370,6 +377,10 @@ export default function ProductsScreen() {
   const [detailError, setDetailError] = useState('');
   const [pricesSaving, setPricesSaving] = useState(false);
   const [pricesError, setPricesError] = useState('');
+  const [productTags, setProductTags] = useState<ProductTag[]>([]);
+  const [tagsLoading, setTagsLoading] = useState(false);
+  const [appBusy, setAppBusy] = useState(false);
+  const [appError, setAppError] = useState('');
   const [qrAppFilter, setQrAppFilter] = useState(false);
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [favoriteBusyId, setFavoriteBusyId] = useState<string | null>(null);
@@ -436,7 +447,74 @@ export default function ProductsScreen() {
     setDetail(null);
     setDetailError('');
     setPricesError('');
+    setAppError('');
+    setAppBusy(false);
   }, []);
+
+  const loadProductTags = useCallback(async () => {
+    if (!session?.token) return;
+    setTagsLoading(true);
+    try {
+      const tags = await fetchProductTags(session.token);
+      setProductTags(tags);
+    } catch {
+      setProductTags([]);
+    } finally {
+      setTagsLoading(false);
+    }
+  }, [session?.token]);
+
+  useEffect(() => {
+    if (detailId) {
+      void loadProductTags();
+    }
+  }, [detailId, loadProductTags]);
+
+  const enableQrApp = useCallback(async () => {
+    if (!session?.token || !detailId) return;
+    setAppBusy(true);
+    setAppError('');
+    try {
+      const appAccess = await updateProductAppAccess(session.token, detailId, {
+        enableQrApp: true,
+      });
+      setDetail(prev => (prev ? { ...prev, appAccess } : prev));
+      await loadProductTags();
+    } catch (err) {
+      setAppError(
+        err instanceof Error ? err.message : 'Failed to enable QR App.',
+      );
+      throw err;
+    } finally {
+      setAppBusy(false);
+    }
+  }, [session?.token, detailId, loadProductTags]);
+
+  const updateAppAccess = useCallback(
+    async (updates: { websitePublished?: boolean; tagIds?: string[] }) => {
+      if (!session?.token || !detailId) return;
+      setAppBusy(true);
+      setAppError('');
+      try {
+        const appAccess = await updateProductAppAccess(
+          session.token,
+          detailId,
+          updates,
+        );
+        setDetail(prev => (prev ? { ...prev, appAccess } : prev));
+      } catch (err) {
+        setAppError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to update app settings.',
+        );
+        throw err;
+      } finally {
+        setAppBusy(false);
+      }
+    },
+    [session?.token, detailId],
+  );
 
   const savePrices = useCallback(
     async (updates: ProductPricesUpdate) => {
@@ -724,6 +802,12 @@ export default function ProductsScreen() {
           onSavePrices={savePrices}
           pricesSaving={pricesSaving}
           pricesError={pricesError}
+          productTags={productTags}
+          tagsLoading={tagsLoading}
+          appBusy={appBusy}
+          appError={appError}
+          onEnableQrApp={enableQrApp}
+          onUpdateAppAccess={updateAppAccess}
         />
       </View>
     );

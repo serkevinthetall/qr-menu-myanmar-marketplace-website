@@ -1,8 +1,11 @@
 import { webApiRequest } from '@/services/web/client';
 import {
   Product,
+  ProductAppAccess,
+  ProductAppUpdate,
   ProductDetail,
   ProductPricesUpdate,
+  ProductTag,
 } from '@/types/product';
 
 type ProductsResponse = {
@@ -96,6 +99,29 @@ export async function setProductFavorite(
       method: 'PUT',
       token,
       body: { favorite },
+    },
+  );
+  return response.data;
+}
+
+export async function fetchProductTags(token: string): Promise<ProductTag[]> {
+  const response = await webApiRequest<{ data: ProductTag[] }>('/products/tags', {
+    token,
+  });
+  return response.data ?? [];
+}
+
+export async function updateProductAppAccess(
+  token: string,
+  id: string,
+  updates: ProductAppUpdate,
+): Promise<ProductAppAccess> {
+  const response = await webApiRequest<{ data: ProductAppAccess }>(
+    `/products/${id}/app`,
+    {
+      method: 'PUT',
+      token,
+      body: updates,
     },
   );
   return response.data;

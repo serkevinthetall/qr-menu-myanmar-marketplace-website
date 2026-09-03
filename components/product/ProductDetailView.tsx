@@ -1,11 +1,13 @@
-import { ReactNode, useEffect, useMemo, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import {
   ActivityIndicator,
   Button,
+  Chip,
   Dialog,
   Icon,
   Portal,
+  Switch,
   Text,
   TextInput,
   useTheme,
@@ -15,9 +17,14 @@ import { FavoriteStar } from '@/components/ui/FavoriteStar';
 import { ProductThumb } from '@/components/ui/ProductThumb';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
-import { ProductDetail, ProductPricesUpdate } from '@/types/product';
+import {
+  ProductAppAccess,
+  ProductDetail,
+  ProductPricesUpdate,
+  ProductTag,
+} from '@/types/product';
 
-type DetailTab = 'details' | 'prices';
+type DetailTab = 'details' | 'prices' | 'app';
 
 type PriceRowKey = 'sales' | 'premium' | 'pro';
 
@@ -148,6 +155,7 @@ function DetailTabs({
           [
             { key: 'details' as const, label: 'Product details' },
             { key: 'prices' as const, label: 'Prices' },
+            { key: 'app' as const, label: 'App' },
           ] as const
         ).map(item => {
           const active = tab === item.key;
@@ -253,7 +261,46 @@ type ProductDetailViewProps = {
   onSavePrices?: (updates: ProductPricesUpdate) => Promise<void>;
   pricesSaving?: boolean;
   pricesError?: string;
+  productTags?: ProductTag[];
+  tagsLoading?: boolean;
+  appBusy?: boolean;
+  appError?: string;
+  onEnableQrApp?: () => Promise<void>;
+  onUpdateAppAccess?: (updates: {
+    websitePublished?: boolean;
+    tagIds?: string[];
+  }) => Promise<void>;
 };
+
+function ChecklistRow({
+  ok,
+  label,
+  detail,
+}: {
+  ok: boolean;
+  label: string;
+  detail?: string;
+}) {
+  const theme = useTheme();
+  const detailTheme = useDetailTheme();
+  return (
+    <View style={styles.checkRow}>
+      <Icon
+        source={ok ? 'check-circle' : 'close-circle-outline'}
+        size={18}
+        color={ok ? theme.colors.primary : theme.colors.error}
+      />
+      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+        <Text style={{ color: detailTheme.onSurface, fontWeight: '600', fontSize: 14 }}>
+          {label}
+        </Text>
+        {detail ? (
+          <Text style={{ color: detailTheme.label, fontSize: 12 }}>{detail}</Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
 
 export function ProductDetailView({
   detail,
@@ -264,6 +311,12 @@ export function ProductDetailView({
   onSavePrices,
   pricesSaving,
   pricesError,
+  productTags = [],
+  tagsLoading = false,
+  appBusy = false,
+  appError = '',
+  onEnableQrApp,
+  onUpdateAppAccess,
 }: ProductDetailViewProps) {
   const theme = useTheme();
   const detailTheme = useDetailTheme();
@@ -278,6 +331,34 @@ export function ProductDetailView({
   const [pendingUpdates, setPendingUpdates] = useState<ProductPricesUpdate | null>(
     null,
   );
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+
+  const appAccess: ProductAppAccess | null | undefined = detail?.appAccess;
+
+  useEffect(() => {
+    setSelectedTagIds(appAccess?.tagIds ?? []);
+  }, [detail?.id, appAccess?.tagIds?.join(',')]);
+
+  const toggleTag = useCallback((tagId: string) => {
+    setSelectedTagIds(prev =>
+      prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId],
+    );
+  }, []);
+
+  const tagsDirty = useMemo(() => {
+    const current = [...(appAccess?.tagIds ?? [])].sort().join(',');
+    const next = [...selectedTagIds].sort().join(',');
+    return current !== next;
+  }, [appAccess?.tagIds, selectedTagIds]);
+
+  const saveTags = useCallback(async () => {
+    if (!onUpdateAppAccess) return;
+    await onUpdateAppAccess({ tagIds: selectedTagIds });
+  }, [onUpdateAppAccess, selectedTagIds]);
+
+  const ecommerceLabel =
+    appAccess?.ecommerceCategories?.map(cat => cat.name).filter(Boolean).join(', ') ||
+    'None selected in Odoo';
   const [pendingChanges, setPendingChanges] = useState<PendingPriceChange[]>([]);
 
   useEffect(() => {
@@ -556,7 +637,7 @@ export function ProductDetailView({
                   </Text>
                 </View>
               </View>
-            ) : (
+            ) : tab === 'prices' ? (
               <View style={styles.sectionBody}>
                 <View
                   style={[
@@ -614,6 +695,165 @@ export function ProductDetailView({
                       onPress={handleRequestSave}>
                       Save prices
                     </Button>
+                  </View>
+                ) : null}
+              </View>
+            ) : (
+              <View style={styles.sectionBody}>
+                <Text
+                  style={{
+                    color: detailTheme.label,
+                    fontSize: 13,
+                    lineHeight: 18,
+                    marginTop: 8,
+                    marginBottom: 12,
+                  }}>
+                  To show in the QR App catalog, this product needs Published on,
+                  the QR App tag, Can be Sold, and at least one eCommerce category.
+                </Text>
+
+                <ChecklistRow
+                  ok={Boolean(appAccess?.websitePublished)}
+                  label="Published on website"
+                />
+                <ChecklistRow
+                  ok={Boolean(appAccess?.hasQrAppTag)}
+                  label='Tag includes "QR App"'
+                />
+                <ChecklistRow
+                  ok={Boolean(appAccess?.saleOk)}
+                  label="Can be Sold"
+                />
+                <ChecklistRow
+                  ok={Boolean(appAccess?.hasEcommerceCategory)}
+                  label="eCommerce category"
+                  detail={ecommerceLabel}
+                />
+
+                <View
+                  style={[
+                    styles.appStatusBanner,
+                    {
+                      backgroundColor: appAccess?.readyForApp
+                        ? theme.colors.primaryContainer
+                        : detailTheme.panelBg,
+                      borderColor: detailTheme.border,
+                    },
+                  ]}>
+                  <Text
+                    style={{
+                      color: appAccess?.readyForApp
+                        ? theme.colors.onPrimaryContainer
+                        : detailTheme.onSurface,
+                      fontWeight: '700',
+                    }}>
+                    {appAccess?.readyForApp
+                      ? 'Ready for QR App'
+                      : 'Not ready for QR App yet'}
+                  </Text>
+                </View>
+
+                <View style={styles.publishedRow}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text
+                      style={[styles.infoLabel, { color: detailTheme.label }]}>
+                      Published
+                    </Text>
+                    <Text
+                      style={{
+                        color: detailTheme.onSurface,
+                        fontSize: 13,
+                        marginTop: 2,
+                      }}>
+                      Website published for this product
+                    </Text>
+                  </View>
+                  <Switch
+                    value={Boolean(appAccess?.websitePublished)}
+                    disabled={appBusy || !onUpdateAppAccess}
+                    onValueChange={next => {
+                      void onUpdateAppAccess?.({ websitePublished: next });
+                    }}
+                  />
+                </View>
+
+                <View style={{ marginTop: 12, gap: 8 }}>
+                  <Text style={[styles.infoLabel, { color: detailTheme.label }]}>
+                    Product tags
+                  </Text>
+                  {tagsLoading ? (
+                    <ActivityIndicator size="small" />
+                  ) : productTags.length === 0 ? (
+                    <Text
+                      style={{ color: detailTheme.label, fontSize: 13 }}>
+                      No product tags found in Odoo. Add tags in Odoo first.
+                    </Text>
+                  ) : (
+                    <View style={styles.tagChips}>
+                      {productTags.map(tag => {
+                        const selected = selectedTagIds.includes(tag.id);
+                        return (
+                          <Chip
+                            key={tag.id}
+                            compact
+                            selected={selected}
+                            onPress={() => toggleTag(tag.id)}
+                            style={styles.tagChip}>
+                            {tag.name}
+                          </Chip>
+                        );
+                      })}
+                    </View>
+                  )}
+                  {onUpdateAppAccess ? (
+                    <Button
+                      mode="outlined"
+                      icon="content-save-outline"
+                      loading={appBusy}
+                      disabled={appBusy || !tagsDirty}
+                      onPress={() => {
+                        void saveTags();
+                      }}
+                      style={{ alignSelf: 'flex-start' }}>
+                      Save tags
+                    </Button>
+                  ) : null}
+                </View>
+
+                {appError ? (
+                  <Text style={[styles.priceError, { color: theme.colors.error }]}>
+                    {appError}
+                  </Text>
+                ) : null}
+
+                {onEnableQrApp ? (
+                  <View style={styles.priceActions}>
+                    <Button
+                      mode="contained"
+                      icon="cellphone-check"
+                      loading={appBusy}
+                      disabled={
+                        appBusy ||
+                        (Boolean(appAccess?.websitePublished) &&
+                          Boolean(appAccess?.hasQrAppTag) &&
+                          Boolean(appAccess?.saleOk))
+                      }
+                      onPress={() => {
+                        void onEnableQrApp();
+                      }}>
+                      Add QR App + Publish
+                    </Button>
+                    {!appAccess?.hasEcommerceCategory ? (
+                      <Text
+                        style={{
+                          color: detailTheme.label,
+                          fontSize: 12,
+                          marginTop: 8,
+                        }}>
+                        Tip: set an eCommerce category (Website Product Category)
+                        in Odoo so the product is fully app-ready.
+                      </Text>
+                    ) : null}
                   </View>
                 ) : null}
               </View>
@@ -884,6 +1124,34 @@ const styles = StyleSheet.create({
   priceActions: {
     paddingVertical: 16,
     alignItems: 'flex-start',
+  },
+  checkRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingVertical: 8,
+  },
+  appStatusBanner: {
+    marginTop: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  publishedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+  },
+  tagChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tagChip: {
+    marginBottom: 4,
   },
   confirmRow: {
     marginBottom: 10,

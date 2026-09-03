@@ -19,6 +19,22 @@ export type ProductMembershipPrice = {
   price: number | null;
 };
 
+export type ProductTag = {
+  id: string;
+  name: string;
+};
+
+export type ProductAppAccess = {
+  saleOk: boolean;
+  websitePublished: boolean;
+  hasQrAppTag: boolean;
+  hasEcommerceCategory: boolean;
+  readyForApp: boolean;
+  tagIds: string[];
+  tags: ProductTag[];
+  ecommerceCategories: ProductTag[];
+};
+
 export type ProductDetail = Product & {
   cost: number;
   barcode: string;
@@ -26,10 +42,17 @@ export type ProductDetail = Product & {
   type: string;
   premiumPrice?: ProductMembershipPrice;
   proPrice?: ProductMembershipPrice;
+  appAccess?: ProductAppAccess | null;
 };
 
 export type ProductPricesUpdate = {
   salesPrice?: number;
   premiumPrice?: number;
   proPrice?: number;
+};
+
+export type ProductAppUpdate = {
+  enableQrApp?: boolean;
+  websitePublished?: boolean;
+  tagIds?: string[];
 };
