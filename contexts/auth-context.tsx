@@ -10,6 +10,7 @@ import {
 } from 'react';
 
 import { isSalesRepAppSurface, sessionStorageKeyForSurface } from '@/constants/app-surface';
+import { WEB_COOKIE_AUTH_TOKEN } from '@/constants/auth-token';
 import { authenticateAppUser, logoutAppUser } from '@/services/app/auth';
 import { clearAppProductCatalog } from '@/services/app/product-catalog-cache';
 import {
@@ -17,7 +18,6 @@ import {
   fetchCurrentUser,
   isSessionValid,
   logoutUser,
-  WEB_COOKIE_AUTH_TOKEN,
 } from '@/services/auth';
 import { clearWebProductCatalog } from '@/services/web/product-catalog-cache';
 import { AuthSession, AuthUser, LoginCredentials } from '@/types/auth';
@@ -45,30 +45,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function restore() {
       try {
+        const storedRaw = await AsyncStorage.getItem(storageKey);
+        const stored = storedRaw
+          ? (JSON.parse(storedRaw) as AuthSession)
+          : null;
+
         if (isApp) {
-          const stored = await AsyncStorage.getItem(storageKey);
-          if (!stored) return;
-          const parsed = JSON.parse(stored) as AuthSession;
-          if (isSessionValid(parsed) && parsed.token && parsed.token !== WEB_COOKIE_AUTH_TOKEN) {
-            if (!cancelled) setSession(parsed);
-          } else {
+          if (stored && isSessionValid(stored) && stored.token !== WEB_COOKIE_AUTH_TOKEN) {
+            if (!cancelled) setSession(stored);
+          } else if (stored) {
             await AsyncStorage.removeItem(storageKey);
           }
           return;
         }
 
-        // Web: session lives in httpOnly cookie — ask the API.
-        const fromCookie = await fetchCurrentUser();
+        // Web: prefer stored Bearer (sid-only JWT); fall back to httpOnly cookie via /me.
+        if (stored?.token && stored.token !== WEB_COOKIE_AUTH_TOKEN && isSessionValid(stored)) {
+          const refreshed = await fetchCurrentUser(stored);
+          if (!cancelled && refreshed && isSessionValid(refreshed)) {
+            const next = {
+              ...refreshed,
+              token: stored.token,
+            };
+            setSession(next);
+            await AsyncStorage.setItem(storageKey, JSON.stringify(next));
+            return;
+          }
+        }
+
+        const fromCookie = await fetchCurrentUser(null);
         if (!cancelled && fromCookie && isSessionValid(fromCookie)) {
+          // Cookie-only restore — keep sentinel until next login issues a Bearer.
           setSession(fromCookie);
-          await AsyncStorage.setItem(
-            storageKey,
-            JSON.stringify({
-              token: WEB_COOKIE_AUTH_TOKEN,
-              user: fromCookie.user,
-              expiresAt: fromCookie.expiresAt,
-            }),
-          );
+          await AsyncStorage.setItem(storageKey, JSON.stringify(fromCookie));
         } else {
           await AsyncStorage.removeItem(storageKey);
         }
@@ -111,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await logoutAppUser(session.token);
         }
       } else {
-        await logoutUser();
+        await logoutUser(session?.token);
       }
     } catch {
       // Clear local session even if backend logout fails.
@@ -120,7 +129,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await clearLocalSession();
   }, [session?.token, clearLocalSession, isApp]);
 
-  // Odoo "user is not connected" / 401 → drop local session; AuthGate goes to /login.
   useEffect(() => {
     return subscribeSessionExpired(() => {
       void clearLocalSession();

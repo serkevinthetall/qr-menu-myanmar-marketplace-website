@@ -27,7 +27,6 @@ export type LoginDevice = {
   current: boolean;
 };
 
-/** Web sessions are cookie-backed; token may be the cookie sentinel. */
 export function isSessionValid(session: AuthSession | null): boolean {
   if (!session?.user?.email) {
     return false;
@@ -35,10 +34,14 @@ export function isSessionValid(session: AuthSession | null): boolean {
   if (!session.expiresAt) {
     return false;
   }
+  // Web may briefly use cookie sentinel; prefer a real JWT when present.
+  if (!session.token) {
+    return false;
+  }
   return new Date(session.expiresAt).getTime() > Date.now();
 }
 
-/** Website ERP login → POST /api/auth/login (sets httpOnly cookie). */
+/** Website ERP login → POST /api/auth/login (Bearer JWT + httpOnly cookie). */
 export async function authenticateUser(
   credentials: LoginCredentials,
 ): Promise<AuthSession> {
@@ -47,25 +50,37 @@ export async function authenticateUser(
     body: credentials,
   });
 
+  const token = String(response.token || '').trim();
+  if (!token || token === WEB_COOKIE_AUTH_TOKEN) {
+    throw new Error('Login succeeded but no session token was returned.');
+  }
+
   return {
-    token: WEB_COOKIE_AUTH_TOKEN,
+    token,
     user: response.user,
     expiresAt: response.expiresAt,
   };
 }
 
-/** Restore web session from httpOnly cookie. */
-export async function fetchCurrentUser(): Promise<AuthSession | null> {
+/** Restore web session from Bearer storage, or httpOnly cookie via /auth/me. */
+export async function fetchCurrentUser(
+  stored?: AuthSession | null,
+): Promise<AuthSession | null> {
   try {
-    const response = await webApiRequest<MeResponse>('/auth/me');
+    const response = await webApiRequest<MeResponse>('/auth/me', {
+      token: stored?.token,
+    });
     if (!response?.user?.email) {
       return null;
     }
     return {
-      token: WEB_COOKIE_AUTH_TOKEN,
+      token: stored?.token && stored.token !== WEB_COOKIE_AUTH_TOKEN
+        ? stored.token
+        : WEB_COOKIE_AUTH_TOKEN,
       user: response.user,
       expiresAt:
         response.expiresAt ||
+        stored?.expiresAt ||
         new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     };
   } catch {
@@ -73,25 +88,29 @@ export async function fetchCurrentUser(): Promise<AuthSession | null> {
   }
 }
 
-export async function logoutUser(_token?: string): Promise<void> {
+export async function logoutUser(token?: string): Promise<void> {
   await webApiRequest('/auth/logout', {
     method: 'POST',
+    token,
   });
 }
 
-export async function fetchLoginDevices(_token?: string): Promise<LoginDevice[]> {
-  const response = await webApiRequest<{ data: LoginDevice[] }>('/auth/devices');
+export async function fetchLoginDevices(token?: string): Promise<LoginDevice[]> {
+  const response = await webApiRequest<{ data: LoginDevice[] }>('/auth/devices', {
+    token,
+  });
   return response.data ?? [];
 }
 
 export async function revokeLoginDevice(
-  _token: string | undefined,
+  token: string | undefined,
   deviceId: string,
 ): Promise<{ revoked: boolean; revokedCurrent: boolean }> {
   const response = await webApiRequest<{
     data: { revoked: boolean; revokedCurrent: boolean };
   }>(`/auth/devices/${encodeURIComponent(deviceId)}`, {
     method: 'DELETE',
+    token,
   });
   return response.data;
 }
