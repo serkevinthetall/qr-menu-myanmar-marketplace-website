@@ -1,6 +1,8 @@
 import axios, { AxiosError, isAxiosError } from 'axios';
+import { Platform } from 'react-native';
 
 import { API_BASE_URL } from '@/constants/api';
+import { WEB_COOKIE_AUTH_TOKEN } from '@/constants/auth-token';
 import {
   isAuthSessionErrorMessage,
   notifySessionExpired,
@@ -11,12 +13,15 @@ import {
  * Prefer surface-specific clients:
  * - Phone app → `@/services/app/client` (`appApiRequest` → `/api/app/*`)
  * - Website ERP → `@/services/web/client` (`webApiRequest` → `/api/*` web routes)
+ *
+ * Web uses httpOnly cookie auth (`withCredentials`); native app uses Bearer tokens.
  */
 export const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: Platform.OS === 'web',
 });
 
 type ApiOptions = {
@@ -34,6 +39,13 @@ function shouldForceLogin(path: string, status: number, message: string): boolea
   ) {
     return false;
   }
+  // Bootstrapping /auth/me without a cookie should not hard-logout the UI loop.
+  if (
+    status === 401 &&
+    (normalized.includes('/auth/me') || normalized.endsWith('/auth/me'))
+  ) {
+    return false;
+  }
   return status === 401 || isAuthSessionErrorMessage(message);
 }
 
@@ -48,6 +60,13 @@ function messageFromAxiosError(error: AxiosError<{ message?: string }>): string 
   return 'Request failed.';
 }
 
+function authorizationHeader(token?: string): Record<string, string> | undefined {
+  if (!token || token === WEB_COOKIE_AUTH_TOKEN) {
+    return undefined;
+  }
+  return { Authorization: `Bearer ${token}` };
+}
+
 /** Low-level HTTP helper backed by Axios. */
 export async function apiRequest<T>(
   path: string,
@@ -60,7 +79,8 @@ export async function apiRequest<T>(
       url: normalized,
       method,
       data: body,
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      headers: authorizationHeader(token),
+      withCredentials: Platform.OS === 'web',
     });
     return response.data;
   } catch (error) {

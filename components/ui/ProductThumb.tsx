@@ -4,6 +4,7 @@ import { Platform, StyleSheet, View, ViewStyle } from 'react-native';
 import { Icon, useTheme } from 'react-native-paper';
 
 import { API_BASE_URL } from '@/constants/api';
+import { WEB_COOKIE_AUTH_TOKEN } from '@/constants/auth-token';
 import { useAuth } from '@/contexts/auth-context';
 
 type ProductThumbProps = {
@@ -64,12 +65,18 @@ export function ProductThumb({
     }
 
     // Web <img>/expo-image often cannot send Authorization headers.
-    // Fetch the binary with the bearer token, then show a blob URL.
+    // Fetch the binary with cookie (web) or bearer (app), then show a blob URL.
     if (needsAuth && session?.token) {
       void (async () => {
         try {
+          const headers: Record<string, string> = {};
+          if (session.token !== WEB_COOKIE_AUTH_TOKEN) {
+            headers.Authorization = `Bearer ${session.token}`;
+          }
           const response = await fetch(resolvedUri, {
-            headers: { Authorization: `Bearer ${session.token}` },
+            headers,
+            credentials:
+              Platform.OS === 'web' ? 'include' : 'same-origin',
             cache: 'force-cache',
           });
           if (!response.ok) {

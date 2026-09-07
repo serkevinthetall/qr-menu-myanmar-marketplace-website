@@ -1,10 +1,19 @@
+import { WEB_COOKIE_AUTH_TOKEN } from '@/constants/auth-token';
 import { AuthSession, LoginCredentials } from '@/types/auth';
 import { webApiRequest } from '@/services/web/client';
 
+export { WEB_COOKIE_AUTH_TOKEN } from '@/constants/auth-token';
+
 type LoginResponse = {
-  token: string;
+  token?: string;
   user: AuthSession['user'];
   expiresAt: string;
+  authMode?: 'cookie' | 'bearer';
+};
+
+type MeResponse = {
+  user: AuthSession['user'];
+  expiresAt?: string;
 };
 
 export type LoginDevice = {
@@ -18,15 +27,18 @@ export type LoginDevice = {
   current: boolean;
 };
 
+/** Web sessions are cookie-backed; token may be the cookie sentinel. */
 export function isSessionValid(session: AuthSession | null): boolean {
-  if (!session?.token || !session.user?.email) {
+  if (!session?.user?.email) {
     return false;
   }
-
+  if (!session.expiresAt) {
+    return false;
+  }
   return new Date(session.expiresAt).getTime() > Date.now();
 }
 
-/** Website ERP login → POST /api/auth/login */
+/** Website ERP login → POST /api/auth/login (sets httpOnly cookie). */
 export async function authenticateUser(
   credentials: LoginCredentials,
 ): Promise<AuthSession> {
@@ -36,35 +48,50 @@ export async function authenticateUser(
   });
 
   return {
-    token: response.token,
+    token: WEB_COOKIE_AUTH_TOKEN,
     user: response.user,
     expiresAt: response.expiresAt,
   };
 }
 
-export async function logoutUser(token: string): Promise<void> {
+/** Restore web session from httpOnly cookie. */
+export async function fetchCurrentUser(): Promise<AuthSession | null> {
+  try {
+    const response = await webApiRequest<MeResponse>('/auth/me');
+    if (!response?.user?.email) {
+      return null;
+    }
+    return {
+      token: WEB_COOKIE_AUTH_TOKEN,
+      user: response.user,
+      expiresAt:
+        response.expiresAt ||
+        new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function logoutUser(_token?: string): Promise<void> {
   await webApiRequest('/auth/logout', {
     method: 'POST',
-    token,
   });
 }
 
-export async function fetchLoginDevices(token: string): Promise<LoginDevice[]> {
-  const response = await webApiRequest<{ data: LoginDevice[] }>('/auth/devices', {
-    token,
-  });
+export async function fetchLoginDevices(_token?: string): Promise<LoginDevice[]> {
+  const response = await webApiRequest<{ data: LoginDevice[] }>('/auth/devices');
   return response.data ?? [];
 }
 
 export async function revokeLoginDevice(
-  token: string,
+  _token: string | undefined,
   deviceId: string,
 ): Promise<{ revoked: boolean; revokedCurrent: boolean }> {
   const response = await webApiRequest<{
     data: { revoked: boolean; revokedCurrent: boolean };
   }>(`/auth/devices/${encodeURIComponent(deviceId)}`, {
     method: 'DELETE',
-    token,
   });
   return response.data;
 }

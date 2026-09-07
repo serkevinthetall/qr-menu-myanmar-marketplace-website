@@ -12,7 +12,13 @@ import {
 import { isSalesRepAppSurface, sessionStorageKeyForSurface } from '@/constants/app-surface';
 import { authenticateAppUser, logoutAppUser } from '@/services/app/auth';
 import { clearAppProductCatalog } from '@/services/app/product-catalog-cache';
-import { authenticateUser, isSessionValid, logoutUser } from '@/services/auth';
+import {
+  authenticateUser,
+  fetchCurrentUser,
+  isSessionValid,
+  logoutUser,
+  WEB_COOKIE_AUTH_TOKEN,
+} from '@/services/auth';
 import { clearWebProductCatalog } from '@/services/web/product-catalog-cache';
 import { AuthSession, AuthUser, LoginCredentials } from '@/types/auth';
 import { subscribeSessionExpired } from '@/utils/session-expiry';
@@ -32,57 +38,87 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const storageKey = sessionStorageKeyForSurface();
+  const isApp = isSalesRepAppSurface();
 
   useEffect(() => {
-    AsyncStorage.getItem(storageKey)
-      .then(stored => {
-        if (!stored) {
+    let cancelled = false;
+
+    async function restore() {
+      try {
+        if (isApp) {
+          const stored = await AsyncStorage.getItem(storageKey);
+          if (!stored) return;
+          const parsed = JSON.parse(stored) as AuthSession;
+          if (isSessionValid(parsed) && parsed.token && parsed.token !== WEB_COOKIE_AUTH_TOKEN) {
+            if (!cancelled) setSession(parsed);
+          } else {
+            await AsyncStorage.removeItem(storageKey);
+          }
           return;
         }
 
-        const parsed = JSON.parse(stored) as AuthSession;
-        if (isSessionValid(parsed)) {
-          setSession(parsed);
+        // Web: session lives in httpOnly cookie — ask the API.
+        const fromCookie = await fetchCurrentUser();
+        if (!cancelled && fromCookie && isSessionValid(fromCookie)) {
+          setSession(fromCookie);
+          await AsyncStorage.setItem(
+            storageKey,
+            JSON.stringify({
+              token: WEB_COOKIE_AUTH_TOKEN,
+              user: fromCookie.user,
+              expiresAt: fromCookie.expiresAt,
+            }),
+          );
         } else {
-          AsyncStorage.removeItem(storageKey);
+          await AsyncStorage.removeItem(storageKey);
         }
-      })
-      .finally(() => setIsLoading(false));
-  }, [storageKey]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    void restore();
+    return () => {
+      cancelled = true;
+    };
+  }, [storageKey, isApp]);
 
   const clearLocalSession = useCallback(async () => {
     setSession(null);
-    if (isSalesRepAppSurface()) {
+    if (isApp) {
       clearAppProductCatalog();
     } else {
       clearWebProductCatalog();
     }
     await AsyncStorage.removeItem(storageKey);
-  }, [storageKey]);
+  }, [storageKey, isApp]);
 
-  const login = useCallback(async (credentials: LoginCredentials) => {
-    const nextSession = isSalesRepAppSurface()
-      ? await authenticateAppUser(credentials)
-      : await authenticateUser(credentials);
-    setSession(nextSession);
-    await AsyncStorage.setItem(storageKey, JSON.stringify(nextSession));
-  }, [storageKey]);
+  const login = useCallback(
+    async (credentials: LoginCredentials) => {
+      const nextSession = isApp
+        ? await authenticateAppUser(credentials)
+        : await authenticateUser(credentials);
+      setSession(nextSession);
+      await AsyncStorage.setItem(storageKey, JSON.stringify(nextSession));
+    },
+    [storageKey, isApp],
+  );
 
   const logout = useCallback(async () => {
-    if (session?.token) {
-      try {
-        if (isSalesRepAppSurface()) {
+    try {
+      if (isApp) {
+        if (session?.token && session.token !== WEB_COOKIE_AUTH_TOKEN) {
           await logoutAppUser(session.token);
-        } else {
-          await logoutUser(session.token);
         }
-      } catch {
-        // Clear local session even if backend logout fails.
+      } else {
+        await logoutUser();
       }
+    } catch {
+      // Clear local session even if backend logout fails.
     }
 
     await clearLocalSession();
-  }, [session?.token, clearLocalSession]);
+  }, [session?.token, clearLocalSession, isApp]);
 
   // Odoo "user is not connected" / 401 → drop local session; AuthGate goes to /login.
   useEffect(() => {

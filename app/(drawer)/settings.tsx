@@ -59,7 +59,7 @@ export default function SettingsScreen() {
   }, []);
 
   const loadDevices = useCallback(async () => {
-    if (!session?.token) return;
+    if (!session?.user) return;
     setDevicesLoading(true);
     setDevicesError('');
     try {
@@ -73,7 +73,7 @@ export default function SettingsScreen() {
     } finally {
       setDevicesLoading(false);
     }
-  }, [session?.token]);
+  }, [session?.user, session?.token]);
 
   useEffect(() => {
     void loadDevices();
@@ -129,7 +129,7 @@ export default function SettingsScreen() {
 
   const onRevokeDevice = useCallback(
     async (device: LoginDevice) => {
-      if (!session?.token) return;
+      if (!session?.user) return;
       setRevokingId(device.id);
       try {
         const result = await revokeLoginDevice(session.token, device.id);
@@ -148,7 +148,7 @@ export default function SettingsScreen() {
         setRevokingId(null);
       }
     },
-    [session?.token, loadDevices, logout],
+    [session?.user, session?.token, loadDevices, logout],
   );
 
   return (
