@@ -86,9 +86,15 @@ export async function apiRequest<T>(
   } catch (error) {
     if (isAxiosError(error)) {
       if (!error.response) {
-        const hint = ` Could not reach the API at ${API_BASE_URL}.`;
+        const code = String(error.code || '');
+        const networkish =
+          code === 'ERR_NETWORK' ||
+          code === 'ECONNABORTED' ||
+          /network error/i.test(String(error.message || ''));
         throw new Error(
-          `Failed to fetch.${hint} The API may be up, but this website origin is blocked by CORS — deploy the backend CORS update, or open DevTools → Network for the blocked request.`,
+          networkish
+            ? `Could not reach the API at ${API_BASE_URL}. Check that the backend is online, then try again.`
+            : `Could not reach the API at ${API_BASE_URL}. If the API is up, this origin may be blocked by CORS.`,
         );
       }
 
