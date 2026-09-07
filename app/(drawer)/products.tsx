@@ -40,6 +40,7 @@ import { fetchProductsPage } from '@/services/products';
 import {
   ensureWebProductCatalog,
   filterWebProducts,
+  getWebProductCatalog,
   patchWebProductFavorite,
   patchWebProductPrice,
   subscribeWebProductCatalog,
@@ -740,6 +741,7 @@ export default function ProductsScreen() {
           return;
         }
 
+        // Returns after first ~200 (or cache). Rest keeps loading via subscribe.
         await ensureWebProductCatalog(session.token, { force });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load products.');
@@ -769,8 +771,15 @@ export default function ProductsScreen() {
   }, [qrAppFilter, catalogProducts]);
 
   useEffect(() => {
-    setLoading(true);
+    const hasCachedRows =
+      products.length > 0 ||
+      (getWebProductCatalog()?.products.length ?? 0) > 0;
+    if (!hasCachedRows) {
+      setLoading(true);
+    }
     loadProducts(false).finally(() => setLoading(false));
+    // Intentionally only re-run when the loader identity changes (token / filter).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- products.length is a paint hint, not a reload trigger
   }, [loadProducts]);
 
   const onRefresh = async () => {
@@ -836,7 +845,7 @@ export default function ProductsScreen() {
             fontSize: 12,
             color: theme.colors.onSurfaceVariant,
           }}>
-          Loading full catalog…
+          Loading more products in the background…
         </Text>
       ) : null}
       {viewMode === 'list' ? (

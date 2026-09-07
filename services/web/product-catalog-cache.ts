@@ -5,6 +5,7 @@ import { Product } from '@/types/product';
 import { mergeById } from '@/utils/quotation-builder-cache';
 
 const STORAGE_KEY = '@qr_shop_web_product_catalog_v5';
+/** First paint targets this many rows; the rest load in the background. */
 const PAGE_SIZE = 200;
 const FRESH_MS = 30 * 60 * 1000;
 
@@ -17,6 +18,7 @@ export type WebProductCatalog = {
 type Listener = (catalog: WebProductCatalog) => void;
 
 let memory: WebProductCatalog | null = null;
+/** Full catalog job (first page + remaining). */
 let inflight: Promise<WebProductCatalog> | null = null;
 const listeners = new Set<Listener>();
 
@@ -121,28 +123,13 @@ export function patchWebProductPrice(id: string, price: number) {
   void persist(next);
 }
 
-async function fetchAllPages(
+async function fetchRemainingPages(
   token: string,
-  seed: Product[] = [],
+  seed: Product[],
 ): Promise<WebProductCatalog> {
   let products = seed;
   let offset = seed.length;
   let hasMore = true;
-
-  if (seed.length === 0) {
-    const first = await fetchProductsPage(token, {
-      limit: PAGE_SIZE,
-      offset: 0,
-    });
-    products = first.data;
-    offset = first.data.length;
-    hasMore = first.hasMore;
-    emit({
-      products,
-      updatedAt: Date.now(),
-      complete: !hasMore,
-    });
-  }
 
   while (hasMore) {
     const page = await fetchProductsPage(token, {
@@ -170,7 +157,49 @@ async function fetchAllPages(
   return finalCatalog;
 }
 
-/** Progressive product catalog for website Products + Quotation Builder. */
+/**
+ * Load the full catalog from Odoo. Emits after the first page and after each
+ * following page so the UI can paint early.
+ */
+async function fetchAllPages(token: string): Promise<WebProductCatalog> {
+  const first = await fetchProductsPage(token, {
+    limit: PAGE_SIZE,
+    offset: 0,
+  });
+  const firstCatalog: WebProductCatalog = {
+    products: first.data,
+    updatedAt: Date.now(),
+    complete: !first.hasMore,
+  };
+  emit(firstCatalog);
+
+  if (!first.hasMore) {
+    await persist(firstCatalog);
+    return firstCatalog;
+  }
+
+  return fetchRemainingPages(token, first.data);
+}
+
+function startBackgroundCatalogLoad(token: string): Promise<WebProductCatalog> {
+  if (inflight) return inflight;
+  inflight = fetchAllPages(token)
+    .catch(error => {
+      if (memory) return memory;
+      throw error;
+    })
+    .finally(() => {
+      inflight = null;
+    });
+  return inflight;
+}
+
+/**
+ * Progressive product catalog for website Products + Quotation Builder.
+ *
+ * - Returns as soon as the first ~200 products are available (or disk cache).
+ * - Continues loading remaining pages in the background and emits updates.
+ */
 export async function ensureWebProductCatalog(
   token: string,
   options?: { force?: boolean },
@@ -182,13 +211,25 @@ export async function ensureWebProductCatalog(
     }
   }
 
+  // Fresh complete cache — use it; optionally refresh later if stale.
   if (!options?.force && memory?.complete) {
     const age = Date.now() - memory.updatedAt;
     if (age < FRESH_MS) {
       return memory;
     }
+    void startBackgroundCatalogLoad(token);
+    return memory;
+  }
+
+  // Incomplete cache — show it and finish remaining pages in background.
+  if (
+    !options?.force &&
+    memory &&
+    !memory.complete &&
+    memory.products.length > 0
+  ) {
     if (!inflight) {
-      inflight = fetchAllPages(token, [])
+      inflight = fetchRemainingPages(token, memory.products)
         .catch(() => memory!)
         .finally(() => {
           inflight = null;
@@ -197,23 +238,38 @@ export async function ensureWebProductCatalog(
     return memory;
   }
 
-  if (inflight) {
-    return inflight;
+  // Force refresh with something already on screen — don't blank the UI.
+  if (options?.force && memory && memory.products.length > 0) {
+    void startBackgroundCatalogLoad(token);
+    return memory;
   }
 
-  inflight = (async () => {
-    try {
-      if (options?.force) {
-        return await fetchAllPages(token, []);
-      }
-      if (memory && !memory.complete && memory.products.length > 0) {
-        return await fetchAllPages(token, memory.products);
-      }
-      return await fetchAllPages(token, []);
-    } finally {
-      inflight = null;
-    }
-  })();
+  // Cold start: wait only for the first page, then keep loading behind.
+  const job = startBackgroundCatalogLoad(token);
 
-  return inflight;
+  // Wait until memory has the first page (emit inside fetchAllPages).
+  if (memory && memory.products.length > 0) {
+    return memory;
+  }
+
+  // Poll via the same job: after first emit, memory is set; we still need to
+  // wait for that first emit before returning on a true cold start.
+  await new Promise<void>((resolve, reject) => {
+    if (memory && memory.products.length > 0) {
+      resolve();
+      return;
+    }
+    const unsub = subscribeWebProductCatalog(catalog => {
+      if (catalog.products.length > 0 || catalog.complete) {
+        unsub();
+        resolve();
+      }
+    });
+    job.catch(err => {
+      unsub();
+      reject(err);
+    });
+  });
+
+  return memory ?? (await job);
 }
