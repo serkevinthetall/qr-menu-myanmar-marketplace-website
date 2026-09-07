@@ -11,6 +11,7 @@ import { homeRouteForSurface, isSalesRepAppSurface } from '@/constants/app-surfa
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { AppThemeProvider, useAppTheme } from '@/contexts/theme-context';
 import { useWebDeployRefresh } from '@/hooks/use-web-deploy-refresh';
+import { AppQueryProvider } from '@/providers/AppQueryProvider';
 
 export const unstable_settings = {
   anchor: isSalesRepAppSurface() ? '(app)' : '(drawer)',
@@ -107,11 +108,13 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <AppThemeProvider>
-        <AuthProvider>
-          <RootLayoutNav />
-        </AuthProvider>
-      </AppThemeProvider>
+      <AppQueryProvider>
+        <AppThemeProvider>
+          <AuthProvider>
+            <RootLayoutNav />
+          </AuthProvider>
+        </AppThemeProvider>
+      </AppQueryProvider>
     </GestureHandlerRootView>
   );
 }

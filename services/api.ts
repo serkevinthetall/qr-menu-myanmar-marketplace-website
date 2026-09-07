@@ -1,3 +1,5 @@
+import axios, { AxiosError, isAxiosError } from 'axios';
+
 import { API_BASE_URL } from '@/constants/api';
 import {
   isAuthSessionErrorMessage,
@@ -5,12 +7,21 @@ import {
 } from '@/utils/session-expiry';
 
 /**
- * Low-level HTTP helper. Prefer surface-specific clients:
+ * Shared Axios instance for web + app surfaces.
+ * Prefer surface-specific clients:
  * - Phone app → `@/services/app/client` (`appApiRequest` → `/api/app/*`)
  * - Website ERP → `@/services/web/client` (`webApiRequest` → `/api/*` web routes)
  */
+export const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-store',
+  },
+});
+
 type ApiOptions = {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   token?: string;
   body?: unknown;
 };
@@ -27,41 +38,49 @@ function shouldForceLogin(path: string, status: number, message: string): boolea
   return status === 401 || isAuthSessionErrorMessage(message);
 }
 
+function messageFromAxiosError(error: AxiosError<{ message?: string }>): string {
+  const data = error.response?.data;
+  if (typeof data?.message === 'string' && data.message.trim()) {
+    return data.message;
+  }
+  if (typeof error.message === 'string' && error.message.trim()) {
+    return error.message;
+  }
+  return 'Request failed.';
+}
+
+/** Low-level HTTP helper backed by Axios. */
 export async function apiRequest<T>(
   path: string,
   { method = 'GET', token, body }: ApiOptions = {},
 ): Promise<T> {
-  let response: Response;
+  const normalized = path.startsWith('/') ? path : `/${path}`;
 
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    const response = await api.request<T>({
+      url: normalized,
       method,
-      cache: 'no-store',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: body ? JSON.stringify(body) : undefined,
+      data: body,
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     });
-  } catch {
-    const hint = ` Could not reach the API at ${API_BASE_URL}.`;
-    throw new Error(
-      `Failed to fetch.${hint} The API may be up, but this website origin is blocked by CORS — deploy the backend CORS update, or open DevTools → Network for the blocked request.`,
-    );
-  }
+    return response.data;
+  } catch (error) {
+    if (isAxiosError(error)) {
+      if (!error.response) {
+        const hint = ` Could not reach the API at ${API_BASE_URL}.`;
+        throw new Error(
+          `Failed to fetch.${hint} The API may be up, but this website origin is blocked by CORS — deploy the backend CORS update, or open DevTools → Network for the blocked request.`,
+        );
+      }
 
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    const message =
-      typeof data.message === 'string' && data.message.trim()
-        ? data.message
-        : 'Request failed.';
-    if (shouldForceLogin(path, response.status, message)) {
-      notifySessionExpired();
+      const message = messageFromAxiosError(
+        error as AxiosError<{ message?: string }>,
+      );
+      if (shouldForceLogin(normalized, error.response.status, message)) {
+        notifySessionExpired();
+      }
+      throw new Error(message);
     }
-    throw new Error(message);
+    throw error instanceof Error ? error : new Error('Request failed.');
   }
-
-  return data as T;
 }

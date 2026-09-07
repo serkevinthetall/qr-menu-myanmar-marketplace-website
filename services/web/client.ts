@@ -6,7 +6,7 @@
 import { apiRequest } from '@/services/api';
 
 type WebApiOptions = {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   token?: string;
   body?: unknown;
 };

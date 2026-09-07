@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -26,15 +26,17 @@ import {
   useModuleSearch,
   useSearch,
 } from '@/contexts/search-context';
-import { useResponsive } from '@/hooks/use-responsive';
 import {
-  fetchProductDetail,
-  fetchProductsPage,
-  setProductFavorite,
-  updateProductAppAccess,
-  updateProductPrices,
-} from '@/services/products';
-import { fetchContactTags } from '@/services/customers';
+  useContactTagsQuery,
+  useProductDetailQuery,
+  useSetProductFavoriteMutation,
+  useUpdateProductAppAccessMutation,
+  useUpdateProductPricesMutation,
+  productKeys,
+} from '@/hooks/queries/products';
+import { useResponsive } from '@/hooks/use-responsive';
+import { queryClient } from '@/lib/query-client';
+import { fetchProductsPage } from '@/services/products';
 import {
   ensureWebProductCatalog,
   filterWebProducts,
@@ -47,7 +49,6 @@ import {
   Product,
   ProductDetail,
   ProductPricesUpdate,
-  ProductTag,
 } from '@/types/product';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
 
@@ -372,19 +373,30 @@ export default function ProductsScreen() {
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [detailId, setDetailId] = useState<string | null>(null);
-  const detailIdRef = useRef<string | null>(null);
-  const [detail, setDetail] = useState<ProductDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState('');
-  const [pricesSaving, setPricesSaving] = useState(false);
-  const [pricesError, setPricesError] = useState('');
-  const [contactTags, setContactTags] = useState<ProductTag[]>([]);
-  const [tagsLoading, setTagsLoading] = useState(false);
-  const [appBusy, setAppBusy] = useState(false);
   const [appError, setAppError] = useState('');
+  const [pricesError, setPricesError] = useState('');
   const [qrAppFilter, setQrAppFilter] = useState(false);
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [favoriteBusyId, setFavoriteBusyId] = useState<string | null>(null);
+
+  const detailQuery = useProductDetailQuery(session?.token, detailId);
+  const contactTagsQuery = useContactTagsQuery(session?.token, Boolean(detailId));
+  const appAccessMutation = useUpdateProductAppAccessMutation(session?.token);
+  const pricesMutation = useUpdateProductPricesMutation(session?.token);
+  const favoriteMutation = useSetProductFavoriteMutation(session?.token);
+
+  const detail = detailQuery.data ?? null;
+  const detailLoading = Boolean(detailId) && detailQuery.isPending;
+  const detailError =
+    detailQuery.error instanceof Error
+      ? detailQuery.error.message
+      : detailQuery.error
+        ? 'Failed to load product.'
+        : '';
+  const contactTags = contactTagsQuery.data ?? [];
+  const tagsLoading = contactTagsQuery.isPending;
+  const appBusy = appAccessMutation.isPending;
+  const pricesSaving = pricesMutation.isPending;
 
   const listUiSnapshot = useMemo<ProductsListUi>(
     () => ({
@@ -422,105 +434,60 @@ export default function ProductsScreen() {
     });
   }, []);
 
-  const openDetail = useCallback(
-    async (id: string) => {
-      if (!session?.token) return;
-      detailIdRef.current = id;
-      setDetailId(id);
-      setDetail(null);
-      setDetailLoading(true);
-      setDetailError('');
-      setAppError('');
-      try {
-        const data = await fetchProductDetail(session.token, id);
-        if (detailIdRef.current !== id) return;
-        setDetail(data);
-      } catch (err) {
-        if (detailIdRef.current !== id) return;
-        setDetailError(
-          err instanceof Error ? err.message : 'Failed to load product.',
-        );
-      } finally {
-        if (detailIdRef.current === id) {
-          setDetailLoading(false);
-        }
-      }
-    },
-    [session?.token],
-  );
-
-  const closeDetail = useCallback(() => {
-    detailIdRef.current = null;
-    setDetailId(null);
-    setDetail(null);
-    setDetailError('');
-    setPricesError('');
-    setAppError('');
-    setAppBusy(false);
-  }, []);
-
-  const loadContactTags = useCallback(async () => {
+  const openDetail = useCallback((id: string) => {
     if (!session?.token) return;
-    setTagsLoading(true);
-    try {
-      const tags = await fetchContactTags(session.token);
-      setContactTags(tags);
-    } catch {
-      setContactTags([]);
-    } finally {
-      setTagsLoading(false);
-    }
+    setAppError('');
+    setPricesError('');
+    setDetailId(id);
   }, [session?.token]);
 
-  useEffect(() => {
-    if (detailId) {
-      void loadContactTags();
-    }
-  }, [detailId, loadContactTags]);
+  const closeDetail = useCallback(() => {
+    setDetailId(null);
+    setPricesError('');
+    setAppError('');
+  }, []);
 
   const setVisibleToApp = useCallback(
     async (visible: boolean) => {
       if (!session?.token || !detailId) return;
       setAppError('');
 
-      // Flip UI immediately; sync to Odoo in the background.
-      let snapshot: ProductDetail | null = null;
-      setDetail(prev => {
-        snapshot = prev;
-        if (!prev?.appAccess) return prev;
-        const tags = prev.appAccess.tags ?? [];
+      const previous = queryClient.getQueryData<ProductDetail>(
+        productKeys.detail(detailId),
+      );
+      if (previous?.appAccess) {
+        const tags = previous.appAccess.tags ?? [];
         const withoutQr = tags.filter(
           tag => tag.name.trim().toLowerCase() !== 'qr app',
         );
         const nextTags = visible
           ? [...withoutQr, { id: 'qr-app-optimistic', name: 'QR App' }]
           : withoutQr;
-        return {
-          ...prev,
+        queryClient.setQueryData<ProductDetail>(productKeys.detail(detailId), {
+          ...previous,
           appAccess: {
-            ...prev.appAccess,
+            ...previous.appAccess,
             websitePublished: visible,
             hasQrAppTag: visible,
-            saleOk: visible ? true : prev.appAccess.saleOk,
+            saleOk: visible ? true : previous.appAccess.saleOk,
             tags: nextTags,
             tagIds: nextTags.map(tag => tag.id),
             readyForApp:
-              (visible ? true : prev.appAccess.saleOk) &&
+              (visible ? true : previous.appAccess.saleOk) &&
               visible &&
-              prev.appAccess.hasEcommerceCategory,
+              previous.appAccess.hasEcommerceCategory,
           },
-        };
-      });
-
-      setAppBusy(true);
-      try {
-        const appAccess = await updateProductAppAccess(session.token, detailId, {
-          enableQrApp: visible,
         });
-        setDetail(prev => (prev ? { ...prev, appAccess } : prev));
+      }
+
+      try {
+        await appAccessMutation.mutateAsync({
+          id: detailId,
+          updates: { enableQrApp: visible },
+        });
       } catch (err) {
-        if (snapshot) {
-          setDetail(snapshot);
+        if (previous) {
+          queryClient.setQueryData(productKeys.detail(detailId), previous);
         }
         setAppError(
           err instanceof Error
@@ -529,11 +496,9 @@ export default function ProductsScreen() {
               ? 'Failed to make product visible to app.'
               : 'Failed to hide product from app.',
         );
-      } finally {
-        setAppBusy(false);
       }
     },
-    [session?.token, detailId],
+    [session?.token, detailId, appAccessMutation],
   );
 
   const updateAppAccess = useCallback(
@@ -543,15 +508,9 @@ export default function ProductsScreen() {
       forYouTagIds?: string[];
     }) => {
       if (!session?.token || !detailId) return;
-      setAppBusy(true);
       setAppError('');
       try {
-        const appAccess = await updateProductAppAccess(
-          session.token,
-          detailId,
-          updates,
-        );
-        setDetail(prev => (prev ? { ...prev, appAccess } : prev));
+        await appAccessMutation.mutateAsync({ id: detailId, updates });
       } catch (err) {
         setAppError(
           err instanceof Error
@@ -559,30 +518,17 @@ export default function ProductsScreen() {
             : 'Failed to update app settings.',
         );
         throw err;
-      } finally {
-        setAppBusy(false);
       }
     },
-    [session?.token, detailId],
+    [session?.token, detailId, appAccessMutation],
   );
 
   const savePrices = useCallback(
     async (updates: ProductPricesUpdate) => {
       if (!session?.token || !detailId) return;
-      setPricesSaving(true);
       setPricesError('');
       try {
-        const saved = await updateProductPrices(session.token, detailId, updates);
-        setDetail(prev =>
-          prev
-            ? {
-                ...prev,
-                price: saved.price,
-                premiumPrice: saved.premiumPrice ?? prev.premiumPrice,
-                proPrice: saved.proPrice ?? prev.proPrice,
-              }
-            : prev,
-        );
+        await pricesMutation.mutateAsync({ id: detailId, updates });
         if (updates.salesPrice !== undefined) {
           setProducts(prev =>
             prev.map(p =>
@@ -601,11 +547,9 @@ export default function ProductsScreen() {
           err instanceof Error ? err.message : 'Failed to save prices.';
         setPricesError(message);
         throw err instanceof Error ? err : new Error(message);
-      } finally {
-        setPricesSaving(false);
       }
     },
-    [session?.token, detailId],
+    [session?.token, detailId, pricesMutation],
   );
 
   const toggleFavorite = useCallback(
@@ -613,11 +557,14 @@ export default function ProductsScreen() {
       if (!session?.token || favoriteBusyId === id) return;
 
       const listed = products.find(p => p.id === id);
+      const cachedDetail = queryClient.getQueryData<ProductDetail>(
+        productKeys.detail(id),
+      );
       const previous =
         listed?.favorite !== undefined
           ? Boolean(listed.favorite)
-          : detail?.id === id
-            ? Boolean(detail.favorite)
+          : cachedDetail
+            ? Boolean(cachedDetail.favorite)
             : false;
 
       setFavoriteBusyId(id);
@@ -626,12 +573,12 @@ export default function ProductsScreen() {
         prev.map(p => (p.id === id ? { ...p, favorite: next } : p)),
       );
       patchWebProductFavorite(id, next);
-      if (detail?.id === id) {
-        setDetail(prev => (prev ? { ...prev, favorite: next } : prev));
-      }
+      queryClient.setQueryData<ProductDetail>(productKeys.detail(id), prev =>
+        prev ? { ...prev, favorite: next } : prev,
+      );
 
       try {
-        await setProductFavorite(session.token, id, next);
+        await favoriteMutation.mutateAsync({ id, favorite: next });
       } catch (err) {
         setProducts(prev =>
           prev.map(p => (p.id === id ? { ...p, favorite: previous } : p)),
@@ -640,9 +587,9 @@ export default function ProductsScreen() {
           prev.map(p => (p.id === id ? { ...p, favorite: previous } : p)),
         );
         patchWebProductFavorite(id, previous);
-        if (detail?.id === id) {
-          setDetail(prev => (prev ? { ...prev, favorite: previous } : prev));
-        }
+        queryClient.setQueryData<ProductDetail>(productKeys.detail(id), prev =>
+          prev ? { ...prev, favorite: previous } : prev,
+        );
         setError(
           err instanceof Error ? err.message : 'Failed to update favorite.',
         );
@@ -650,7 +597,7 @@ export default function ProductsScreen() {
         setFavoriteBusyId(null);
       }
     },
-    [session?.token, favoriteBusyId, products, detail],
+    [session?.token, favoriteBusyId, products, favoriteMutation],
   );
 
   useEffect(() => {
