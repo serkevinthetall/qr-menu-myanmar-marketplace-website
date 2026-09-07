@@ -235,7 +235,8 @@ export default function SettingsScreen() {
         <List.Section>
           <List.Subheader>Devices logged in</List.Subheader>
           <Text style={[styles.devicesHint, { color: theme.colors.onSurfaceVariant }]}>
-            Browsers and devices that signed in to this website with your account.
+            Browsers and handheld app sessions signed in with your account. Signing
+            out a device ends that session immediately.
           </Text>
           {devicesLoading ? (
             <View style={styles.devicesLoading}>
