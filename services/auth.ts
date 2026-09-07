@@ -7,6 +7,17 @@ type LoginResponse = {
   expiresAt: string;
 };
 
+export type LoginDevice = {
+  id: string;
+  label: string;
+  platform: string;
+  browser: string;
+  ip: string;
+  createdAt: string;
+  lastSeenAt: string;
+  current: boolean;
+};
+
 export function isSessionValid(session: AuthSession | null): boolean {
   if (!session?.token || !session.user?.email) {
     return false;
@@ -36,4 +47,24 @@ export async function logoutUser(token: string): Promise<void> {
     method: 'POST',
     token,
   });
+}
+
+export async function fetchLoginDevices(token: string): Promise<LoginDevice[]> {
+  const response = await webApiRequest<{ data: LoginDevice[] }>('/auth/devices', {
+    token,
+  });
+  return response.data ?? [];
+}
+
+export async function revokeLoginDevice(
+  token: string,
+  deviceId: string,
+): Promise<{ revoked: boolean; revokedCurrent: boolean }> {
+  const response = await webApiRequest<{
+    data: { revoked: boolean; revokedCurrent: boolean };
+  }>(`/auth/devices/${encodeURIComponent(deviceId)}`, {
+    method: 'DELETE',
+    token,
+  });
+  return response.data;
 }

@@ -150,7 +150,7 @@ const SETTINGS: NavItem = {
   label: 'Settings',
   icon: 'cog-outline',
   title: 'Settings',
-  description: 'Odoo connection, users, and app preferences.',
+  description: 'Theme, notifications, login devices, and account.',
 };
 
 /** Drawer menu structure (supports nested Orders / App List / Membership groups). */

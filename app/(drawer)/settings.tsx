@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import {
+  ActivityIndicator,
   Button,
+  Chip,
   List,
   SegmentedButtons,
   Snackbar,
@@ -15,6 +17,12 @@ import { NAV_ITEMS } from '@/constants/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import {
+  fetchLoginDevices,
+  LoginDevice,
+  revokeLoginDevice,
+} from '@/services/auth';
+import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
+import {
   readOnlineOrderAlertsEnabled,
   writeOnlineOrderAlertsEnabled,
 } from '@/utils/online-order-alerts-preference';
@@ -25,19 +33,51 @@ import {
 
 const screen = NAV_ITEMS.find(item => item.name === 'settings')!;
 
+function deviceIcon(platform: string): string {
+  const p = platform.toLowerCase();
+  if (p === 'ios' || p === 'android') return 'cellphone';
+  if (p === 'macos' || p === 'windows' || p === 'linux') return 'laptop';
+  return 'monitor';
+}
+
 export default function SettingsScreen() {
   const theme = useTheme();
   const { mode, setMode } = useAppTheme();
-  const { user, logout } = useAuth();
+  const { user, session, logout } = useAuth();
   const [alertsEnabled, setAlertsEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
   const [snack, setSnack] = useState('');
+  const [devices, setDevices] = useState<LoginDevice[]>([]);
+  const [devicesLoading, setDevicesLoading] = useState(false);
+  const [devicesError, setDevicesError] = useState('');
+  const [revokingId, setRevokingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (Platform.OS === 'web') {
       setAlertsEnabled(readOnlineOrderAlertsEnabled());
     }
   }, []);
+
+  const loadDevices = useCallback(async () => {
+    if (!session?.token) return;
+    setDevicesLoading(true);
+    setDevicesError('');
+    try {
+      const rows = await fetchLoginDevices(session.token);
+      setDevices(rows);
+    } catch (err) {
+      setDevices([]);
+      setDevicesError(
+        err instanceof Error ? err.message : 'Failed to load devices.',
+      );
+    } finally {
+      setDevicesLoading(false);
+    }
+  }, [session?.token]);
+
+  useEffect(() => {
+    void loadDevices();
+  }, [loadDevices]);
 
   const onToggleAlerts = useCallback(
     async (next: boolean) => {
@@ -86,6 +126,30 @@ export default function SettingsScreen() {
     playOnlineOrderAlertSound();
     setSnack('Test sound played.');
   }, []);
+
+  const onRevokeDevice = useCallback(
+    async (device: LoginDevice) => {
+      if (!session?.token) return;
+      setRevokingId(device.id);
+      try {
+        const result = await revokeLoginDevice(session.token, device.id);
+        if (result.revokedCurrent) {
+          setSnack('This device was signed out.');
+          await logout();
+          return;
+        }
+        setSnack(`Signed out ${device.label}.`);
+        await loadDevices();
+      } catch (err) {
+        setSnack(
+          err instanceof Error ? err.message : 'Failed to sign out device.',
+        );
+      } finally {
+        setRevokingId(null);
+      }
+    },
+    [session?.token, loadDevices, logout],
+  );
 
   return (
     <ScrollView
@@ -169,6 +233,82 @@ export default function SettingsScreen() {
         ) : null}
 
         <List.Section>
+          <List.Subheader>Devices logged in</List.Subheader>
+          <Text style={[styles.devicesHint, { color: theme.colors.onSurfaceVariant }]}>
+            Browsers and devices that signed in to this website with your account.
+          </Text>
+          {devicesLoading ? (
+            <View style={styles.devicesLoading}>
+              <ActivityIndicator />
+            </View>
+          ) : devicesError ? (
+            <View style={styles.devicesActions}>
+              <Text style={{ color: theme.colors.error, marginBottom: 8 }}>
+                {devicesError}
+              </Text>
+              <Button mode="outlined" onPress={() => void loadDevices()}>
+                Retry
+              </Button>
+            </View>
+          ) : devices.length === 0 ? (
+            <List.Item
+              title="No device sessions yet"
+              description="Log out and log in again to start tracking devices."
+              left={props => <List.Icon {...props} icon="devices" />}
+            />
+          ) : (
+            devices.map(device => (
+              <List.Item
+                key={device.id}
+                title={device.label}
+                description={[
+                  device.ip ? `IP ${device.ip}` : null,
+                  `Last active ${formatMyanmarDateTime(device.lastSeenAt)}`,
+                  `Signed in ${formatMyanmarDateTime(device.createdAt)}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+                left={props => (
+                  <List.Icon {...props} icon={deviceIcon(device.platform)} />
+                )}
+                right={() => (
+                  <View style={styles.deviceRight}>
+                    {device.current ? (
+                      <Chip compact style={styles.currentChip}>
+                        This device
+                      </Chip>
+                    ) : (
+                      <Button
+                        compact
+                        mode="text"
+                        textColor={theme.colors.error}
+                        loading={revokingId === device.id}
+                        disabled={Boolean(revokingId)}
+                        onPress={() => {
+                          void onRevokeDevice(device);
+                        }}>
+                        Sign out
+                      </Button>
+                    )}
+                  </View>
+                )}
+              />
+            ))
+          )}
+          <View style={styles.devicesActions}>
+            <Button
+              mode="outlined"
+              icon="refresh"
+              disabled={devicesLoading}
+              onPress={() => {
+                void loadDevices();
+              }}>
+              Refresh devices
+            </Button>
+          </View>
+        </List.Section>
+
+        <List.Section>
           <List.Subheader>Account</List.Subheader>
           <List.Item
             title={user?.name || 'Signed in'}
@@ -234,6 +374,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 8,
     alignItems: 'flex-start',
+  },
+  devicesHint: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    fontSize: 13,
+  },
+  devicesLoading: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  devicesActions: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    alignItems: 'flex-start',
+  },
+  deviceRight: {
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    minWidth: 110,
+  },
+  currentChip: {
+    alignSelf: 'center',
   },
   segmented: {
     paddingHorizontal: 16,
