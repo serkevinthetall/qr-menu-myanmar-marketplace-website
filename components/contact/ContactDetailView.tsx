@@ -285,10 +285,6 @@ export function ContactDetailView({
       setFormError('Password is required.');
       return;
     }
-    if (password.length < 8) {
-      setFormError('Password must be at least 8 characters.');
-      return;
-    }
     try {
       await onGrantPortalAccess(password);
       setPasswordOpen(false);
@@ -634,12 +630,12 @@ export function ContactDetailView({
                   (detail.email || '').trim() ||
                   '—'}
               </Text>
-              . Set a password for this external account (at least 8 characters).
+              . Set a password for this external account.
             </Text>
             <TextInput
               mode="outlined"
               dense
-              label="Password (min 8 characters)"
+              label="Password"
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
