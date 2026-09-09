@@ -34,14 +34,14 @@ export function isSessionValid(session: AuthSession | null): boolean {
   if (!session.expiresAt) {
     return false;
   }
-  // Web may briefly use cookie sentinel; prefer a real JWT when present.
+  // Web may use cookie sentinel; native app needs a real JWT.
   if (!session.token) {
     return false;
   }
   return new Date(session.expiresAt).getTime() > Date.now();
 }
 
-/** Website ERP login → POST /api/auth/login (Bearer JWT + httpOnly cookie). */
+/** Website ERP login → POST /api/auth/login (httpOnly cookie; no JWT in JS storage). */
 export async function authenticateUser(
   credentials: LoginCredentials,
 ): Promise<AuthSession> {
@@ -50,37 +50,34 @@ export async function authenticateUser(
     body: credentials,
   });
 
-  const token = String(response.token || '').trim();
-  if (!token || token === WEB_COOKIE_AUTH_TOKEN) {
-    throw new Error('Login succeeded but no session token was returned.');
+  if (!response?.user?.email || !response.expiresAt) {
+    throw new Error('Login succeeded but session details were missing.');
   }
 
+  // Cookie is set by Set-Cookie (httpOnly). Do not keep the JWT in AsyncStorage.
   return {
-    token,
+    token: WEB_COOKIE_AUTH_TOKEN,
     user: response.user,
     expiresAt: response.expiresAt,
   };
 }
 
-/** Restore web session from Bearer storage, or httpOnly cookie via /auth/me. */
+/** Restore web session from httpOnly cookie via /auth/me (credentials included). */
 export async function fetchCurrentUser(
-  stored?: AuthSession | null,
+  _stored?: AuthSession | null,
 ): Promise<AuthSession | null> {
   try {
     const response = await webApiRequest<MeResponse>('/auth/me', {
-      token: stored?.token,
+      token: WEB_COOKIE_AUTH_TOKEN,
     });
     if (!response?.user?.email) {
       return null;
     }
     return {
-      token: stored?.token && stored.token !== WEB_COOKIE_AUTH_TOKEN
-        ? stored.token
-        : WEB_COOKIE_AUTH_TOKEN,
+      token: WEB_COOKIE_AUTH_TOKEN,
       user: response.user,
       expiresAt:
         response.expiresAt ||
-        stored?.expiresAt ||
         new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     };
   } catch {

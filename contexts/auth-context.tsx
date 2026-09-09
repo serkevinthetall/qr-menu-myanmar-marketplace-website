@@ -59,25 +59,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // Web: prefer stored Bearer (sid-only JWT); fall back to httpOnly cookie via /me.
-        if (stored?.token && stored.token !== WEB_COOKIE_AUTH_TOKEN && isSessionValid(stored)) {
-          const refreshed = await fetchCurrentUser(stored);
-          if (!cancelled && refreshed && isSessionValid(refreshed)) {
-            const next = {
-              ...refreshed,
-              token: stored.token,
-            };
-            setSession(next);
-            await AsyncStorage.setItem(storageKey, JSON.stringify(next));
-            return;
-          }
+        // Web: httpOnly cookie only — drop any old JWT left in AsyncStorage.
+        if (stored?.token && stored.token !== WEB_COOKIE_AUTH_TOKEN) {
+          await AsyncStorage.removeItem(storageKey);
         }
 
         const fromCookie = await fetchCurrentUser(null);
         if (!cancelled && fromCookie && isSessionValid(fromCookie)) {
-          // Cookie-only restore — keep sentinel until next login issues a Bearer.
           setSession(fromCookie);
-          await AsyncStorage.setItem(storageKey, JSON.stringify(fromCookie));
+          await AsyncStorage.setItem(
+            storageKey,
+            JSON.stringify({
+              ...fromCookie,
+              token: WEB_COOKIE_AUTH_TOKEN,
+            }),
+          );
         } else {
           await AsyncStorage.removeItem(storageKey);
         }
@@ -107,8 +103,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const nextSession = isApp
         ? await authenticateAppUser(credentials)
         : await authenticateUser(credentials);
-      setSession(nextSession);
-      await AsyncStorage.setItem(storageKey, JSON.stringify(nextSession));
+      const toStore = isApp
+        ? nextSession
+        : { ...nextSession, token: WEB_COOKIE_AUTH_TOKEN };
+      setSession(toStore);
+      await AsyncStorage.setItem(storageKey, JSON.stringify(toStore));
     },
     [storageKey, isApp],
   );
