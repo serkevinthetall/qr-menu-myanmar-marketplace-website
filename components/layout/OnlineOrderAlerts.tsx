@@ -3,6 +3,8 @@ import { Platform } from 'react-native';
 import { Portal, Snackbar } from 'react-native-paper';
 
 import { useAuth } from '@/contexts/auth-context';
+import { useVisibleInterval } from '@/hooks/use-visible-interval';
+import { ERP_BADGE_POLL_MS } from '@/services/badges';
 import { fetchOnlineOrders } from '@/services/online-orders';
 import {
   ONLINE_ORDER_ALERTS_EVENT,
@@ -15,7 +17,6 @@ import {
   unlockOnlineOrderAlertSound,
 } from '@/utils/online-order-alert-sound';
 
-const POLL_MS = 20_000;
 const STORAGE_KEY = '@qr_shop_web_online_order_seen_ids';
 
 function readSeenIds(): Set<string> {
@@ -51,7 +52,7 @@ function writeSeenIds(ids: Set<string>) {
 
 /**
  * Website ERP only: poll App Orders and play sound when a new one appears.
- * Controlled from Settings → App Order notifications.
+ * 60s while the tab is visible — controlled from Settings → notifications.
  */
 export function OnlineOrderAlerts() {
   const { session, isAuthenticated } = useAuth();
@@ -78,7 +79,6 @@ export function OnlineOrderAlerts() {
     return () => window.removeEventListener(ONLINE_ORDER_ALERTS_EVENT, onPref);
   }, []);
 
-  // If preference is on, unlock audio on the next user gesture (needed after refresh).
   useEffect(() => {
     if (Platform.OS !== 'web' || !prefEnabled || typeof window === 'undefined') {
       return;
@@ -102,20 +102,15 @@ export function OnlineOrderAlerts() {
     ) {
       return;
     }
-
     seenRef.current = readSeenIds();
     readyRef.current = seenRef.current.size > 0;
-    let cancelled = false;
+  }, [isAuthenticated, session?.token, prefEnabled]);
 
-    const poll = async () => {
-      if (cancelled || !session.token) {
-        return;
-      }
+  const poll = () => {
+    if (!session?.token) return;
+    void (async () => {
       try {
-        const rows = await fetchOnlineOrders(session.token, { limit: 100 });
-        if (cancelled) {
-          return;
-        }
+        const rows = await fetchOnlineOrders(session.token, { limit: 50 });
         const nextIds = new Set(rows.map(row => row.id));
         if (!readyRef.current) {
           seenRef.current = nextIds;
@@ -143,18 +138,15 @@ export function OnlineOrderAlerts() {
       } catch {
         // Stay quiet on transient API errors.
       }
-    };
+    })();
+  };
 
-    void poll();
-    const timer = setInterval(() => {
-      void poll();
-    }, POLL_MS);
-
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [isAuthenticated, session?.token, prefEnabled]);
+  useVisibleInterval(
+    poll,
+    ERP_BADGE_POLL_MS,
+    Platform.OS === 'web' &&
+      Boolean(isAuthenticated && session?.token && prefEnabled),
+  );
 
   if (Platform.OS !== 'web') {
     return null;

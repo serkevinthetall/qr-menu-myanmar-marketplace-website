@@ -3,10 +3,12 @@ import { Platform } from 'react-native';
 import { Portal, Snackbar } from 'react-native-paper';
 
 import { useAuth } from '@/contexts/auth-context';
+import { useVisibleInterval } from '@/hooks/use-visible-interval';
 import {
   fetchMemberRequests,
   notifyMemberRequestBadgeChanged,
 } from '@/services/member-requests';
+import { ERP_BADGE_POLL_MS } from '@/services/badges';
 import {
   isOnlineOrderAlertSoundUnlocked,
   playOnlineOrderAlertSound,
@@ -17,7 +19,6 @@ import {
   readOnlineOrderAlertsEnabled,
 } from '@/utils/online-order-alerts-preference';
 
-const POLL_MS = 20_000;
 const STORAGE_KEY = '@qr_shop_web_member_request_seen_ids';
 
 function readSeenIds(): Set<string> {
@@ -52,7 +53,7 @@ function writeSeenIds(ids: Set<string>) {
 }
 
 /**
- * Always poll Requested member applications.
+ * Poll Requested member applications every 60s while the tab is visible.
  * Snackbar always shows for new rows; sound follows Settings → notifications.
  */
 export function MemberRequestAlerts() {
@@ -98,23 +99,18 @@ export function MemberRequestAlerts() {
     if (Platform.OS !== 'web' || !isAuthenticated || !session?.token) {
       return;
     }
-
     seenRef.current = readSeenIds();
     readyRef.current = seenRef.current.size > 0;
-    let cancelled = false;
+  }, [isAuthenticated, session?.token]);
 
-    const poll = async () => {
-      if (cancelled || !session.token) {
-        return;
-      }
+  const poll = () => {
+    if (!session?.token) return;
+    void (async () => {
       try {
         const rows = await fetchMemberRequests(session.token, {
           status: 'Requested',
-          limit: 100,
+          limit: 50,
         });
-        if (cancelled) {
-          return;
-        }
         const nextIds = new Set(rows.map(row => row.id));
         if (!readyRef.current) {
           seenRef.current = nextIds;
@@ -146,18 +142,14 @@ export function MemberRequestAlerts() {
       } catch {
         // Ignore transient poll failures.
       }
-    };
+    })();
+  };
 
-    void poll();
-    const timer = setInterval(() => {
-      void poll();
-    }, POLL_MS);
-
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [isAuthenticated, session?.token, soundEnabled]);
+  useVisibleInterval(
+    poll,
+    ERP_BADGE_POLL_MS,
+    Platform.OS === 'web' && Boolean(isAuthenticated && session?.token),
+  );
 
   if (Platform.OS !== 'web') {
     return null;

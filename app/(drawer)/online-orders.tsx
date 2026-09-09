@@ -633,26 +633,49 @@ export default function OnlineOrdersScreen() {
     return () => clearTimeout(timer);
   }, [load]);
 
-  // Keep the App Order list live without a manual refresh.
+  // Keep the App Order list live without a manual refresh (60s, visible tab).
   useEffect(() => {
     if (!session?.token || selectedId) {
       return;
     }
-    const timer = setInterval(() => {
+
+    let cancelled = false;
+    const tick = () => {
+      if (cancelled) return;
+      if (
+        typeof document !== 'undefined' &&
+        document.visibilityState === 'hidden'
+      ) {
+        return;
+      }
       void load({ quiet: true });
-    }, 15_000);
+    };
+
+    const timer = setInterval(tick, 60_000);
 
     const onRefresh = () => {
       void load({ quiet: true });
     };
+    const onVisibility = () => {
+      if (
+        typeof document !== 'undefined' &&
+        document.visibilityState === 'visible'
+      ) {
+        tick();
+      }
+    };
+
     if (typeof window !== 'undefined') {
       window.addEventListener(ONLINE_ORDERS_REFRESH_EVENT, onRefresh);
+      document.addEventListener('visibilitychange', onVisibility);
     }
 
     return () => {
+      cancelled = true;
       clearInterval(timer);
       if (typeof window !== 'undefined') {
         window.removeEventListener(ONLINE_ORDERS_REFRESH_EVENT, onRefresh);
+        document.removeEventListener('visibilitychange', onVisibility);
       }
     };
   }, [session?.token, selectedId, load]);
