@@ -67,7 +67,7 @@ export function validateMyanmarPhone(number: string, fieldName = 'ဖုန်�
 
   if (phone.startsWith('+95')) {
     throw new Error(
-      `${fieldName} ကို မြန်မာ local format ဖြင့်သာ ထည့်ပါ။ +95 မသုံးပါနှင့်။ 09 ဖြင့် စရပါမည်။`,
+      `${fieldName} ကို မြန်မာ local format ဖြင့်သာ ထည့်ပါ။ +95 မသုံးပါနှင့်။ 01, 02, 05, 06 သို့မဟုတ် 09 ဖြင့် စရပါမည်။`,
     );
   }
 
@@ -75,8 +75,10 @@ export function validateMyanmarPhone(number: string, fieldName = 'ဖုန်�
     throw new Error(`${fieldName} တွင် ဂဏန်းများသာ ထည့်ရပါမည်။`);
   }
 
-  if (!phone.startsWith('09')) {
-    throw new Error(`${fieldName} သည် 09 ဖြင့် စရပါမည်။`);
+  if (!/^(01|02|05|06|09)/.test(phone)) {
+    throw new Error(
+      `${fieldName} သည် 01, 02, 05, 06 သို့မဟုတ် 09 ဖြင့် စရပါမည်။`,
+    );
   }
 
   if (phone.length < 8) {
