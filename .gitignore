@@ -45,3 +45,6 @@ app-example
 
 # stamped on each Vercel web build
 /public/version.json
+
+# Local code knowledge graph (Cursor / graphify) — do not commit
+graphify-out/
