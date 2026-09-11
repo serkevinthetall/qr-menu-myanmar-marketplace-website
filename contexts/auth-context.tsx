@@ -10,7 +10,10 @@ import {
 } from 'react';
 
 import { isSalesRepAppSurface, sessionStorageKeyForSurface } from '@/constants/app-surface';
-import { WEB_COOKIE_AUTH_TOKEN } from '@/constants/auth-token';
+import {
+  WEB_COOKIE_AUTH_TOKEN,
+  isWebBearerToken,
+} from '@/constants/auth-token';
 import { authenticateAppUser, logoutAppUser } from '@/services/app/auth';
 import { clearAppProductCatalog } from '@/services/app/product-catalog-cache';
 import {
@@ -51,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           : null;
 
         if (isApp) {
-          if (stored && isSessionValid(stored) && stored.token !== WEB_COOKIE_AUTH_TOKEN) {
+          if (stored && isSessionValid(stored) && isWebBearerToken(stored.token)) {
             if (!cancelled) setSession(stored);
           } else if (stored) {
             await AsyncStorage.removeItem(storageKey);
@@ -59,23 +62,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // Web: httpOnly cookie only — drop any old JWT left in AsyncStorage.
-        if (stored?.token && stored.token !== WEB_COOKIE_AUTH_TOKEN) {
+        // Web: prefer stored Bearer (cross-site Vercel cookies often blocked).
+        if (stored && isSessionValid(stored) && isWebBearerToken(stored.token)) {
+          const refreshed = await fetchCurrentUser(stored);
+          if (!cancelled && refreshed && isSessionValid(refreshed)) {
+            setSession(refreshed);
+            await AsyncStorage.setItem(storageKey, JSON.stringify(refreshed));
+            return;
+          }
           await AsyncStorage.removeItem(storageKey);
-        }
-
-        const fromCookie = await fetchCurrentUser(null);
-        if (!cancelled && fromCookie && isSessionValid(fromCookie)) {
-          setSession(fromCookie);
-          await AsyncStorage.setItem(
-            storageKey,
-            JSON.stringify({
-              ...fromCookie,
-              token: WEB_COOKIE_AUTH_TOKEN,
-            }),
-          );
+        } else if (stored?.token === WEB_COOKIE_AUTH_TOKEN) {
+          // Legacy cookie-only marker — try /auth/me with credentials.
+          const fromCookie = await fetchCurrentUser(null);
+          if (!cancelled && fromCookie && isSessionValid(fromCookie)) {
+            setSession(fromCookie);
+            await AsyncStorage.setItem(storageKey, JSON.stringify(fromCookie));
+            return;
+          }
+          await AsyncStorage.removeItem(storageKey);
+        } else if (stored) {
+          await AsyncStorage.removeItem(storageKey);
         } else {
-          await AsyncStorage.removeItem(storageKey);
+          const fromCookie = await fetchCurrentUser(null);
+          if (!cancelled && fromCookie && isSessionValid(fromCookie)) {
+            setSession(fromCookie);
+            await AsyncStorage.setItem(storageKey, JSON.stringify(fromCookie));
+            return;
+          }
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -103,11 +116,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const nextSession = isApp
         ? await authenticateAppUser(credentials)
         : await authenticateUser(credentials);
-      const toStore = isApp
-        ? nextSession
-        : { ...nextSession, token: WEB_COOKIE_AUTH_TOKEN };
-      setSession(toStore);
-      await AsyncStorage.setItem(storageKey, JSON.stringify(toStore));
+      setSession(nextSession);
+      await AsyncStorage.setItem(storageKey, JSON.stringify(nextSession));
     },
     [storageKey, isApp],
   );
@@ -115,8 +125,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     try {
       if (isApp) {
-        if (session?.token && session.token !== WEB_COOKIE_AUTH_TOKEN) {
-          await logoutAppUser(session.token);
+        if (isWebBearerToken(session?.token)) {
+          await logoutAppUser(session!.token);
         }
       } else {
         await logoutUser(session?.token);

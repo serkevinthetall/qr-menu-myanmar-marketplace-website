@@ -1,4 +1,7 @@
-import { WEB_COOKIE_AUTH_TOKEN } from '@/constants/auth-token';
+import {
+  WEB_COOKIE_AUTH_TOKEN,
+  isWebBearerToken,
+} from '@/constants/auth-token';
 import { AuthSession, LoginCredentials } from '@/types/auth';
 import { webApiRequest } from '@/services/web/client';
 
@@ -34,14 +37,18 @@ export function isSessionValid(session: AuthSession | null): boolean {
   if (!session.expiresAt) {
     return false;
   }
-  // Web may use cookie sentinel; native app needs a real JWT.
+  // Web may use cookie sentinel; native app / cross-site web need a real JWT.
   if (!session.token) {
     return false;
   }
   return new Date(session.expiresAt).getTime() > Date.now();
 }
 
-/** Website ERP login → POST /api/auth/login (httpOnly cookie; no JWT in JS storage). */
+/**
+ * Website ERP login → POST /api/auth/login.
+ * Backend also sets httpOnly cookie (same-site). For cross-site Vercel hosts
+ * the browser often omits that cookie, so we keep the JWT and send Bearer.
+ */
 export async function authenticateUser(
   credentials: LoginCredentials,
 ): Promise<AuthSession> {
@@ -54,30 +61,38 @@ export async function authenticateUser(
     throw new Error('Login succeeded but session details were missing.');
   }
 
-  // Cookie is set by Set-Cookie (httpOnly). Do not keep the JWT in AsyncStorage.
+  const token = typeof response.token === 'string' ? response.token.trim() : '';
+  if (!token) {
+    throw new Error('Login succeeded but access token was missing.');
+  }
+
   return {
-    token: WEB_COOKIE_AUTH_TOKEN,
+    token,
     user: response.user,
     expiresAt: response.expiresAt,
   };
 }
 
-/** Restore web session from httpOnly cookie via /auth/me (credentials included). */
+/**
+ * Restore web session: prefer stored Bearer JWT; fall back to httpOnly cookie.
+ */
 export async function fetchCurrentUser(
-  _stored?: AuthSession | null,
+  stored?: AuthSession | null,
 ): Promise<AuthSession | null> {
+  const bearer = isWebBearerToken(stored?.token) ? stored!.token : undefined;
   try {
     const response = await webApiRequest<MeResponse>('/auth/me', {
-      token: WEB_COOKIE_AUTH_TOKEN,
+      token: bearer ?? WEB_COOKIE_AUTH_TOKEN,
     });
     if (!response?.user?.email) {
       return null;
     }
     return {
-      token: WEB_COOKIE_AUTH_TOKEN,
+      token: bearer ?? WEB_COOKIE_AUTH_TOKEN,
       user: response.user,
       expiresAt:
         response.expiresAt ||
+        stored?.expiresAt ||
         new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     };
   } catch {

@@ -14,7 +14,8 @@ import {
  * - Phone app → `@/services/app/client` (`appApiRequest` → `/api/app/*`)
  * - Website ERP → `@/services/web/client` (`webApiRequest` → `/api/*` web routes)
  *
- * Web uses httpOnly cookie auth (`withCredentials`); native app uses Bearer tokens.
+ * Web: Bearer JWT when stored (cross-site Vercel); also sends cookies when present.
+ * Native app: Bearer tokens only.
  */
 export const api = axios.create({
   baseURL: API_BASE_URL,
