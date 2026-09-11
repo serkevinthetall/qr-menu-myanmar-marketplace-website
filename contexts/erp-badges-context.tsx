@@ -59,10 +59,19 @@ export function ErpBadgesProvider({ children }: { children: React.ReactNode }) {
   const markOrderReadState = useCallback(
     async (id: string, read: boolean) => {
       if (!session?.token) return;
-      await setOnlineOrderRead(session.token, id, read);
-      await refreshBadges();
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event(ONLINE_ORDERS_REFRESH_EVENT));
+      // Optimistic bell count — survives until /api/badges refresh catches up.
+      setAppOrderUnreadCount(prev =>
+        read ? Math.max(0, prev - 1) : prev + 1,
+      );
+      try {
+        await setOnlineOrderRead(session.token, id, read);
+        await refreshBadges();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event(ONLINE_ORDERS_REFRESH_EVENT));
+        }
+      } catch (error) {
+        await refreshBadges();
+        throw error;
       }
     },
     [session?.token, refreshBadges],
