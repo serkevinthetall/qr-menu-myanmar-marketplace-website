@@ -44,6 +44,7 @@ import {
 import { useAppTheme } from '@/contexts/theme-context';
 import { useAppColors } from '@/hooks/use-app-colors';
 import { useResponsive } from '@/hooks/use-responsive';
+import { APP_ORDER_LIST_POLL_MS } from '@/services/badges';
 import {
   fetchOnlineOrderDetail,
   fetchOnlineOrders,
@@ -633,7 +634,7 @@ export default function OnlineOrdersScreen() {
     return () => clearTimeout(timer);
   }, [load]);
 
-  // Keep the App Order list live without a manual refresh (60s, visible tab).
+  // Keep the App Order list live without a manual refresh (30s, visible tab).
   useEffect(() => {
     if (!session?.token || selectedId) {
       return;
@@ -651,7 +652,7 @@ export default function OnlineOrdersScreen() {
       void load({ quiet: true });
     };
 
-    const timer = setInterval(tick, 60_000);
+    const timer = setInterval(tick, APP_ORDER_LIST_POLL_MS);
 
     const onRefresh = () => {
       void load({ quiet: true });

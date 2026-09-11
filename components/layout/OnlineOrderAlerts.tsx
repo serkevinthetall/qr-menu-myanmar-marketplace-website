@@ -4,7 +4,7 @@ import { Portal, Snackbar } from 'react-native-paper';
 
 import { useAuth } from '@/contexts/auth-context';
 import { useVisibleInterval } from '@/hooks/use-visible-interval';
-import { ERP_BADGE_POLL_MS } from '@/services/badges';
+import { APP_ORDER_ALERT_POLL_MS } from '@/services/badges';
 import { fetchOnlineOrders } from '@/services/online-orders';
 import {
   ONLINE_ORDER_ALERTS_EVENT,
@@ -143,7 +143,7 @@ export function OnlineOrderAlerts() {
 
   useVisibleInterval(
     poll,
-    ERP_BADGE_POLL_MS,
+    APP_ORDER_ALERT_POLL_MS,
     Platform.OS === 'web' &&
       Boolean(isAuthenticated && session?.token && prefEnabled),
   );

@@ -24,5 +24,11 @@ export async function fetchErpBadges(token: string): Promise<ErpBadges> {
   };
 }
 
-/** Default badge / alert poll interval when the ERP tab is visible. */
+/** Sidebar badge poll interval when the ERP tab is visible. */
 export const ERP_BADGE_POLL_MS = 60_000;
+
+/** App Order sound/snackbar poll — faster than badges so staff hear new orders sooner. */
+export const APP_ORDER_ALERT_POLL_MS = 20_000;
+
+/** App Orders page list refresh when the tab is visible. */
+export const APP_ORDER_LIST_POLL_MS = 30_000;
