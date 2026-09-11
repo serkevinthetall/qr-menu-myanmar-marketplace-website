@@ -492,7 +492,8 @@ export default function OnlineOrdersScreen() {
   const { mode } = useAppTheme();
   const { session } = useAuth();
   const { width } = useResponsive();
-  const { refreshUnreadCount, markOrderReadState } = useAppOrderUnread();
+  const { refreshUnreadCount, markOrderReadState, markAllOrdersRead } =
+    useAppOrderUnread();
   const [items, setItems] = useState<SaleOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -757,22 +758,6 @@ export default function OnlineOrdersScreen() {
     setViewMode(prev => (prev === 'list' ? 'card' : 'list'));
   }, []);
 
-  const headerActions = useMemo<HeaderAction[]>(() => {
-    if (selectedId) {
-      return [];
-    }
-    return [
-      {
-        key: 'view',
-        icon: viewMode === 'list' ? 'view-grid-outline' : 'format-list-bulleted',
-        onPress: toggleView,
-        accessibilityLabel: 'Toggle list or card view',
-      },
-    ];
-  }, [selectedId, viewMode, toggleView]);
-
-  useHeaderActions(headerActions);
-
   const filtered = useMemo(
     () =>
       items.filter(order => {
@@ -783,6 +768,49 @@ export default function OnlineOrdersScreen() {
       }),
     [items, orderFilters, readFilter],
   );
+
+  const markAllVisibleRead = useCallback(async () => {
+    const unreadIds = filtered
+      .filter(order => Boolean(order.unread))
+      .map(order => order.id);
+    if (unreadIds.length === 0) {
+      return;
+    }
+    setItems(prev =>
+      prev.map(order =>
+        unreadIds.includes(order.id) ? { ...order, unread: false } : order,
+      ),
+    );
+    try {
+      await markAllOrdersRead(unreadIds);
+    } catch {
+      void load({ quiet: true });
+    }
+  }, [filtered, markAllOrdersRead, load]);
+
+  const headerActions = useMemo<HeaderAction[]>(() => {
+    if (selectedId) {
+      return [];
+    }
+    return [
+      {
+        key: 'mark-all-read',
+        icon: 'email-check-outline',
+        onPress: () => {
+          void markAllVisibleRead();
+        },
+        accessibilityLabel: 'Mark all visible app orders as read',
+      },
+      {
+        key: 'view',
+        icon: viewMode === 'list' ? 'view-grid-outline' : 'format-list-bulleted',
+        onPress: toggleView,
+        accessibilityLabel: 'Toggle list or card view',
+      },
+    ];
+  }, [selectedId, viewMode, toggleView, markAllVisibleRead]);
+
+  useHeaderActions(headerActions);
 
   const showDateGroups = viewMode === 'list' && groupByOrderDate;
   const monthGroups = useMemo(

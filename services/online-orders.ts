@@ -123,6 +123,24 @@ export async function setOnlineOrderRead(
   return response.data;
 }
 
+/** Mark many (or all recent) App Orders read/unread in one request. */
+export async function setOnlineOrdersReadAll(
+  token: string,
+  options?: { ids?: string[]; read?: boolean },
+): Promise<{ updated: number; read: boolean; unreadCount: number }> {
+  const response = await webApiRequest<{
+    data: { updated: number; read: boolean; unreadCount: number };
+  }>('/online-orders/read-all', {
+    method: 'PUT',
+    token,
+    body: {
+      ids: options?.ids,
+      read: options?.read ?? true,
+    },
+  });
+  return response.data;
+}
+
 export async function fetchAppOrderUnreadCount(token: string): Promise<number> {
   const response = await webApiRequest<{ data: { unreadCount: number } }>(
     '/online-orders/unread-count',

@@ -9,6 +9,7 @@ type AppOrderUnreadContextValue = {
   unreadCount: number;
   refreshUnreadCount: () => Promise<void>;
   markOrderReadState: (id: string, read: boolean) => Promise<void>;
+  markAllOrdersRead: (ids?: string[]) => Promise<void>;
 };
 
 /** Thin wrapper — polling lives in ErpBadgesProvider (merged /api/badges). */

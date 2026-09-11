@@ -14,7 +14,7 @@ import { useVisibleInterval } from '@/hooks/use-visible-interval';
 import { ERP_BADGE_POLL_MS, fetchErpBadges } from '@/services/badges';
 import { CALL_LIST_BADGE_REFRESH_EVENT } from '@/features/app-install/api';
 import { MEMBER_REQUEST_BADGE_REFRESH_EVENT } from '@/services/member-requests';
-import { setOnlineOrderRead } from '@/services/online-orders';
+import { setOnlineOrderRead, setOnlineOrdersReadAll } from '@/services/online-orders';
 import { ONLINE_ORDERS_REFRESH_EVENT } from '@/utils/online-order-alerts-preference';
 
 type ErpBadgesContextValue = {
@@ -23,6 +23,7 @@ type ErpBadgesContextValue = {
   callListNewCount: number;
   refreshBadges: () => Promise<void>;
   markOrderReadState: (id: string, read: boolean) => Promise<void>;
+  markAllOrdersRead: (ids?: string[]) => Promise<void>;
 };
 
 const ErpBadgesContext = createContext<ErpBadgesContextValue | null>(null);
@@ -77,6 +78,34 @@ export function ErpBadgesProvider({ children }: { children: React.ReactNode }) {
     [session?.token, refreshBadges],
   );
 
+  const markAllOrdersRead = useCallback(
+    async (ids?: string[]) => {
+      if (!session?.token) return;
+      const uniqueIds = ids?.length
+        ? [...new Set(ids.map(id => String(id)).filter(Boolean))]
+        : undefined;
+      if (uniqueIds) {
+        setAppOrderUnreadCount(prev => Math.max(0, prev - uniqueIds.length));
+      } else {
+        setAppOrderUnreadCount(0);
+      }
+      try {
+        await setOnlineOrdersReadAll(session.token, {
+          ids: uniqueIds,
+          read: true,
+        });
+        await refreshBadges();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event(ONLINE_ORDERS_REFRESH_EVENT));
+        }
+      } catch (error) {
+        await refreshBadges();
+        throw error;
+      }
+    },
+    [session?.token, refreshBadges],
+  );
+
   const enabled =
     Platform.OS === 'web' && Boolean(isAuthenticated && session?.token);
 
@@ -106,6 +135,7 @@ export function ErpBadgesProvider({ children }: { children: React.ReactNode }) {
       callListNewCount,
       refreshBadges,
       markOrderReadState,
+      markAllOrdersRead,
     }),
     [
       memberRequestCount,
@@ -113,6 +143,7 @@ export function ErpBadgesProvider({ children }: { children: React.ReactNode }) {
       callListNewCount,
       refreshBadges,
       markOrderReadState,
+      markAllOrdersRead,
     ],
   );
 
@@ -130,6 +161,7 @@ function useErpBadges(): ErpBadgesContextValue {
       callListNewCount: 0,
       refreshBadges: async () => undefined,
       markOrderReadState: async () => undefined,
+      markAllOrdersRead: async () => undefined,
     };
   }
   return ctx;
@@ -137,12 +169,13 @@ function useErpBadges(): ErpBadgesContextValue {
 
 /** @deprecated Prefer useErpBadges internals via existing hook names. */
 export function useAppOrderUnreadFromBadges() {
-  const { appOrderUnreadCount, refreshBadges, markOrderReadState } =
+  const { appOrderUnreadCount, refreshBadges, markOrderReadState, markAllOrdersRead } =
     useErpBadges();
   return {
     unreadCount: appOrderUnreadCount,
     refreshUnreadCount: refreshBadges,
     markOrderReadState,
+    markAllOrdersRead,
   };
 }
 
