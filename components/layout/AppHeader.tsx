@@ -328,6 +328,41 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
                   </Pressable>
                 )
               ) : null}
+              {detailHeader.onValidateDelivery ? (
+                isMobile ? (
+                  <IconButton
+                    icon="truck-check-outline"
+                    iconColor={colors.onPrimary}
+                    containerColor="transparent"
+                    rippleColor={colors.headerRipple}
+                    size={22}
+                    disabled={
+                      detailHeader.validatingDelivery ||
+                      detailHeader.confirming ||
+                      detailHeader.cancelling
+                    }
+                    onPress={detailHeader.onValidateDelivery}
+                    accessibilityLabel="Validate delivery"
+                  />
+                ) : (
+                  <Pressable
+                    onPress={detailHeader.onValidateDelivery}
+                    disabled={
+                      detailHeader.validatingDelivery ||
+                      detailHeader.confirming ||
+                      detailHeader.cancelling
+                    }
+                    style={[
+                      styles.detailActionGhost,
+                      detailHeader.validatingDelivery ? { opacity: 0.5 } : null,
+                    ]}>
+                    <Icon source="truck-check-outline" size={16} color={colors.onPrimary} />
+                    <Text style={[styles.detailActionGhostText, { color: colors.onPrimary }]}>
+                      {detailHeader.validatingDelivery ? 'VALIDATING…' : 'VALIDATE'}
+                    </Text>
+                  </Pressable>
+                )
+              ) : null}
               {detailHeader.onCancel ? (
                 isMobile ? (
                   <IconButton

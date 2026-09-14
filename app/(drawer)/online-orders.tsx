@@ -10,10 +10,14 @@ import {
 import {
   ActivityIndicator,
   Badge,
+  Button,
   Checkbox,
   Chip,
+  Dialog,
   Icon,
   IconButton,
+  Portal,
+  Snackbar,
   Text,
   useTheme,
 } from 'react-native-paper';
@@ -31,7 +35,10 @@ import {
 import { SaleOrderPrintPreview } from '@/components/sale-order/SaleOrderPrintPreview';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { Pagination } from '@/components/ui/Pagination';
-import { getSaleOrderStatusColors } from '@/constants/status-colors';
+import {
+  canValidateDelivery,
+  getSaleOrderStatusColors,
+} from '@/constants/status-colors';
 import { useAppOrderUnread } from '@/contexts/app-order-unread-context';
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -48,6 +55,7 @@ import { APP_ORDER_LIST_POLL_MS } from '@/services/badges';
 import {
   fetchOnlineOrderDetail,
   fetchOnlineOrders,
+  validateOnlineOrderDelivery,
 } from '@/services/online-orders';
 import { SaleOrder, SaleOrderDetail } from '@/types/sale-order';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
@@ -508,6 +516,9 @@ export default function OnlineOrdersScreen() {
   const [detail, setDetail] = useState<SaleOrderDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
+  const [detailValidatingDelivery, setDetailValidatingDelivery] = useState(false);
+  const [validateDeliveryVisible, setValidateDeliveryVisible] = useState(false);
+  const [snackbar, setSnackbar] = useState('');
   const [printPreview, setPrintPreview] = useState<{
     format: PrintFormat;
     detail: SaleOrderDetail;
@@ -731,13 +742,40 @@ export default function OnlineOrdersScreen() {
     setSelectedId(null);
     setDetail(null);
     setDetailError('');
+    setDetailValidatingDelivery(false);
+    setValidateDeliveryVisible(false);
   }, []);
+
+  const handleValidateDelivery = useCallback(async () => {
+    if (!session?.token || !selectedId) {
+      return;
+    }
+    setDetailValidatingDelivery(true);
+    setDetailError('');
+    try {
+      const updated = await validateOnlineOrderDelivery(
+        session.token,
+        selectedId,
+      );
+      setDetail(updated);
+      setValidateDeliveryVisible(false);
+      setSnackbar(`Delivery validated for ${updated.number}.`);
+    } catch (err) {
+      setDetailError(
+        err instanceof Error ? err.message : 'Failed to validate delivery.',
+      );
+    } finally {
+      setDetailValidatingDelivery(false);
+    }
+  }, [session?.token, selectedId]);
 
   useEffect(() => {
     if (!selectedId) {
       setDetailHeader(null);
       return;
     }
+
+    const showValidate = detail ? canValidateDelivery(detail) : false;
 
     setDetailHeader({
       title: detail?.number ?? 'App Order',
@@ -749,10 +787,21 @@ export default function OnlineOrdersScreen() {
       onPrint: detail
         ? format => setPrintPreview({ format, detail })
         : undefined,
+      onValidateDelivery: showValidate
+        ? () => setValidateDeliveryVisible(true)
+        : undefined,
+      validatingDelivery: detailValidatingDelivery,
     });
 
     return () => setDetailHeader(null);
-  }, [selectedId, detail, closeDetail, setDetailHeader, mode]);
+  }, [
+    selectedId,
+    detail,
+    closeDetail,
+    setDetailHeader,
+    mode,
+    detailValidatingDelivery,
+  ]);
 
   const toggleView = useCallback(() => {
     setViewMode(prev => (prev === 'list' ? 'card' : 'list'));
@@ -921,6 +970,39 @@ export default function OnlineOrdersScreen() {
           loading={detailLoading}
           error={detailError}
         />
+        <Portal>
+          <Dialog
+            visible={validateDeliveryVisible}
+            onDismiss={() =>
+              detailValidatingDelivery
+                ? undefined
+                : setValidateDeliveryVisible(false)
+            }>
+            <Dialog.Title>Validate delivery?</Dialog.Title>
+            <Dialog.Content>
+              <Text>
+                Validate the outgoing delivery for{' '}
+                {detail?.number ?? 'this order'} in Odoo?
+              </Text>
+            </Dialog.Content>
+            <Dialog.Actions>
+              <Button
+                disabled={detailValidatingDelivery}
+                onPress={() => setValidateDeliveryVisible(false)}>
+                Cancel
+              </Button>
+              <Button
+                mode="contained"
+                loading={detailValidatingDelivery}
+                disabled={detailValidatingDelivery}
+                onPress={() => {
+                  void handleValidateDelivery();
+                }}>
+                Validate
+              </Button>
+            </Dialog.Actions>
+          </Dialog>
+        </Portal>
         {printPreview ? (
           <SaleOrderPrintPreview
             detail={printPreview.detail}
@@ -929,6 +1011,12 @@ export default function OnlineOrdersScreen() {
             onClose={() => setPrintPreview(null)}
           />
         ) : null}
+        <Snackbar
+          visible={!!snackbar}
+          onDismiss={() => setSnackbar('')}
+          duration={3000}>
+          {snackbar}
+        </Snackbar>
       </View>
     );
   }

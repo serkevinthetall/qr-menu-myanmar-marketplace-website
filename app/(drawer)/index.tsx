@@ -33,7 +33,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { useAuth } from '@/contexts/auth-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
-import { getQuotationStatusColors, canCancelQuotation, canConfirmQuotation } from '@/constants/status-colors';
+import { getQuotationStatusColors, canCancelQuotation, canConfirmQuotation, canValidateDelivery } from '@/constants/status-colors';
 import {
   HeaderAction,
   useHeaderActions,
@@ -53,6 +53,7 @@ import {
   createQuotation,
   cancelQuotation,
   confirmQuotation,
+  validateQuotationDelivery,
   fetchPaymentMethods,
 } from '@/services/quotations';
 import {
@@ -389,6 +390,8 @@ export default function QuotationScreen() {
   const [cancelConfirmVisible, setCancelConfirmVisible] = useState(false);
   const [detailConfirming, setDetailConfirming] = useState(false);
   const [confirmConfirmVisible, setConfirmConfirmVisible] = useState(false);
+  const [detailValidatingDelivery, setDetailValidatingDelivery] = useState(false);
+  const [validateDeliveryVisible, setValidateDeliveryVisible] = useState(false);
   const [printPreview, setPrintPreview] = useState<{
     format: PrintFormat;
     detail: QuotationDetail;
@@ -705,6 +708,8 @@ export default function QuotationScreen() {
     setCancelConfirmVisible(false);
     setDetailConfirming(false);
     setConfirmConfirmVisible(false);
+    setDetailValidatingDelivery(false);
+    setValidateDeliveryVisible(false);
   }, []);
 
   const handleCancelDetail = useCallback(async () => {
@@ -761,6 +766,33 @@ export default function QuotationScreen() {
     }
   }, [session?.token, detailId]);
 
+  const handleValidateDeliveryDetail = useCallback(async () => {
+    if (!session?.token || !detailId) {
+      return;
+    }
+    setDetailValidatingDelivery(true);
+    setDetailError('');
+    try {
+      const updated = await validateQuotationDelivery(session.token, detailId);
+      setDetail(updated);
+      setQuotations(prev =>
+        prev.map(item =>
+          item.id === updated.id
+            ? { ...item, status: updated.status, total: updated.total }
+            : item,
+        ),
+      );
+      setValidateDeliveryVisible(false);
+      setSnackbar(`Delivery validated for ${updated.number}.`);
+    } catch (err) {
+      setDetailError(
+        err instanceof Error ? err.message : 'Failed to validate delivery.',
+      );
+    } finally {
+      setDetailValidatingDelivery(false);
+    }
+  }, [session?.token, detailId]);
+
   useEffect(() => {
     if (!detailId) {
       setDetailHeader(null);
@@ -769,6 +801,7 @@ export default function QuotationScreen() {
 
     const canCancel = detail ? canCancelQuotation(detail.status) : false;
     const canConfirm = detail ? canConfirmQuotation(detail.status) : false;
+    const showValidate = detail ? canValidateDelivery(detail) : false;
 
     setDetailHeader({
       title: detail?.number ?? 'Quotation',
@@ -782,6 +815,10 @@ export default function QuotationScreen() {
         : undefined,
       onConfirm: canConfirm ? () => setConfirmConfirmVisible(true) : undefined,
       confirming: detailConfirming,
+      onValidateDelivery: showValidate
+        ? () => setValidateDeliveryVisible(true)
+        : undefined,
+      validatingDelivery: detailValidatingDelivery,
       onCancel: canCancel ? () => setCancelConfirmVisible(true) : undefined,
       cancelling: detailCancelling,
     });
@@ -795,6 +832,7 @@ export default function QuotationScreen() {
     mode,
     detailCancelling,
     detailConfirming,
+    detailValidatingDelivery,
   ]);
 
   const exportExcel = useCallback(async () => {
@@ -1137,6 +1175,37 @@ export default function QuotationScreen() {
                   void handleConfirmDetail();
                 }}>
                 Confirm
+              </Button>
+            </Dialog.Actions>
+          </Dialog>
+          <Dialog
+            visible={validateDeliveryVisible}
+            onDismiss={() =>
+              detailValidatingDelivery
+                ? undefined
+                : setValidateDeliveryVisible(false)
+            }>
+            <Dialog.Title>Validate delivery?</Dialog.Title>
+            <Dialog.Content>
+              <Text>
+                Validate the outgoing delivery for{' '}
+                {detail?.number ?? 'this order'} in Odoo?
+              </Text>
+            </Dialog.Content>
+            <Dialog.Actions>
+              <Button
+                disabled={detailValidatingDelivery}
+                onPress={() => setValidateDeliveryVisible(false)}>
+                Cancel
+              </Button>
+              <Button
+                mode="contained"
+                loading={detailValidatingDelivery}
+                disabled={detailValidatingDelivery}
+                onPress={() => {
+                  void handleValidateDeliveryDetail();
+                }}>
+                Validate
               </Button>
             </Dialog.Actions>
           </Dialog>

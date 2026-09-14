@@ -65,4 +65,6 @@ export type QuotationDetail = Quotation & {
   preferredDeliveryDate: string;
   deliveryNotes: string;
   lines: QuotationLine[];
+  /** True when an outgoing Odoo delivery can be validated. */
+  canValidateDelivery?: boolean;
 };

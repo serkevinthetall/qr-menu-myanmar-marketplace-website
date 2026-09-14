@@ -13,12 +13,17 @@ import {
 
 import { QuotationDetailView } from '@/components/quotation/QuotationDetailView';
 import { QuotationPrintPreview } from '@/components/quotation/QuotationPrintPreview';
-import { canCancelQuotation, canConfirmQuotation } from '@/constants/status-colors';
+import {
+  canCancelQuotation,
+  canConfirmQuotation,
+  canValidateDelivery,
+} from '@/constants/status-colors';
 import { useAuth } from '@/contexts/auth-context';
 import {
   cancelAppQuotation,
   confirmAppQuotation,
   fetchAppQuotationDetail,
+  validateAppQuotationDelivery,
 } from '@/services/app/quotations';
 import { QuotationDetail } from '@/types/quotation';
 
@@ -37,6 +42,8 @@ export default function AppQuotationDetailScreen() {
   const [cancelConfirmVisible, setCancelConfirmVisible] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [confirmConfirmVisible, setConfirmConfirmVisible] = useState(false);
+  const [validatingDelivery, setValidatingDelivery] = useState(false);
+  const [validateDeliveryVisible, setValidateDeliveryVisible] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.token || !id) return;
@@ -85,28 +92,52 @@ export default function AppQuotationDetailScreen() {
     }
   }, [session?.token, id]);
 
+  const handleValidateDelivery = useCallback(async () => {
+    if (!session?.token || !id) return;
+    setValidatingDelivery(true);
+    try {
+      const updated = await validateAppQuotationDelivery(session.token, id);
+      setDetail(updated);
+      setValidateDeliveryVisible(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to validate delivery.');
+    } finally {
+      setValidatingDelivery(false);
+    }
+  }, [session?.token, id]);
+
   useLayoutEffect(() => {
     const showCancel = detail ? canCancelQuotation(detail.status) : false;
     const showConfirm = detail ? canConfirmQuotation(detail.status) : false;
+    const showValidate = detail ? canValidateDelivery(detail) : false;
     navigation.setOptions({
       headerRight:
-        showCancel || showConfirm
+        showCancel || showConfirm || showValidate
           ? () => (
               <View style={styles.headerActions}>
                 {showConfirm ? (
                   <IconButton
                     icon="check-circle-outline"
                     iconColor={theme.colors.onPrimary}
-                    disabled={confirming || cancelling}
+                    disabled={confirming || cancelling || validatingDelivery}
                     onPress={() => setConfirmConfirmVisible(true)}
                     accessibilityLabel="Confirm quotation"
+                  />
+                ) : null}
+                {showValidate ? (
+                  <IconButton
+                    icon="truck-check-outline"
+                    iconColor={theme.colors.onPrimary}
+                    disabled={validatingDelivery || confirming || cancelling}
+                    onPress={() => setValidateDeliveryVisible(true)}
+                    accessibilityLabel="Validate delivery"
                   />
                 ) : null}
                 {showCancel ? (
                   <IconButton
                     icon="cancel"
                     iconColor={theme.colors.onPrimary}
-                    disabled={cancelling || confirming}
+                    disabled={cancelling || confirming || validatingDelivery}
                     onPress={() => setCancelConfirmVisible(true)}
                     accessibilityLabel="Cancel quotation"
                   />
@@ -115,7 +146,14 @@ export default function AppQuotationDetailScreen() {
             )
           : undefined,
     });
-  }, [navigation, detail, cancelling, confirming, theme.colors.onPrimary]);
+  }, [
+    navigation,
+    detail,
+    cancelling,
+    confirming,
+    validatingDelivery,
+    theme.colors.onPrimary,
+  ]);
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
@@ -207,6 +245,36 @@ export default function AppQuotationDetailScreen() {
                 void handleConfirm();
               }}>
               Confirm
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        <Dialog
+          visible={validateDeliveryVisible}
+          onDismiss={() =>
+            validatingDelivery ? undefined : setValidateDeliveryVisible(false)
+          }>
+          <Dialog.Title>Validate delivery?</Dialog.Title>
+          <Dialog.Content>
+            <Text>
+              Validate the outgoing delivery for{' '}
+              {detail?.number ?? 'this order'} in Odoo?
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button
+              disabled={validatingDelivery}
+              onPress={() => setValidateDeliveryVisible(false)}>
+              Cancel
+            </Button>
+            <Button
+              mode="contained"
+              loading={validatingDelivery}
+              disabled={validatingDelivery}
+              onPress={() => {
+                void handleValidateDelivery();
+              }}>
+              Validate
             </Button>
           </Dialog.Actions>
         </Dialog>

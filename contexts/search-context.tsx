@@ -35,6 +35,9 @@ export type DetailHeader = {
   /** Confirm quotation → sales order — shown beside Print. */
   onConfirm?: () => void;
   confirming?: boolean;
+  /** Validate Odoo delivery (stock.picking) — shown beside Print/Confirm. */
+  onValidateDelivery?: () => void;
+  validatingDelivery?: boolean;
   /** Cancel draft quotation — shown on the right of the detail navbar. */
   onCancel?: () => void;
   cancelling?: boolean;

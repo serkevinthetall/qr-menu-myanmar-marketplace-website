@@ -107,6 +107,17 @@ export async function fetchOnlineOrderDetail(
   return response.data;
 }
 
+export async function validateOnlineOrderDelivery(
+  token: string,
+  id: string,
+): Promise<SaleOrderDetail> {
+  const response = await webApiRequest<DetailResponse>(
+    `/online-orders/${id}/validate-delivery`,
+    { method: 'POST', token },
+  );
+  return response.data;
+}
+
 export async function setOnlineOrderRead(
   token: string,
   id: string,

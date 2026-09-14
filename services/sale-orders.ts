@@ -82,3 +82,14 @@ export async function fetchSaleOrderDetail(
   });
   return response.data;
 }
+
+export async function validateSaleOrderDelivery(
+  token: string,
+  id: string,
+): Promise<SaleOrderDetail> {
+  const response = await webApiRequest<DetailResponse>(
+    `/sale-orders/${id}/validate-delivery`,
+    { method: 'POST', token },
+  );
+  return response.data;
+}

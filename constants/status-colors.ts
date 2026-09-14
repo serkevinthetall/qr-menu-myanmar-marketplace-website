@@ -54,6 +54,13 @@ export function canConfirmQuotation(status: string): boolean {
   return status === 'draft' || status === 'sent';
 }
 
+/** Validate delivery when detail reports a ready outgoing picking. */
+export function canValidateDelivery(detail: {
+  canValidateDelivery?: boolean;
+}): boolean {
+  return Boolean(detail.canValidateDelivery);
+}
+
 const purchaseOrderStatusLight: Record<string, StatusPair> = {
   draft: { bg: '#E2E8F0', fg: '#475569' },
   sent: { bg: '#DBEAFE', fg: '#1E40AF' },

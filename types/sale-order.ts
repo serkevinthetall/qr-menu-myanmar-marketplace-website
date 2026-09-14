@@ -35,4 +35,6 @@ export type SaleOrderDetail = SaleOrder & {
   /** Studio Delivery Notes (`x_studio_delivery_notes`). */
   deliveryNotes: string;
   lines: SaleOrderLine[];
+  /** True when an outgoing Odoo delivery can be validated. */
+  canValidateDelivery?: boolean;
 };
