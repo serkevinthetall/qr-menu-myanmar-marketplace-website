@@ -54,6 +54,17 @@ export async function cancelAppQuotation(
   return response.data;
 }
 
+export async function confirmAppQuotation(
+  token: string,
+  id: string,
+): Promise<QuotationDetail> {
+  const response = await appApiRequest<DetailResponse>(`/quotations/${id}/confirm`, {
+    method: 'POST',
+    token,
+  });
+  return response.data;
+}
+
 export async function fetchAppPaymentMethods(
   token: string,
 ): Promise<{ id: string; name: string }[]> {

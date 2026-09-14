@@ -301,6 +301,33 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
                   />
                 </Menu>
               ) : null}
+              {detailHeader.onConfirm ? (
+                isMobile ? (
+                  <IconButton
+                    icon="check-circle-outline"
+                    iconColor={colors.onPrimary}
+                    containerColor="transparent"
+                    rippleColor={colors.headerRipple}
+                    size={22}
+                    disabled={detailHeader.confirming || detailHeader.cancelling}
+                    onPress={detailHeader.onConfirm}
+                    accessibilityLabel="Confirm quotation"
+                  />
+                ) : (
+                  <Pressable
+                    onPress={detailHeader.onConfirm}
+                    disabled={detailHeader.confirming || detailHeader.cancelling}
+                    style={[
+                      styles.detailActionGhost,
+                      detailHeader.confirming ? { opacity: 0.5 } : null,
+                    ]}>
+                    <Icon source="check-circle-outline" size={16} color={colors.onPrimary} />
+                    <Text style={[styles.detailActionGhostText, { color: colors.onPrimary }]}>
+                      {detailHeader.confirming ? 'CONFIRMING…' : 'CONFIRM'}
+                    </Text>
+                  </Pressable>
+                )
+              ) : null}
               {detailHeader.onCancel ? (
                 isMobile ? (
                   <IconButton

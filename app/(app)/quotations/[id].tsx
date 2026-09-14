@@ -13,10 +13,11 @@ import {
 
 import { QuotationDetailView } from '@/components/quotation/QuotationDetailView';
 import { QuotationPrintPreview } from '@/components/quotation/QuotationPrintPreview';
-import { canCancelQuotation } from '@/constants/status-colors';
+import { canCancelQuotation, canConfirmQuotation } from '@/constants/status-colors';
 import { useAuth } from '@/contexts/auth-context';
 import {
   cancelAppQuotation,
+  confirmAppQuotation,
   fetchAppQuotationDetail,
 } from '@/services/app/quotations';
 import { QuotationDetail } from '@/types/quotation';
@@ -34,6 +35,8 @@ export default function AppQuotationDetailScreen() {
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelConfirmVisible, setCancelConfirmVisible] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmConfirmVisible, setConfirmConfirmVisible] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.token || !id) return;
@@ -68,22 +71,51 @@ export default function AppQuotationDetailScreen() {
     }
   }, [session?.token, id]);
 
+  const handleConfirm = useCallback(async () => {
+    if (!session?.token || !id) return;
+    setConfirming(true);
+    try {
+      const updated = await confirmAppQuotation(session.token, id);
+      setDetail(updated);
+      setConfirmConfirmVisible(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to confirm quotation.');
+    } finally {
+      setConfirming(false);
+    }
+  }, [session?.token, id]);
+
   useLayoutEffect(() => {
     const showCancel = detail ? canCancelQuotation(detail.status) : false;
+    const showConfirm = detail ? canConfirmQuotation(detail.status) : false;
     navigation.setOptions({
-      headerRight: showCancel
-        ? () => (
-            <IconButton
-              icon="cancel"
-              iconColor={theme.colors.onPrimary}
-              disabled={cancelling}
-              onPress={() => setCancelConfirmVisible(true)}
-              accessibilityLabel="Cancel quotation"
-            />
-          )
-        : undefined,
+      headerRight:
+        showCancel || showConfirm
+          ? () => (
+              <View style={styles.headerActions}>
+                {showConfirm ? (
+                  <IconButton
+                    icon="check-circle-outline"
+                    iconColor={theme.colors.onPrimary}
+                    disabled={confirming || cancelling}
+                    onPress={() => setConfirmConfirmVisible(true)}
+                    accessibilityLabel="Confirm quotation"
+                  />
+                ) : null}
+                {showCancel ? (
+                  <IconButton
+                    icon="cancel"
+                    iconColor={theme.colors.onPrimary}
+                    disabled={cancelling || confirming}
+                    onPress={() => setCancelConfirmVisible(true)}
+                    accessibilityLabel="Cancel quotation"
+                  />
+                ) : null}
+              </View>
+            )
+          : undefined,
     });
-  }, [navigation, detail, cancelling, theme.colors.onPrimary]);
+  }, [navigation, detail, cancelling, confirming, theme.colors.onPrimary]);
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
@@ -148,6 +180,36 @@ export default function AppQuotationDetailScreen() {
             </Button>
           </Dialog.Actions>
         </Dialog>
+
+        <Dialog
+          visible={confirmConfirmVisible}
+          onDismiss={() =>
+            confirming ? undefined : setConfirmConfirmVisible(false)
+          }>
+          <Dialog.Title>Confirm quotation?</Dialog.Title>
+          <Dialog.Content>
+            <Text>
+              Confirm {detail?.number ?? 'this quotation'} as a sales order in
+              Odoo?
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button
+              disabled={confirming}
+              onPress={() => setConfirmConfirmVisible(false)}>
+              Keep
+            </Button>
+            <Button
+              mode="contained"
+              loading={confirming}
+              disabled={confirming}
+              onPress={() => {
+                void handleConfirm();
+              }}>
+              Confirm
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
       </Portal>
 
       {showPrintPreview && detail ? (
@@ -172,6 +234,10 @@ export default function AppQuotationDetailScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   fab: {
     position: 'absolute',
     right: 16,

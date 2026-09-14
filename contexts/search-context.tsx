@@ -32,6 +32,9 @@ export type DetailHeader = {
   breadcrumbParent?: string;
   onPrint?: (format: PrintFormat) => void;
   onCreateQuotation?: () => void;
+  /** Confirm quotation → sales order — shown beside Print. */
+  onConfirm?: () => void;
+  confirming?: boolean;
   /** Cancel draft quotation — shown on the right of the detail navbar. */
   onCancel?: () => void;
   cancelling?: boolean;

@@ -49,6 +49,11 @@ export function canCancelQuotation(status: string): boolean {
   return status === 'draft';
 }
 
+/** Confirm → Sales Order: draft (Quotation) or sent (Quotation Sent). */
+export function canConfirmQuotation(status: string): boolean {
+  return status === 'draft' || status === 'sent';
+}
+
 const purchaseOrderStatusLight: Record<string, StatusPair> = {
   draft: { bg: '#E2E8F0', fg: '#475569' },
   sent: { bg: '#DBEAFE', fg: '#1E40AF' },

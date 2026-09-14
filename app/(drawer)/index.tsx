@@ -33,7 +33,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { useAuth } from '@/contexts/auth-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
-import { getQuotationStatusColors, canCancelQuotation } from '@/constants/status-colors';
+import { getQuotationStatusColors, canCancelQuotation, canConfirmQuotation } from '@/constants/status-colors';
 import {
   HeaderAction,
   useHeaderActions,
@@ -52,6 +52,7 @@ import {
   fetchQuotationsPage,
   createQuotation,
   cancelQuotation,
+  confirmQuotation,
   fetchPaymentMethods,
 } from '@/services/quotations';
 import {
@@ -386,6 +387,8 @@ export default function QuotationScreen() {
   const [detailError, setDetailError] = useState('');
   const [detailCancelling, setDetailCancelling] = useState(false);
   const [cancelConfirmVisible, setCancelConfirmVisible] = useState(false);
+  const [detailConfirming, setDetailConfirming] = useState(false);
+  const [confirmConfirmVisible, setConfirmConfirmVisible] = useState(false);
   const [printPreview, setPrintPreview] = useState<{
     format: PrintFormat;
     detail: QuotationDetail;
@@ -700,6 +703,8 @@ export default function QuotationScreen() {
     setDetailError('');
     setDetailCancelling(false);
     setCancelConfirmVisible(false);
+    setDetailConfirming(false);
+    setConfirmConfirmVisible(false);
   }, []);
 
   const handleCancelDetail = useCallback(async () => {
@@ -729,6 +734,33 @@ export default function QuotationScreen() {
     }
   }, [session?.token, detailId]);
 
+  const handleConfirmDetail = useCallback(async () => {
+    if (!session?.token || !detailId) {
+      return;
+    }
+    setDetailConfirming(true);
+    setDetailError('');
+    try {
+      const updated = await confirmQuotation(session.token, detailId);
+      setDetail(updated);
+      setQuotations(prev =>
+        prev.map(item =>
+          item.id === updated.id
+            ? { ...item, status: updated.status, total: updated.total }
+            : item,
+        ),
+      );
+      setConfirmConfirmVisible(false);
+      setSnackbar(`Quotation ${updated.number} confirmed as sales order.`);
+    } catch (err) {
+      setDetailError(
+        err instanceof Error ? err.message : 'Failed to confirm quotation.',
+      );
+    } finally {
+      setDetailConfirming(false);
+    }
+  }, [session?.token, detailId]);
+
   useEffect(() => {
     if (!detailId) {
       setDetailHeader(null);
@@ -736,6 +768,7 @@ export default function QuotationScreen() {
     }
 
     const canCancel = detail ? canCancelQuotation(detail.status) : false;
+    const canConfirm = detail ? canConfirmQuotation(detail.status) : false;
 
     setDetailHeader({
       title: detail?.number ?? 'Quotation',
@@ -747,6 +780,8 @@ export default function QuotationScreen() {
       onPrint: detail
         ? format => setPrintPreview({ format, detail })
         : undefined,
+      onConfirm: canConfirm ? () => setConfirmConfirmVisible(true) : undefined,
+      confirming: detailConfirming,
       onCancel: canCancel ? () => setCancelConfirmVisible(true) : undefined,
       cancelling: detailCancelling,
     });
@@ -759,6 +794,7 @@ export default function QuotationScreen() {
     setDetailHeader,
     mode,
     detailCancelling,
+    detailConfirming,
   ]);
 
   const exportExcel = useCallback(async () => {
@@ -1072,6 +1108,35 @@ export default function QuotationScreen() {
                   void handleCancelDetail();
                 }}>
                 Cancel quotation
+              </Button>
+            </Dialog.Actions>
+          </Dialog>
+          <Dialog
+            visible={confirmConfirmVisible}
+            onDismiss={() =>
+              detailConfirming ? undefined : setConfirmConfirmVisible(false)
+            }>
+            <Dialog.Title>Confirm quotation?</Dialog.Title>
+            <Dialog.Content>
+              <Text>
+                Confirm {detail?.number ?? 'this quotation'} as a sales order in
+                Odoo?
+              </Text>
+            </Dialog.Content>
+            <Dialog.Actions>
+              <Button
+                disabled={detailConfirming}
+                onPress={() => setConfirmConfirmVisible(false)}>
+                Keep
+              </Button>
+              <Button
+                mode="contained"
+                loading={detailConfirming}
+                disabled={detailConfirming}
+                onPress={() => {
+                  void handleConfirmDetail();
+                }}>
+                Confirm
               </Button>
             </Dialog.Actions>
           </Dialog>

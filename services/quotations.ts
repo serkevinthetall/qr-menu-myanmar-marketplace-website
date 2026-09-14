@@ -95,6 +95,17 @@ export async function cancelQuotation(
   return response.data;
 }
 
+export async function confirmQuotation(
+  token: string,
+  id: string,
+): Promise<QuotationDetail> {
+  const response = await webApiRequest<QuotationDetailResponse>(
+    `/quotations/${id}/confirm`,
+    { method: 'POST', token },
+  );
+  return response.data;
+}
+
 export async function fetchPaymentMethods(token: string): Promise<PaymentMethod[]> {
   const response = await webApiRequest<PaymentMethodsResponse>(
     '/quotations/payment-methods',
