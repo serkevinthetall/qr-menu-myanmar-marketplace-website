@@ -220,7 +220,14 @@ function QuotationRow({
               { flex: col.flex },
             ]}>
             {isCustomer ? (
-              <CustomerNameText style={{ fontWeight: '400' }}>
+              <CustomerNameText
+                style={{
+                  fontWeight: '400',
+                  paddingTop: 0,
+                  paddingBottom: 0,
+                  lineHeight: 20,
+                  fontSize: 14,
+                }}>
                 {text || '—'}
               </CustomerNameText>
             ) : (

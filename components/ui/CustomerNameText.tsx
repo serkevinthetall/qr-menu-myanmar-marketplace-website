@@ -10,7 +10,8 @@ type Props = Omit<TextProps, 'style'> & {
 
 /**
  * Myanmar-safe customer name text.
- * Avoids Paper Text variants whose theme line-heights clip Burmese glyphs.
+ * Matches table/body Paper Text metrics so names sit on the same baseline
+ * as neighboring cells (no extra top/bottom padding).
  */
 export function CustomerNameText({
   children,
@@ -20,8 +21,8 @@ export function CustomerNameText({
   ...rest
 }: Props) {
   const theme = useTheme();
-  const fontSize = size === 'title' ? 17 : 15;
-  const lineHeight = size === 'title' ? 30 : 28;
+  const fontSize = size === 'title' ? 17 : 14;
+  const lineHeight = size === 'title' ? 24 : 20;
 
   return (
     <Text
@@ -45,7 +46,10 @@ export function CustomerNameText({
 const styles = StyleSheet.create({
   base: {
     fontWeight: '500',
-    paddingTop: 3,
-    paddingBottom: 5,
+    // Keep glyphs unclipped without shifting the baseline vs sibling Text.
+    paddingTop: 0,
+    paddingBottom: 0,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
 });

@@ -152,7 +152,14 @@ function PurchaseOrderRow({
                       { flex: col.flex },
                     ]}>
                     {isVendor ? (
-                      <CustomerNameText style={{ fontWeight: '400' }}>
+                      <CustomerNameText
+                        style={{
+                          fontWeight: '400',
+                          paddingTop: 0,
+                          paddingBottom: 0,
+                          lineHeight: 20,
+                          fontSize: 14,
+                        }}>
                         {text || '—'}
                       </CustomerNameText>
                     ) : (
