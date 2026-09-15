@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Button,
   Card,
+  Checkbox,
   Chip,
   Dialog,
   Divider,
@@ -531,6 +532,7 @@ export function QuotationBuilder({
   const [townshipOptions, setTownshipOptions] = useState<Township[]>([]);
   const [savingAddress, setSavingAddress] = useState(false);
   const [saveConfirmVisible, setSaveConfirmVisible] = useState(false);
+  const [saveProductsConfirmed, setSaveProductsConfirmed] = useState(false);
   const [newAddressName, setNewAddressName] = useState('');
   const [newAddressPhone, setNewAddressPhone] = useState('');
   const [newAddressStreet, setNewAddressStreet] = useState('');
@@ -1256,11 +1258,12 @@ export function QuotationBuilder({
 
     // Show products so Cancel returns the user to the line list for review.
     setTab('products');
+    setSaveProductsConfirmed(false);
     setSaveConfirmVisible(true);
   };
 
   const confirmSave = () => {
-    if (!customer) {
+    if (!customer || !saveProductsConfirmed) {
       return;
     }
 
@@ -2105,26 +2108,106 @@ export function QuotationBuilder({
       <Portal>
         <Dialog
           visible={saveConfirmVisible}
-          onDismiss={() => (saving ? undefined : setSaveConfirmVisible(false))}>
+          onDismiss={() => {
+            if (saving) {
+              return;
+            }
+            setSaveConfirmVisible(false);
+            setSaveProductsConfirmed(false);
+          }}>
           <Dialog.Title>Check products before saving</Dialog.Title>
-          <Dialog.Content>
+          <Dialog.ScrollArea style={styles.saveConfirmScroll}>
             <Text style={{ marginBottom: 8 }}>
               Please check your product name and quantity again.
             </Text>
-            <Text>
+            <Text style={{ marginBottom: 12 }}>
               ကျေးဇူးပြု၍ ကုန်ပစ္စည်းအမည်နှင့် အရေအတွက်ကို ထပ်မံစစ်ဆေးပေးပါ။
             </Text>
-          </Dialog.Content>
+            <View
+              style={[
+                styles.saveConfirmList,
+                {
+                  borderColor:
+                    theme.colors.outlineVariant ?? theme.colors.outline,
+                },
+              ]}>
+              <View
+                style={[
+                  styles.saveConfirmListHeader,
+                  {
+                    borderBottomColor:
+                      theme.colors.outlineVariant ?? theme.colors.outline,
+                  },
+                ]}>
+                <Text
+                  variant="labelMedium"
+                  style={[styles.saveConfirmNameCol, { fontWeight: '700' }]}>
+                  Product
+                </Text>
+                <Text
+                  variant="labelMedium"
+                  style={[styles.saveConfirmQtyCol, { fontWeight: '700' }]}>
+                  Qty
+                </Text>
+              </View>
+              {lines.map(line => (
+                <View
+                  key={line.product.id}
+                  style={[
+                    styles.saveConfirmListRow,
+                    {
+                      borderBottomColor:
+                        theme.colors.outlineVariant ?? theme.colors.outline,
+                    },
+                  ]}>
+                  <Text
+                    variant="bodyMedium"
+                    style={styles.saveConfirmNameCol}
+                    numberOfLines={2}>
+                    {line.product.name}
+                  </Text>
+                  <Text
+                    variant="bodyMedium"
+                    style={styles.saveConfirmQtyCol}>
+                    {line.qty}
+                  </Text>
+                </View>
+              ))}
+            </View>
+            <Pressable
+              onPress={() => setSaveProductsConfirmed(prev => !prev)}
+              style={styles.saveConfirmCheckRow}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: saveProductsConfirmed }}>
+              <Checkbox
+                status={saveProductsConfirmed ? 'checked' : 'unchecked'}
+                onPress={() => setSaveProductsConfirmed(prev => !prev)}
+              />
+              <View style={styles.flex1}>
+                <Text variant="bodyMedium">
+                  I confirm that this product list is correct.
+                </Text>
+                <Text
+                  variant="bodySmall"
+                  style={{ color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
+                  ဤကုန်ပစ္စည်းစာရင်းမှန်ကန်ကြောင်း အတည်ပြုပါသည်။
+                </Text>
+              </View>
+            </Pressable>
+          </Dialog.ScrollArea>
           <Dialog.Actions>
             <Button
               disabled={saving}
-              onPress={() => setSaveConfirmVisible(false)}>
+              onPress={() => {
+                setSaveConfirmVisible(false);
+                setSaveProductsConfirmed(false);
+              }}>
               Cancel
             </Button>
             <Button
               mode="contained"
               loading={saving}
-              disabled={saving}
+              disabled={saving || !saveProductsConfirmed}
               onPress={confirmSave}>
               Save
             </Button>
@@ -2306,6 +2389,44 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 720,
     alignSelf: 'center',
+  },
+  saveConfirmScroll: {
+    maxHeight: 360,
+    paddingHorizontal: 24,
+  },
+  saveConfirmList: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  saveConfirmListHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  saveConfirmListRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  saveConfirmNameCol: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  saveConfirmQtyCol: {
+    minWidth: 48,
+    textAlign: 'right',
+  },
+  saveConfirmCheckRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 4,
+    marginBottom: 8,
   },
   addAddressModal: {
     marginHorizontal: 16,

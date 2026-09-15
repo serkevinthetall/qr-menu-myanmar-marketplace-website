@@ -10,6 +10,7 @@ import {
 import {
   ActivityIndicator,
   Button,
+  Checkbox,
   Dialog,
   HelperText,
   Icon,
@@ -117,6 +118,7 @@ export default function AppNewQuotationScreen() {
   const [deliveryNote, setDeliveryNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveConfirmVisible, setSaveConfirmVisible] = useState(false);
+  const [saveProductsConfirmed, setSaveProductsConfirmed] = useState(false);
   const [orderExpanded, setOrderExpanded] = useState(false);
   const [productView, setProductView] = useState<'list' | 'grid'>('list');
   const [printDetail, setPrintDetail] = useState<QuotationDetail | null>(null);
@@ -355,6 +357,7 @@ export default function AppNewQuotationScreen() {
 
     // Stay on review so Cancel keeps the product list visible.
     setStep('review');
+    setSaveProductsConfirmed(false);
     setSaveConfirmVisible(true);
   }, [
     session?.token,
@@ -368,7 +371,7 @@ export default function AppNewQuotationScreen() {
   ]);
 
   const confirmSave = useCallback(async () => {
-    if (!session?.token || !customer) return;
+    if (!session?.token || !customer || !saveProductsConfirmed) return;
 
     setSaving(true);
     try {
@@ -406,6 +409,7 @@ export default function AppNewQuotationScreen() {
     preferredDeliveryDate,
     deliveryNote,
     cart,
+    saveProductsConfirmed,
   ]);
 
   return (
@@ -413,26 +417,98 @@ export default function AppNewQuotationScreen() {
       <Portal>
         <Dialog
           visible={saveConfirmVisible}
-          onDismiss={() => (saving ? undefined : setSaveConfirmVisible(false))}>
+          onDismiss={() => {
+            if (saving) {
+              return;
+            }
+            setSaveConfirmVisible(false);
+            setSaveProductsConfirmed(false);
+          }}>
           <Dialog.Title>Check products before saving</Dialog.Title>
-          <Dialog.Content>
+          <Dialog.ScrollArea style={styles.saveConfirmScroll}>
             <Text style={{ marginBottom: 8 }}>
               Please check your product name and quantity again.
             </Text>
-            <Text>
+            <Text style={{ marginBottom: 12 }}>
               ကျေးဇူးပြု၍ ကုန်ပစ္စည်းအမည်နှင့် အရေအတွက်ကို ထပ်မံစစ်ဆေးပေးပါ။
             </Text>
-          </Dialog.Content>
+            <View
+              style={[
+                styles.saveConfirmList,
+                {
+                  borderColor:
+                    theme.colors.outlineVariant ?? theme.colors.outline,
+                },
+              ]}>
+              <View
+                style={[
+                  styles.saveConfirmListHeader,
+                  {
+                    borderBottomColor:
+                      theme.colors.outlineVariant ?? theme.colors.outline,
+                  },
+                ]}>
+                <Text style={[styles.saveConfirmNameCol, styles.saveConfirmBold]}>
+                  Product
+                </Text>
+                <Text style={[styles.saveConfirmQtyCol, styles.saveConfirmBold]}>
+                  Qty
+                </Text>
+              </View>
+              {cart.map(line => (
+                <View
+                  key={line.product.id}
+                  style={[
+                    styles.saveConfirmListRow,
+                    {
+                      borderBottomColor:
+                        theme.colors.outlineVariant ?? theme.colors.outline,
+                    },
+                  ]}>
+                  <Text style={styles.saveConfirmNameCol} numberOfLines={2}>
+                    {line.product.name}
+                  </Text>
+                  <Text style={styles.saveConfirmQtyCol}>{line.qty}</Text>
+                </View>
+              ))}
+            </View>
+            <Pressable
+              onPress={() => setSaveProductsConfirmed(prev => !prev)}
+              style={styles.saveConfirmCheckRow}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: saveProductsConfirmed }}>
+              <Checkbox
+                status={saveProductsConfirmed ? 'checked' : 'unchecked'}
+                onPress={() => setSaveProductsConfirmed(prev => !prev)}
+              />
+              <View style={{ flex: 1 }}>
+                <Text>
+                  I confirm that this product list is correct.
+                </Text>
+                <Text
+                  style={{
+                    color: theme.colors.onSurfaceVariant,
+                    marginTop: 2,
+                    fontSize: 12,
+                  }}>
+                  ဤကုန်ပစ္စည်းစာရင်းမှန်ကန်ကြောင်း အတည်ပြုပါသည်။
+                </Text>
+              </View>
+            </Pressable>
+          </Dialog.ScrollArea>
           <Dialog.Actions>
             <Button
               disabled={saving}
-              onPress={() => setSaveConfirmVisible(false)}>
+              onPress={() => {
+                setSaveConfirmVisible(false);
+                setSaveProductsConfirmed(false);
+              }}>
               Cancel
             </Button>
             <Button
               mode="contained"
               loading={saving}
-              disabled={saving}
+              disabled={saving || !saveProductsConfirmed}
               onPress={() => {
                 void confirmSave();
               }}>
@@ -1325,4 +1401,45 @@ const styles = StyleSheet.create({
   reviewTotalLabel: { fontWeight: '700', fontSize: 16 },
   input: { marginBottom: 10 },
   empty: { textAlign: 'center', marginTop: 40, opacity: 0.6 },
+  saveConfirmScroll: {
+    maxHeight: 360,
+    paddingHorizontal: 24,
+  },
+  saveConfirmList: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  saveConfirmListHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  saveConfirmListRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  saveConfirmNameCol: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  saveConfirmQtyCol: {
+    minWidth: 48,
+    textAlign: 'right',
+  },
+  saveConfirmBold: {
+    fontWeight: '700',
+  },
+  saveConfirmCheckRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 4,
+    marginBottom: 8,
+  },
 });
