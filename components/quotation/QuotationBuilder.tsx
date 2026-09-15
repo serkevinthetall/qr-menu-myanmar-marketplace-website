@@ -530,6 +530,7 @@ export function QuotationBuilder({
   const [addAddressOpen, setAddAddressOpen] = useState(false);
   const [townshipOptions, setTownshipOptions] = useState<Township[]>([]);
   const [savingAddress, setSavingAddress] = useState(false);
+  const [saveConfirmVisible, setSaveConfirmVisible] = useState(false);
   const [newAddressName, setNewAddressName] = useState('');
   const [newAddressPhone, setNewAddressPhone] = useState('');
   const [newAddressStreet, setNewAddressStreet] = useState('');
@@ -1253,10 +1254,30 @@ export function QuotationBuilder({
       return;
     }
 
+    // Show products so Cancel returns the user to the line list for review.
+    setTab('products');
+    setSaveConfirmVisible(true);
+  };
+
+  const confirmSave = () => {
+    if (!customer) {
+      return;
+    }
+
+    let normalizedPhone = phone.trim();
+    try {
+      normalizedPhone = validateMyanmarPhone(phone, 'ဖုန်းနံပါတ်');
+    } catch {
+      setSaveConfirmVisible(false);
+      setTab('contact');
+      return;
+    }
+
     if (session?.user?.id) {
       void clearQuotationDraft(session.user.id);
     }
 
+    setSaveConfirmVisible(false);
     onSave({
       customer,
       shippingPartnerId,
@@ -2080,6 +2101,36 @@ export function QuotationBuilder({
           )}
         </ScrollView>
       </DismissibleModal>
+
+      <Portal>
+        <Dialog
+          visible={saveConfirmVisible}
+          onDismiss={() => (saving ? undefined : setSaveConfirmVisible(false))}>
+          <Dialog.Title>Check products before saving</Dialog.Title>
+          <Dialog.Content>
+            <Text style={{ marginBottom: 8 }}>
+              Please check your product name and quantity again.
+            </Text>
+            <Text>
+              ကျေးဇူးပြု၍ ကုန်ပစ္စည်းအမည်နှင့် အရေအတွက်ကို ထပ်မံစစ်ဆေးပေးပါ။
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button
+              disabled={saving}
+              onPress={() => setSaveConfirmVisible(false)}>
+              Cancel
+            </Button>
+            <Button
+              mode="contained"
+              loading={saving}
+              disabled={saving}
+              onPress={confirmSave}>
+              Save
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
 
       <Portal>
         <Dialog

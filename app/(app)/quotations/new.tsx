@@ -116,6 +116,7 @@ export default function AppNewQuotationScreen() {
   const [preferredDeliveryDate, setPreferredDeliveryDate] = useState('');
   const [deliveryNote, setDeliveryNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saveConfirmVisible, setSaveConfirmVisible] = useState(false);
   const [orderExpanded, setOrderExpanded] = useState(false);
   const [productView, setProductView] = useState<'list' | 'grid'>('list');
   const [printDetail, setPrintDetail] = useState<QuotationDetail | null>(null);
@@ -322,7 +323,7 @@ export default function AppNewQuotationScreen() {
     [session?.token, goToSavedQuote],
   );
 
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(() => {
     if (!session?.token || !customer) return;
     setError('');
     if (!shippingPartnerId) {
@@ -352,6 +353,23 @@ export default function AppNewQuotationScreen() {
       return;
     }
 
+    // Stay on review so Cancel keeps the product list visible.
+    setStep('review');
+    setSaveConfirmVisible(true);
+  }, [
+    session?.token,
+    customer,
+    shippingPartnerId,
+    salePersonName,
+    paymentMethodLineId,
+    preferredDeliveryDate,
+    deliveryNote,
+    cart,
+  ]);
+
+  const confirmSave = useCallback(async () => {
+    if (!session?.token || !customer) return;
+
     setSaving(true);
     try {
       const created = await createAppQuotation(session.token, {
@@ -370,9 +388,11 @@ export default function AppNewQuotationScreen() {
         })),
       });
 
+      setSaveConfirmVisible(false);
       savedQuoteIdRef.current = created.id;
       setPrintPrompt({ id: created.id, number: created.number });
     } catch (err) {
+      setSaveConfirmVisible(false);
       setError(err instanceof Error ? err.message : 'Failed to save quotation.');
     } finally {
       setSaving(false);
@@ -391,6 +411,36 @@ export default function AppNewQuotationScreen() {
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
       <Portal>
+        <Dialog
+          visible={saveConfirmVisible}
+          onDismiss={() => (saving ? undefined : setSaveConfirmVisible(false))}>
+          <Dialog.Title>Check products before saving</Dialog.Title>
+          <Dialog.Content>
+            <Text style={{ marginBottom: 8 }}>
+              Please check your product name and quantity again.
+            </Text>
+            <Text>
+              ကျေးဇူးပြု၍ ကုန်ပစ္စည်းအမည်နှင့် အရေအတွက်ကို ထပ်မံစစ်ဆေးပေးပါ။
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button
+              disabled={saving}
+              onPress={() => setSaveConfirmVisible(false)}>
+              Cancel
+            </Button>
+            <Button
+              mode="contained"
+              loading={saving}
+              disabled={saving}
+              onPress={() => {
+                void confirmSave();
+              }}>
+              Save
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+
         <Dialog
           visible={!!printPrompt}
           dismissable={false}
@@ -1096,7 +1146,7 @@ export default function AppNewQuotationScreen() {
               mode="contained"
               loading={saving}
               disabled={saving}
-              onPress={() => void handleSave()}
+              onPress={handleSave}
               style={styles.footerHalf}
               contentStyle={styles.footerBtnContent}>
               Save quotation
