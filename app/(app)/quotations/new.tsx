@@ -373,6 +373,8 @@ export default function AppNewQuotationScreen() {
   const confirmSave = useCallback(async () => {
     if (!session?.token || !customer || !saveProductsConfirmed) return;
 
+    setSaveConfirmVisible(false);
+    setSaveProductsConfirmed(false);
     setSaving(true);
     try {
       const created = await createAppQuotation(session.token, {
@@ -391,11 +393,9 @@ export default function AppNewQuotationScreen() {
         })),
       });
 
-      setSaveConfirmVisible(false);
       savedQuoteIdRef.current = created.id;
       setPrintPrompt({ id: created.id, number: created.number });
     } catch (err) {
-      setSaveConfirmVisible(false);
       setError(err instanceof Error ? err.message : 'Failed to save quotation.');
     } finally {
       setSaving(false);
@@ -425,77 +425,82 @@ export default function AppNewQuotationScreen() {
             setSaveProductsConfirmed(false);
           }}>
           <Dialog.Title>Check products before saving</Dialog.Title>
-          <Dialog.ScrollArea style={styles.saveConfirmScroll}>
-            <Text style={{ marginBottom: 8 }}>
-              Please check your product name and quantity again.
-            </Text>
-            <Text style={{ marginBottom: 12 }}>
-              ကျေးဇူးပြု၍ ကုန်ပစ္စည်းအမည်နှင့် အရေအတွက်ကို ထပ်မံစစ်ဆေးပေးပါ။
-            </Text>
-            <View
-              style={[
-                styles.saveConfirmList,
-                {
-                  borderColor:
-                    theme.colors.outlineVariant ?? theme.colors.outline,
-                },
-              ]}>
+          <Dialog.Content>
+            <ScrollView
+              style={styles.saveConfirmScroll}
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled">
+              <Text style={{ marginBottom: 8 }}>
+                Please check your product name and quantity again.
+              </Text>
+              <Text style={{ marginBottom: 12 }}>
+                ကျေးဇူးပြု၍ ကုန်ပစ္စည်းအမည်နှင့် အရေအတွက်ကို ထပ်မံစစ်ဆေးပေးပါ။
+              </Text>
               <View
                 style={[
-                  styles.saveConfirmListHeader,
+                  styles.saveConfirmList,
                   {
-                    borderBottomColor:
+                    borderColor:
                       theme.colors.outlineVariant ?? theme.colors.outline,
                   },
                 ]}>
-                <Text style={[styles.saveConfirmNameCol, styles.saveConfirmBold]}>
-                  Product
-                </Text>
-                <Text style={[styles.saveConfirmQtyCol, styles.saveConfirmBold]}>
-                  Qty
-                </Text>
-              </View>
-              {cart.map(line => (
                 <View
-                  key={line.product.id}
                   style={[
-                    styles.saveConfirmListRow,
+                    styles.saveConfirmListHeader,
                     {
                       borderBottomColor:
                         theme.colors.outlineVariant ?? theme.colors.outline,
                     },
                   ]}>
-                  <Text style={styles.saveConfirmNameCol} numberOfLines={2}>
-                    {line.product.name}
+                  <Text style={[styles.saveConfirmNameCol, styles.saveConfirmBold]}>
+                    Product
                   </Text>
-                  <Text style={styles.saveConfirmQtyCol}>{line.qty}</Text>
+                  <Text style={[styles.saveConfirmQtyCol, styles.saveConfirmBold]}>
+                    Qty
+                  </Text>
                 </View>
-              ))}
-            </View>
-            <Pressable
-              onPress={() => setSaveProductsConfirmed(prev => !prev)}
-              style={styles.saveConfirmCheckRow}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: saveProductsConfirmed }}>
-              <Checkbox
-                status={saveProductsConfirmed ? 'checked' : 'unchecked'}
-                onPress={() => setSaveProductsConfirmed(prev => !prev)}
-              />
-              <View style={{ flex: 1 }}>
-                <Text>
-                  I confirm that this product list is correct.
-                </Text>
-                <Text
-                  style={{
-                    color: theme.colors.onSurfaceVariant,
-                    marginTop: 2,
-                    fontSize: 12,
-                  }}>
-                  ဤကုန်ပစ္စည်းစာရင်းမှန်ကန်ကြောင်း အတည်ပြုပါသည်။
-                </Text>
+                {cart.map(line => (
+                  <View
+                    key={line.product.id}
+                    style={[
+                      styles.saveConfirmListRow,
+                      {
+                        borderBottomColor:
+                          theme.colors.outlineVariant ?? theme.colors.outline,
+                      },
+                    ]}>
+                    <Text style={styles.saveConfirmNameCol} numberOfLines={2}>
+                      {line.product.name}
+                    </Text>
+                    <Text style={styles.saveConfirmQtyCol}>{line.qty}</Text>
+                  </View>
+                ))}
               </View>
-            </Pressable>
-          </Dialog.ScrollArea>
+              <Pressable
+                onPress={() => setSaveProductsConfirmed(prev => !prev)}
+                style={styles.saveConfirmCheckRow}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: saveProductsConfirmed }}>
+                <Checkbox
+                  status={saveProductsConfirmed ? 'checked' : 'unchecked'}
+                  onPress={() => setSaveProductsConfirmed(prev => !prev)}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text>
+                    I confirm that this product list is correct.
+                  </Text>
+                  <Text
+                    style={{
+                      color: theme.colors.onSurfaceVariant,
+                      marginTop: 2,
+                      fontSize: 12,
+                    }}>
+                    ဤကုန်ပစ္စည်းစာရင်းမှန်ကန်ကြောင်း အတည်ပြုပါသည်။
+                  </Text>
+                </View>
+              </Pressable>
+            </ScrollView>
+          </Dialog.Content>
           <Dialog.Actions>
             <Button
               disabled={saving}

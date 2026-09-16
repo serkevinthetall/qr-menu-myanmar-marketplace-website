@@ -1058,13 +1058,26 @@ export default function QuotationScreen() {
 
       try {
         const created = await createQuotation(session.token, draft);
-        if (session.user?.id) {
-          await clearQuotationDraft(session.user.id);
-        }
-        await loadQuotations();
+        const saved = {
+          ...created,
+          customer: draft.customer.name || created.customer,
+        };
+
+        // Close the builder immediately — don't wait on list reload.
         setBuilderOpen(false);
         setBuilderInitialCustomerId(null);
-        setSnackbar(`Quotation ${created.number} saved to Odoo.`);
+        setBuilderReorderSeed(null);
+        setQuotations(prev =>
+          prev.some(item => item.id === saved.id)
+            ? prev.map(item => (item.id === saved.id ? saved : item))
+            : [saved, ...prev],
+        );
+        setSnackbar(`Quotation ${saved.number} saved to Odoo.`);
+
+        if (session.user?.id) {
+          void clearQuotationDraft(session.user.id);
+        }
+        void loadQuotations();
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Failed to save quotation to Odoo.';

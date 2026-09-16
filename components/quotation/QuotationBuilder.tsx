@@ -1256,8 +1256,8 @@ export function QuotationBuilder({
       return;
     }
 
-    // Show products so Cancel returns the user to the line list for review.
-    setTab('products');
+    // Product list is shown in the confirm dialog — avoid switching tabs
+    // (that remounts the catalog and makes the popup feel slow).
     setSaveProductsConfirmed(false);
     setSaveConfirmVisible(true);
   };
@@ -1276,11 +1276,14 @@ export function QuotationBuilder({
       return;
     }
 
+    // Close the dialog immediately so Save feels responsive while Odoo runs.
+    setSaveConfirmVisible(false);
+    setSaveProductsConfirmed(false);
+
     if (session?.user?.id) {
       void clearQuotationDraft(session.user.id);
     }
 
-    setSaveConfirmVisible(false);
     onSave({
       customer,
       shippingPartnerId,
@@ -2116,85 +2119,93 @@ export function QuotationBuilder({
             setSaveProductsConfirmed(false);
           }}>
           <Dialog.Title>Check products before saving</Dialog.Title>
-          <Dialog.ScrollArea style={styles.saveConfirmScroll}>
-            <Text style={{ marginBottom: 8 }}>
-              Please check your product name and quantity again.
-            </Text>
-            <Text style={{ marginBottom: 12 }}>
-              ကျေးဇူးပြု၍ ကုန်ပစ္စည်းအမည်နှင့် အရေအတွက်ကို ထပ်မံစစ်ဆေးပေးပါ။
-            </Text>
-            <View
-              style={[
-                styles.saveConfirmList,
-                {
-                  borderColor:
-                    theme.colors.outlineVariant ?? theme.colors.outline,
-                },
-              ]}>
+          <Dialog.Content>
+            <ScrollView
+              style={styles.saveConfirmScroll}
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled">
+              <Text style={{ marginBottom: 8 }}>
+                Please check your product name and quantity again.
+              </Text>
+              <Text style={{ marginBottom: 12 }}>
+                ကျေးဇူးပြု၍ ကုန်ပစ္စည်းအမည်နှင့် အရေအတွက်ကို ထပ်မံစစ်ဆေးပေးပါ။
+              </Text>
               <View
                 style={[
-                  styles.saveConfirmListHeader,
+                  styles.saveConfirmList,
                   {
-                    borderBottomColor:
+                    borderColor:
                       theme.colors.outlineVariant ?? theme.colors.outline,
                   },
                 ]}>
-                <Text
-                  variant="labelMedium"
-                  style={[styles.saveConfirmNameCol, { fontWeight: '700' }]}>
-                  Product
-                </Text>
-                <Text
-                  variant="labelMedium"
-                  style={[styles.saveConfirmQtyCol, { fontWeight: '700' }]}>
-                  Qty
-                </Text>
-              </View>
-              {lines.map(line => (
                 <View
-                  key={line.product.id}
                   style={[
-                    styles.saveConfirmListRow,
+                    styles.saveConfirmListHeader,
                     {
                       borderBottomColor:
                         theme.colors.outlineVariant ?? theme.colors.outline,
                     },
                   ]}>
                   <Text
-                    variant="bodyMedium"
-                    style={styles.saveConfirmNameCol}
-                    numberOfLines={2}>
-                    {line.product.name}
+                    variant="labelMedium"
+                    style={[styles.saveConfirmNameCol, { fontWeight: '700' }]}>
+                    Product
                   </Text>
                   <Text
-                    variant="bodyMedium"
-                    style={styles.saveConfirmQtyCol}>
-                    {line.qty}
+                    variant="labelMedium"
+                    style={[styles.saveConfirmQtyCol, { fontWeight: '700' }]}>
+                    Qty
                   </Text>
                 </View>
-              ))}
-            </View>
-            <Pressable
-              onPress={() => setSaveProductsConfirmed(prev => !prev)}
-              style={styles.saveConfirmCheckRow}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: saveProductsConfirmed }}>
-              <Checkbox
-                status={saveProductsConfirmed ? 'checked' : 'unchecked'}
-                onPress={() => setSaveProductsConfirmed(prev => !prev)}
-              />
-              <View style={styles.flex1}>
-                <Text variant="bodyMedium">
-                  I confirm that this product list is correct.
-                </Text>
-                <Text
-                  variant="bodySmall"
-                  style={{ color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
-                  ဤကုန်ပစ္စည်းစာရင်းမှန်ကန်ကြောင်း အတည်ပြုပါသည်။
-                </Text>
+                {lines.map(line => (
+                  <View
+                    key={line.product.id}
+                    style={[
+                      styles.saveConfirmListRow,
+                      {
+                        borderBottomColor:
+                          theme.colors.outlineVariant ?? theme.colors.outline,
+                      },
+                    ]}>
+                    <Text
+                      variant="bodyMedium"
+                      style={styles.saveConfirmNameCol}
+                      numberOfLines={2}>
+                      {line.product.name}
+                    </Text>
+                    <Text
+                      variant="bodyMedium"
+                      style={styles.saveConfirmQtyCol}>
+                      {line.qty}
+                    </Text>
+                  </View>
+                ))}
               </View>
-            </Pressable>
-          </Dialog.ScrollArea>
+              <Pressable
+                onPress={() => setSaveProductsConfirmed(prev => !prev)}
+                style={styles.saveConfirmCheckRow}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: saveProductsConfirmed }}>
+                <Checkbox
+                  status={saveProductsConfirmed ? 'checked' : 'unchecked'}
+                  onPress={() => setSaveProductsConfirmed(prev => !prev)}
+                />
+                <View style={styles.flex1}>
+                  <Text variant="bodyMedium">
+                    I confirm that this product list is correct.
+                  </Text>
+                  <Text
+                    variant="bodySmall"
+                    style={{
+                      color: theme.colors.onSurfaceVariant,
+                      marginTop: 2,
+                    }}>
+                    ဤကုန်ပစ္စည်းစာရင်းမှန်ကန်ကြောင်း အတည်ပြုပါသည်။
+                  </Text>
+                </View>
+              </Pressable>
+            </ScrollView>
+          </Dialog.Content>
           <Dialog.Actions>
             <Button
               disabled={saving}
