@@ -13,19 +13,28 @@ import {
 
 import { QuotationDetailView } from '@/components/quotation/QuotationDetailView';
 import { QuotationPrintPreview } from '@/components/quotation/QuotationPrintPreview';
+import { DeliveryValidatePreview } from '@/components/delivery/DeliveryValidatePreview';
+import { PayInvoiceDialog } from '@/components/delivery/PayInvoiceDialog';
 import {
   canCancelQuotation,
   canConfirmQuotation,
+  canCreateInvoice,
+  canPayInvoice,
   canValidateDelivery,
 } from '@/constants/status-colors';
 import { useAuth } from '@/contexts/auth-context';
 import {
   cancelAppQuotation,
   confirmAppQuotation,
+  createAppQuotationInvoice,
+  fetchAppPaymentMethods,
   fetchAppQuotationDetail,
+  fetchAppQuotationDeliveries,
+  payAppQuotationInvoice,
   validateAppQuotationDelivery,
 } from '@/services/app/quotations';
-import { QuotationDetail } from '@/types/quotation';
+import { DeliveryPreview } from '@/types/delivery';
+import { PaymentMethod, QuotationDetail } from '@/types/quotation';
 
 export default function AppQuotationDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -44,6 +53,15 @@ export default function AppQuotationDetailScreen() {
   const [confirmConfirmVisible, setConfirmConfirmVisible] = useState(false);
   const [validatingDelivery, setValidatingDelivery] = useState(false);
   const [validateDeliveryVisible, setValidateDeliveryVisible] = useState(false);
+  const [deliveryPreviews, setDeliveryPreviews] = useState<DeliveryPreview[]>([]);
+  const [deliveryPreviewLoading, setDeliveryPreviewLoading] = useState(false);
+  const [deliveryPreviewError, setDeliveryPreviewError] = useState('');
+  const [creatingInvoice, setCreatingInvoice] = useState(false);
+  const [createInvoiceVisible, setCreateInvoiceVisible] = useState(false);
+  const [payingInvoice, setPayingInvoice] = useState(false);
+  const [payInvoiceVisible, setPayInvoiceVisible] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.token || !id) return;
@@ -92,6 +110,24 @@ export default function AppQuotationDetailScreen() {
     }
   }, [session?.token, id]);
 
+  const openValidateDelivery = useCallback(async () => {
+    if (!session?.token || !id) return;
+    setValidateDeliveryVisible(true);
+    setDeliveryPreviewLoading(true);
+    setDeliveryPreviewError('');
+    setDeliveryPreviews([]);
+    try {
+      const data = await fetchAppQuotationDeliveries(session.token, id);
+      setDeliveryPreviews(data);
+    } catch (err) {
+      setDeliveryPreviewError(
+        err instanceof Error ? err.message : 'Failed to load delivery preview.',
+      );
+    } finally {
+      setDeliveryPreviewLoading(false);
+    }
+  }, [session?.token, id]);
+
   const handleValidateDelivery = useCallback(async () => {
     if (!session?.token || !id) return;
     setValidatingDelivery(true);
@@ -106,20 +142,81 @@ export default function AppQuotationDetailScreen() {
     }
   }, [session?.token, id]);
 
+  const handleCreateInvoice = useCallback(async () => {
+    if (!session?.token || !id) return;
+    setCreatingInvoice(true);
+    try {
+      const updated = await createAppQuotationInvoice(session.token, id);
+      setDetail(updated);
+      setCreateInvoiceVisible(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create invoice.');
+    } finally {
+      setCreatingInvoice(false);
+    }
+  }, [session?.token, id]);
+
+  const openPayInvoice = useCallback(async () => {
+    if (!session?.token) return;
+    setPayInvoiceVisible(true);
+    setPaymentMethodsLoading(true);
+    try {
+      const methods = await fetchAppPaymentMethods(session.token);
+      setPaymentMethods(methods);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to load payment methods.',
+      );
+    } finally {
+      setPaymentMethodsLoading(false);
+    }
+  }, [session?.token]);
+
+  const handlePayInvoice = useCallback(
+    async (paymentMethodLineId: string) => {
+      if (!session?.token || !id) return;
+      setPayingInvoice(true);
+      try {
+        const updated = await payAppQuotationInvoice(
+          session.token,
+          id,
+          paymentMethodLineId,
+        );
+        setDetail(updated);
+        setPayInvoiceVisible(false);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : 'Failed to register payment.',
+        );
+      } finally {
+        setPayingInvoice(false);
+      }
+    },
+    [session?.token, id],
+  );
+
   useLayoutEffect(() => {
     const showCancel = detail ? canCancelQuotation(detail.status) : false;
     const showConfirm = detail ? canConfirmQuotation(detail.status) : false;
     const showValidate = detail ? canValidateDelivery(detail) : false;
+    const showInvoice = detail ? canCreateInvoice(detail) : false;
+    const showPay = detail ? canPayInvoice(detail) : false;
     navigation.setOptions({
       headerRight:
-        showCancel || showConfirm || showValidate
+        showCancel || showConfirm || showValidate || showInvoice || showPay
           ? () => (
               <View style={styles.headerActions}>
                 {showConfirm ? (
                   <IconButton
                     icon="check-circle-outline"
                     iconColor={theme.colors.onPrimary}
-                    disabled={confirming || cancelling || validatingDelivery}
+                    disabled={
+                      confirming ||
+                      cancelling ||
+                      validatingDelivery ||
+                      creatingInvoice ||
+                      payingInvoice
+                    }
                     onPress={() => setConfirmConfirmVisible(true)}
                     accessibilityLabel="Confirm quotation"
                   />
@@ -128,16 +225,62 @@ export default function AppQuotationDetailScreen() {
                   <IconButton
                     icon="truck-check-outline"
                     iconColor={theme.colors.onPrimary}
-                    disabled={validatingDelivery || confirming || cancelling}
-                    onPress={() => setValidateDeliveryVisible(true)}
+                    disabled={
+                      validatingDelivery ||
+                      confirming ||
+                      cancelling ||
+                      creatingInvoice ||
+                      payingInvoice
+                    }
+                    onPress={() => {
+                      void openValidateDelivery();
+                    }}
                     accessibilityLabel="Validate delivery"
+                  />
+                ) : null}
+                {showInvoice ? (
+                  <IconButton
+                    icon="file-document-outline"
+                    iconColor={theme.colors.onPrimary}
+                    disabled={
+                      creatingInvoice ||
+                      validatingDelivery ||
+                      confirming ||
+                      cancelling ||
+                      payingInvoice
+                    }
+                    onPress={() => setCreateInvoiceVisible(true)}
+                    accessibilityLabel="Create invoice"
+                  />
+                ) : null}
+                {showPay ? (
+                  <IconButton
+                    icon="cash-check"
+                    iconColor={theme.colors.onPrimary}
+                    disabled={
+                      payingInvoice ||
+                      creatingInvoice ||
+                      validatingDelivery ||
+                      confirming ||
+                      cancelling
+                    }
+                    onPress={() => {
+                      void openPayInvoice();
+                    }}
+                    accessibilityLabel="Pay invoice"
                   />
                 ) : null}
                 {showCancel ? (
                   <IconButton
                     icon="cancel"
                     iconColor={theme.colors.onPrimary}
-                    disabled={cancelling || confirming || validatingDelivery}
+                    disabled={
+                      cancelling ||
+                      confirming ||
+                      validatingDelivery ||
+                      creatingInvoice ||
+                      payingInvoice
+                    }
                     onPress={() => setCancelConfirmVisible(true)}
                     accessibilityLabel="Cancel quotation"
                   />
@@ -152,7 +295,11 @@ export default function AppQuotationDetailScreen() {
     cancelling,
     confirming,
     validatingDelivery,
+    creatingInvoice,
+    payingInvoice,
     theme.colors.onPrimary,
+    openValidateDelivery,
+    openPayInvoice,
   ]);
 
   return (
@@ -249,36 +396,63 @@ export default function AppQuotationDetailScreen() {
           </Dialog.Actions>
         </Dialog>
 
-        <Dialog
+        <DeliveryValidatePreview
           visible={validateDeliveryVisible}
+          orderLabel={detail?.number}
+          deliveries={deliveryPreviews}
+          loading={deliveryPreviewLoading}
+          error={deliveryPreviewError}
+          validating={validatingDelivery}
+          onDismiss={() => setValidateDeliveryVisible(false)}
+          onConfirm={() => {
+            void handleValidateDelivery();
+          }}
+        />
+
+        <Dialog
+          visible={createInvoiceVisible}
           onDismiss={() =>
-            validatingDelivery ? undefined : setValidateDeliveryVisible(false)
+            creatingInvoice ? undefined : setCreateInvoiceVisible(false)
           }>
-          <Dialog.Title>Validate delivery?</Dialog.Title>
+          <Dialog.Title>Create invoice?</Dialog.Title>
           <Dialog.Content>
             <Text>
-              Validate the outgoing delivery for{' '}
-              {detail?.number ?? 'this order'} in Odoo?
+              Create a customer invoice in Odoo for{' '}
+              {detail?.number ?? 'this order'}?
             </Text>
           </Dialog.Content>
           <Dialog.Actions>
             <Button
-              disabled={validatingDelivery}
-              onPress={() => setValidateDeliveryVisible(false)}>
+              disabled={creatingInvoice}
+              onPress={() => setCreateInvoiceVisible(false)}>
               Cancel
             </Button>
             <Button
               mode="contained"
-              loading={validatingDelivery}
-              disabled={validatingDelivery}
+              loading={creatingInvoice}
+              disabled={creatingInvoice}
               onPress={() => {
-                void handleValidateDelivery();
+                void handleCreateInvoice();
               }}>
-              Validate
+              Create Invoice
             </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
+
+      <PayInvoiceDialog
+        visible={payInvoiceVisible}
+        orderLabel={detail?.number}
+        payableInvoice={detail?.payableInvoice}
+        paymentMethods={paymentMethods}
+        methodsLoading={paymentMethodsLoading}
+        paying={payingInvoice}
+        preferredMethodId={detail?.paymentMethodLineId}
+        onDismiss={() => setPayInvoiceVisible(false)}
+        onConfirm={methodId => {
+          void handlePayInvoice(methodId);
+        }}
+      />
 
       {showPrintPreview && detail ? (
         <QuotationPrintPreview

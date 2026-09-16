@@ -38,6 +38,12 @@ export type DetailHeader = {
   /** Validate Odoo delivery (stock.picking) — shown beside Print/Confirm. */
   onValidateDelivery?: () => void;
   validatingDelivery?: boolean;
+  /** Create Odoo customer invoice — shown beside Validate. */
+  onCreateInvoice?: () => void;
+  creatingInvoice?: boolean;
+  /** Register payment on unpaid invoice — shown beside Invoice. */
+  onPayInvoice?: () => void;
+  payingInvoice?: boolean;
   /** Cancel draft quotation — shown on the right of the detail navbar. */
   onCancel?: () => void;
   cancelling?: boolean;

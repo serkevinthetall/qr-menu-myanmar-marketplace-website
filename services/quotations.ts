@@ -1,5 +1,6 @@
 import { webApiRequest } from '@/services/web/client';
 import { QuotationDraft } from '@/components/quotation/QuotationBuilder';
+import { DeliveryPreview } from '@/types/delivery';
 import { PaymentMethod, Quotation, QuotationDetail } from '@/types/quotation';
 
 type QuotationsResponse = {
@@ -106,6 +107,17 @@ export async function confirmQuotation(
   return response.data;
 }
 
+export async function fetchQuotationDeliveries(
+  token: string,
+  id: string,
+): Promise<DeliveryPreview[]> {
+  const response = await webApiRequest<{ data: DeliveryPreview[] }>(
+    `/quotations/${id}/deliveries`,
+    { token },
+  );
+  return response.data;
+}
+
 export async function validateQuotationDelivery(
   token: string,
   id: string,
@@ -113,6 +125,35 @@ export async function validateQuotationDelivery(
   const response = await webApiRequest<QuotationDetailResponse>(
     `/quotations/${id}/validate-delivery`,
     { method: 'POST', token },
+  );
+  return response.data;
+}
+
+export async function createQuotationInvoice(
+  token: string,
+  id: string,
+): Promise<QuotationDetail> {
+  const response = await webApiRequest<QuotationDetailResponse>(
+    `/quotations/${id}/create-invoice`,
+    { method: 'POST', token },
+  );
+  return response.data;
+}
+
+export async function payQuotationInvoice(
+  token: string,
+  id: string,
+  paymentMethodLineId?: string,
+): Promise<QuotationDetail> {
+  const response = await webApiRequest<QuotationDetailResponse>(
+    `/quotations/${id}/pay`,
+    {
+      method: 'POST',
+      token,
+      body: paymentMethodLineId
+        ? { paymentMethodLineId: Number(paymentMethodLineId) }
+        : {},
+    },
   );
   return response.data;
 }

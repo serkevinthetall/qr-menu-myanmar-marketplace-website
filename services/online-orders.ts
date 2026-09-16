@@ -1,5 +1,6 @@
 import { webApiRequest } from '@/services/web/client';
 import { SaleOrder, SaleOrderDetail } from '@/types/sale-order';
+import { DeliveryPreview } from '@/types/delivery';
 import { mergeById } from '@/utils/quotation-builder-cache';
 
 type ListResponse = {
@@ -107,6 +108,17 @@ export async function fetchOnlineOrderDetail(
   return response.data;
 }
 
+export async function fetchOnlineOrderDeliveries(
+  token: string,
+  id: string,
+): Promise<DeliveryPreview[]> {
+  const response = await webApiRequest<{ data: DeliveryPreview[] }>(
+    `/online-orders/${id}/deliveries`,
+    { token },
+  );
+  return response.data;
+}
+
 export async function validateOnlineOrderDelivery(
   token: string,
   id: string,
@@ -114,6 +126,35 @@ export async function validateOnlineOrderDelivery(
   const response = await webApiRequest<DetailResponse>(
     `/online-orders/${id}/validate-delivery`,
     { method: 'POST', token },
+  );
+  return response.data;
+}
+
+export async function createOnlineOrderInvoice(
+  token: string,
+  id: string,
+): Promise<SaleOrderDetail> {
+  const response = await webApiRequest<DetailResponse>(
+    `/online-orders/${id}/create-invoice`,
+    { method: 'POST', token },
+  );
+  return response.data;
+}
+
+export async function payOnlineOrderInvoice(
+  token: string,
+  id: string,
+  paymentMethodLineId?: string,
+): Promise<SaleOrderDetail> {
+  const response = await webApiRequest<DetailResponse>(
+    `/online-orders/${id}/pay`,
+    {
+      method: 'POST',
+      token,
+      body: paymentMethodLineId
+        ? { paymentMethodLineId: Number(paymentMethodLineId) }
+        : {},
+    },
   );
   return response.data;
 }

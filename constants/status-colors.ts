@@ -61,6 +61,20 @@ export function canValidateDelivery(detail: {
   return Boolean(detail.canValidateDelivery);
 }
 
+/** Create invoice when Odoo reports invoice_status = to invoice. */
+export function canCreateInvoice(detail: {
+  canCreateInvoice?: boolean;
+}): boolean {
+  return Boolean(detail.canCreateInvoice);
+}
+
+/** Pay when an unpaid customer invoice exists for the order. */
+export function canPayInvoice(detail: {
+  canPayInvoice?: boolean;
+}): boolean {
+  return Boolean(detail.canPayInvoice);
+}
+
 const purchaseOrderStatusLight: Record<string, StatusPair> = {
   draft: { bg: '#E2E8F0', fg: '#475569' },
   sent: { bg: '#DBEAFE', fg: '#1E40AF' },

@@ -37,4 +37,19 @@ export type SaleOrderDetail = SaleOrder & {
   lines: SaleOrderLine[];
   /** True when an outgoing Odoo delivery can be validated. */
   canValidateDelivery?: boolean;
+  /** True when Odoo invoice_status is "to invoice". */
+  canCreateInvoice?: boolean;
+  /** True when an unpaid customer invoice exists. */
+  canPayInvoice?: boolean;
+  /** First unpaid invoice summary for Pay dialog. */
+  payableInvoice?: {
+    id: string;
+    name: string;
+    amountResidual: number;
+    currency: string;
+  };
+  /** Set after create-invoice succeeds (Odoo invoice number(s)). */
+  invoiceName?: string;
+  /** Set after pay succeeds. */
+  paymentLabel?: string;
 };

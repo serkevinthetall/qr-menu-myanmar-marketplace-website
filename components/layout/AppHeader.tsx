@@ -338,6 +338,8 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
                     size={22}
                     disabled={
                       detailHeader.validatingDelivery ||
+                      detailHeader.creatingInvoice ||
+                      detailHeader.payingInvoice ||
                       detailHeader.confirming ||
                       detailHeader.cancelling
                     }
@@ -349,6 +351,8 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
                     onPress={detailHeader.onValidateDelivery}
                     disabled={
                       detailHeader.validatingDelivery ||
+                      detailHeader.creatingInvoice ||
+                      detailHeader.payingInvoice ||
                       detailHeader.confirming ||
                       detailHeader.cancelling
                     }
@@ -359,6 +363,84 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
                     <Icon source="truck-check-outline" size={16} color={colors.onPrimary} />
                     <Text style={[styles.detailActionGhostText, { color: colors.onPrimary }]}>
                       {detailHeader.validatingDelivery ? 'VALIDATING…' : 'VALIDATE'}
+                    </Text>
+                  </Pressable>
+                )
+              ) : null}
+              {detailHeader.onCreateInvoice ? (
+                isMobile ? (
+                  <IconButton
+                    icon="file-document-outline"
+                    iconColor={colors.onPrimary}
+                    containerColor="transparent"
+                    rippleColor={colors.headerRipple}
+                    size={22}
+                    disabled={
+                      detailHeader.creatingInvoice ||
+                      detailHeader.payingInvoice ||
+                      detailHeader.validatingDelivery ||
+                      detailHeader.confirming ||
+                      detailHeader.cancelling
+                    }
+                    onPress={detailHeader.onCreateInvoice}
+                    accessibilityLabel="Create invoice"
+                  />
+                ) : (
+                  <Pressable
+                    onPress={detailHeader.onCreateInvoice}
+                    disabled={
+                      detailHeader.creatingInvoice ||
+                      detailHeader.payingInvoice ||
+                      detailHeader.validatingDelivery ||
+                      detailHeader.confirming ||
+                      detailHeader.cancelling
+                    }
+                    style={[
+                      styles.detailActionGhost,
+                      detailHeader.creatingInvoice ? { opacity: 0.5 } : null,
+                    ]}>
+                    <Icon source="file-document-outline" size={16} color={colors.onPrimary} />
+                    <Text style={[styles.detailActionGhostText, { color: colors.onPrimary }]}>
+                      {detailHeader.creatingInvoice ? 'INVOICING…' : 'INVOICE'}
+                    </Text>
+                  </Pressable>
+                )
+              ) : null}
+              {detailHeader.onPayInvoice ? (
+                isMobile ? (
+                  <IconButton
+                    icon="cash-check"
+                    iconColor={colors.onPrimary}
+                    containerColor="transparent"
+                    rippleColor={colors.headerRipple}
+                    size={22}
+                    disabled={
+                      detailHeader.payingInvoice ||
+                      detailHeader.creatingInvoice ||
+                      detailHeader.validatingDelivery ||
+                      detailHeader.confirming ||
+                      detailHeader.cancelling
+                    }
+                    onPress={detailHeader.onPayInvoice}
+                    accessibilityLabel="Pay invoice"
+                  />
+                ) : (
+                  <Pressable
+                    onPress={detailHeader.onPayInvoice}
+                    disabled={
+                      detailHeader.payingInvoice ||
+                      detailHeader.creatingInvoice ||
+                      detailHeader.validatingDelivery ||
+                      detailHeader.confirming ||
+                      detailHeader.cancelling
+                    }
+                    style={[
+                      styles.detailActionGhost,
+                      detailHeader.payingInvoice ? { opacity: 0.5 } : null,
+                    ]}>
+                    <Icon source="cash-check" size={16} color={colors.onPrimary} />
+                    <Text style={[styles.detailActionGhostText, { color: colors.onPrimary }]}>
+                      {detailHeader.payingInvoice ? 'PAYING…' : 'PAY'}
                     </Text>
                   </Pressable>
                 )

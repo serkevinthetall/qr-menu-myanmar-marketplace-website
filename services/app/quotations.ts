@@ -1,4 +1,5 @@
 import { Quotation, QuotationDetail } from '@/types/quotation';
+import { DeliveryPreview } from '@/types/delivery';
 import { appApiRequest } from '@/services/app/client';
 
 type ListResponse = { data: Quotation[] };
@@ -65,6 +66,17 @@ export async function confirmAppQuotation(
   return response.data;
 }
 
+export async function fetchAppQuotationDeliveries(
+  token: string,
+  id: string,
+): Promise<DeliveryPreview[]> {
+  const response = await appApiRequest<{ data: DeliveryPreview[] }>(
+    `/quotations/${id}/deliveries`,
+    { token },
+  );
+  return response.data;
+}
+
 export async function validateAppQuotationDelivery(
   token: string,
   id: string,
@@ -73,6 +85,32 @@ export async function validateAppQuotationDelivery(
     `/quotations/${id}/validate-delivery`,
     { method: 'POST', token },
   );
+  return response.data;
+}
+
+export async function createAppQuotationInvoice(
+  token: string,
+  id: string,
+): Promise<QuotationDetail> {
+  const response = await appApiRequest<DetailResponse>(
+    `/quotations/${id}/create-invoice`,
+    { method: 'POST', token },
+  );
+  return response.data;
+}
+
+export async function payAppQuotationInvoice(
+  token: string,
+  id: string,
+  paymentMethodLineId?: string,
+): Promise<QuotationDetail> {
+  const response = await appApiRequest<DetailResponse>(`/quotations/${id}/pay`, {
+    method: 'POST',
+    token,
+    body: paymentMethodLineId
+      ? { paymentMethodLineId: Number(paymentMethodLineId) }
+      : {},
+  });
   return response.data;
 }
 

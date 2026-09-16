@@ -28,12 +28,14 @@ import {
   QuotationFilters,
 } from '@/components/quotation/QuotationFilterBar';
 import { QuotationPrintPreview } from '@/components/quotation/QuotationPrintPreview';
+import { DeliveryValidatePreview } from '@/components/delivery/DeliveryValidatePreview';
+import { PayInvoiceDialog } from '@/components/delivery/PayInvoiceDialog';
 import { SaleOrderDateTotalBar } from '@/components/sale-order/SaleOrderDateTotalBar';
 import { Pagination } from '@/components/ui/Pagination';
 import { useAuth } from '@/contexts/auth-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
-import { getQuotationStatusColors, canCancelQuotation, canConfirmQuotation, canValidateDelivery } from '@/constants/status-colors';
+import { getQuotationStatusColors, canCancelQuotation, canConfirmQuotation, canValidateDelivery, canCreateInvoice, canPayInvoice } from '@/constants/status-colors';
 import {
   HeaderAction,
   useHeaderActions,
@@ -49,11 +51,14 @@ import {
 } from '@/services/web/product-catalog-cache';
 import {
   fetchQuotationDetail,
+  fetchQuotationDeliveries,
   fetchQuotationsPage,
   createQuotation,
+  createQuotationInvoice,
   cancelQuotation,
   confirmQuotation,
   validateQuotationDelivery,
+  payQuotationInvoice,
   fetchPaymentMethods,
 } from '@/services/quotations';
 import {
@@ -64,6 +69,7 @@ import {
   setQuotationBuilderCache,
 } from '@/utils/quotation-builder-cache';
 import { Customer } from '@/types/customer';
+import { DeliveryPreview } from '@/types/delivery';
 import { Product } from '@/types/product';
 import { Quotation, QuotationDetail, PaymentMethod, QuotationReorderSeed } from '@/types/quotation';
 import { exportSelectedQuotations } from '@/utils/export-quotation-excel';
@@ -392,6 +398,16 @@ export default function QuotationScreen() {
   const [confirmConfirmVisible, setConfirmConfirmVisible] = useState(false);
   const [detailValidatingDelivery, setDetailValidatingDelivery] = useState(false);
   const [validateDeliveryVisible, setValidateDeliveryVisible] = useState(false);
+  const [deliveryPreviews, setDeliveryPreviews] = useState<DeliveryPreview[]>([]);
+  const [deliveryPreviewLoading, setDeliveryPreviewLoading] = useState(false);
+  const [deliveryPreviewError, setDeliveryPreviewError] = useState('');
+  const [detailCreatingInvoice, setDetailCreatingInvoice] = useState(false);
+  const [createInvoiceVisible, setCreateInvoiceVisible] = useState(false);
+  const [detailPayingInvoice, setDetailPayingInvoice] = useState(false);
+  const [payInvoiceVisible, setPayInvoiceVisible] = useState(false);
+  const [paymentMethodsForPay, setPaymentMethodsForPay] = useState<PaymentMethod[]>([]);
+  const [paymentMethodsForPayLoading, setPaymentMethodsForPayLoading] =
+    useState(false);
   const [printPreview, setPrintPreview] = useState<{
     format: PrintFormat;
     detail: QuotationDetail;
@@ -710,7 +726,36 @@ export default function QuotationScreen() {
     setConfirmConfirmVisible(false);
     setDetailValidatingDelivery(false);
     setValidateDeliveryVisible(false);
+    setDeliveryPreviews([]);
+    setDeliveryPreviewLoading(false);
+    setDeliveryPreviewError('');
+    setDetailCreatingInvoice(false);
+    setCreateInvoiceVisible(false);
+    setDetailPayingInvoice(false);
+    setPayInvoiceVisible(false);
+    setPaymentMethodsForPay([]);
+    setPaymentMethodsForPayLoading(false);
   }, []);
+
+  const openValidateDelivery = useCallback(async () => {
+    if (!session?.token || !detailId) {
+      return;
+    }
+    setValidateDeliveryVisible(true);
+    setDeliveryPreviewLoading(true);
+    setDeliveryPreviewError('');
+    setDeliveryPreviews([]);
+    try {
+      const data = await fetchQuotationDeliveries(session.token, detailId);
+      setDeliveryPreviews(data);
+    } catch (err) {
+      setDeliveryPreviewError(
+        err instanceof Error ? err.message : 'Failed to load delivery preview.',
+      );
+    } finally {
+      setDeliveryPreviewLoading(false);
+    }
+  }, [session?.token, detailId]);
 
   const handleCancelDetail = useCallback(async () => {
     if (!session?.token || !detailId) {
@@ -793,6 +838,79 @@ export default function QuotationScreen() {
     }
   }, [session?.token, detailId]);
 
+  const handleCreateInvoiceDetail = useCallback(async () => {
+    if (!session?.token || !detailId) {
+      return;
+    }
+    setDetailCreatingInvoice(true);
+    setDetailError('');
+    try {
+      const updated = await createQuotationInvoice(session.token, detailId);
+      setDetail(updated);
+      setCreateInvoiceVisible(false);
+      setSnackbar(
+        updated.invoiceName
+          ? `Invoice ${updated.invoiceName} created for ${updated.number}.`
+          : `Invoice created for ${updated.number}.`,
+      );
+    } catch (err) {
+      setDetailError(
+        err instanceof Error ? err.message : 'Failed to create invoice.',
+      );
+    } finally {
+      setDetailCreatingInvoice(false);
+    }
+  }, [session?.token, detailId]);
+
+  const openPayInvoice = useCallback(async () => {
+    if (!session?.token) {
+      return;
+    }
+    setPayInvoiceVisible(true);
+    setPaymentMethodsForPayLoading(true);
+    try {
+      const methods = await fetchPaymentMethods(session.token);
+      setPaymentMethodsForPay(methods);
+    } catch (err) {
+      setDetailError(
+        err instanceof Error ? err.message : 'Failed to load payment methods.',
+      );
+    } finally {
+      setPaymentMethodsForPayLoading(false);
+    }
+  }, [session?.token]);
+
+  const handlePayInvoiceDetail = useCallback(
+    async (paymentMethodLineId: string) => {
+      if (!session?.token || !detailId) {
+        return;
+      }
+      setDetailPayingInvoice(true);
+      setDetailError('');
+      try {
+        const updated = await payQuotationInvoice(
+          session.token,
+          detailId,
+          paymentMethodLineId,
+        );
+        setDetail(updated);
+        setPayInvoiceVisible(false);
+        setSnackbar(
+          updated.paymentLabel
+            ? `Paid ${updated.paymentLabel} for ${updated.number}.`
+            : `Payment registered for ${updated.number}.`,
+        );
+      } catch (err) {
+        setDetailError(
+          err instanceof Error ? err.message : 'Failed to register payment.',
+        );
+      } finally {
+        setDetailPayingInvoice(false);
+      }
+    },
+    [session?.token, detailId],
+  );
+
   useEffect(() => {
     if (!detailId) {
       setDetailHeader(null);
@@ -802,6 +920,8 @@ export default function QuotationScreen() {
     const canCancel = detail ? canCancelQuotation(detail.status) : false;
     const canConfirm = detail ? canConfirmQuotation(detail.status) : false;
     const showValidate = detail ? canValidateDelivery(detail) : false;
+    const showInvoice = detail ? canCreateInvoice(detail) : false;
+    const showPay = detail ? canPayInvoice(detail) : false;
 
     setDetailHeader({
       title: detail?.number ?? 'Quotation',
@@ -816,9 +936,21 @@ export default function QuotationScreen() {
       onConfirm: canConfirm ? () => setConfirmConfirmVisible(true) : undefined,
       confirming: detailConfirming,
       onValidateDelivery: showValidate
-        ? () => setValidateDeliveryVisible(true)
+        ? () => {
+            void openValidateDelivery();
+          }
         : undefined,
       validatingDelivery: detailValidatingDelivery,
+      onCreateInvoice: showInvoice
+        ? () => setCreateInvoiceVisible(true)
+        : undefined,
+      creatingInvoice: detailCreatingInvoice,
+      onPayInvoice: showPay
+        ? () => {
+            void openPayInvoice();
+          }
+        : undefined,
+      payingInvoice: detailPayingInvoice,
       onCancel: canCancel ? () => setCancelConfirmVisible(true) : undefined,
       cancelling: detailCancelling,
     });
@@ -833,6 +965,10 @@ export default function QuotationScreen() {
     detailCancelling,
     detailConfirming,
     detailValidatingDelivery,
+    detailCreatingInvoice,
+    detailPayingInvoice,
+    openValidateDelivery,
+    openPayInvoice,
   ]);
 
   const exportExcel = useCallback(async () => {
@@ -1191,38 +1327,61 @@ export default function QuotationScreen() {
               </Button>
             </Dialog.Actions>
           </Dialog>
-          <Dialog
+          <DeliveryValidatePreview
             visible={validateDeliveryVisible}
+            orderLabel={detail?.number}
+            deliveries={deliveryPreviews}
+            loading={deliveryPreviewLoading}
+            error={deliveryPreviewError}
+            validating={detailValidatingDelivery}
+            onDismiss={() => setValidateDeliveryVisible(false)}
+            onConfirm={() => {
+              void handleValidateDeliveryDetail();
+            }}
+          />
+          <Dialog
+            visible={createInvoiceVisible}
             onDismiss={() =>
-              detailValidatingDelivery
-                ? undefined
-                : setValidateDeliveryVisible(false)
+              detailCreatingInvoice ? undefined : setCreateInvoiceVisible(false)
             }>
-            <Dialog.Title>Validate delivery?</Dialog.Title>
+            <Dialog.Title>Create invoice?</Dialog.Title>
             <Dialog.Content>
               <Text>
-                Validate the outgoing delivery for{' '}
-                {detail?.number ?? 'this order'} in Odoo?
+                Create a customer invoice in Odoo for{' '}
+                {detail?.number ?? 'this order'}?
               </Text>
             </Dialog.Content>
             <Dialog.Actions>
               <Button
-                disabled={detailValidatingDelivery}
-                onPress={() => setValidateDeliveryVisible(false)}>
+                disabled={detailCreatingInvoice}
+                onPress={() => setCreateInvoiceVisible(false)}>
                 Cancel
               </Button>
               <Button
                 mode="contained"
-                loading={detailValidatingDelivery}
-                disabled={detailValidatingDelivery}
+                loading={detailCreatingInvoice}
+                disabled={detailCreatingInvoice}
                 onPress={() => {
-                  void handleValidateDeliveryDetail();
+                  void handleCreateInvoiceDetail();
                 }}>
-                Validate
+                Create Invoice
               </Button>
             </Dialog.Actions>
           </Dialog>
         </Portal>
+        <PayInvoiceDialog
+          visible={payInvoiceVisible}
+          orderLabel={detail?.number}
+          payableInvoice={detail?.payableInvoice}
+          paymentMethods={paymentMethodsForPay}
+          methodsLoading={paymentMethodsForPayLoading}
+          paying={detailPayingInvoice}
+          preferredMethodId={detail?.paymentMethodLineId}
+          onDismiss={() => setPayInvoiceVisible(false)}
+          onConfirm={methodId => {
+            void handlePayInvoiceDetail(methodId);
+          }}
+        />
         {printPreview ? (
           <QuotationPrintPreview
             detail={printPreview.detail}

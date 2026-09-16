@@ -20,6 +20,8 @@ import {
   useTheme,
 } from 'react-native-paper';
 
+import { DeliveryValidatePreview } from '@/components/delivery/DeliveryValidatePreview';
+import { PayInvoiceDialog } from '@/components/delivery/PayInvoiceDialog';
 import { SaleOrderDateTotalBar } from '@/components/sale-order/SaleOrderDateTotalBar';
 import { SaleOrderDetailView } from '@/components/sale-order/SaleOrderDetailView';
 import {
@@ -34,6 +36,8 @@ import { SaleOrderPrintPreview } from '@/components/sale-order/SaleOrderPrintPre
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { Pagination } from '@/components/ui/Pagination';
 import {
+  canCreateInvoice,
+  canPayInvoice,
   canValidateDelivery,
   getSaleOrderStatusColors,
 } from '@/constants/status-colors';
@@ -49,10 +53,16 @@ import { useAppTheme } from '@/contexts/theme-context';
 import { useAppColors } from '@/hooks/use-app-colors';
 import { useResponsive } from '@/hooks/use-responsive';
 import {
+  createSaleOrderInvoice,
   fetchSaleOrderDetail,
+  fetchSaleOrderDeliveries,
   fetchSaleOrders,
+  paySaleOrderInvoice,
   validateSaleOrderDelivery,
 } from '@/services/sale-orders';
+import { fetchPaymentMethods } from '@/services/quotations';
+import { DeliveryPreview } from '@/types/delivery';
+import { PaymentMethod } from '@/types/quotation';
 import { SaleOrder, SaleOrderDetail } from '@/types/sale-order';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
 import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
@@ -381,6 +391,15 @@ export default function SaleOrdersScreen() {
   const [detailError, setDetailError] = useState('');
   const [detailValidatingDelivery, setDetailValidatingDelivery] = useState(false);
   const [validateDeliveryVisible, setValidateDeliveryVisible] = useState(false);
+  const [deliveryPreviews, setDeliveryPreviews] = useState<DeliveryPreview[]>([]);
+  const [deliveryPreviewLoading, setDeliveryPreviewLoading] = useState(false);
+  const [deliveryPreviewError, setDeliveryPreviewError] = useState('');
+  const [detailCreatingInvoice, setDetailCreatingInvoice] = useState(false);
+  const [createInvoiceVisible, setCreateInvoiceVisible] = useState(false);
+  const [detailPayingInvoice, setDetailPayingInvoice] = useState(false);
+  const [payInvoiceVisible, setPayInvoiceVisible] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
   const [snackbar, setSnackbar] = useState('');
   const [printPreview, setPrintPreview] = useState<{
     format: PrintFormat;
@@ -495,7 +514,36 @@ export default function SaleOrdersScreen() {
     setDetailError('');
     setDetailValidatingDelivery(false);
     setValidateDeliveryVisible(false);
+    setDeliveryPreviews([]);
+    setDeliveryPreviewLoading(false);
+    setDeliveryPreviewError('');
+    setDetailCreatingInvoice(false);
+    setCreateInvoiceVisible(false);
+    setDetailPayingInvoice(false);
+    setPayInvoiceVisible(false);
+    setPaymentMethods([]);
+    setPaymentMethodsLoading(false);
   }, []);
+
+  const openValidateDelivery = useCallback(async () => {
+    if (!session?.token || !selectedId) {
+      return;
+    }
+    setValidateDeliveryVisible(true);
+    setDeliveryPreviewLoading(true);
+    setDeliveryPreviewError('');
+    setDeliveryPreviews([]);
+    try {
+      const data = await fetchSaleOrderDeliveries(session.token, selectedId);
+      setDeliveryPreviews(data);
+    } catch (err) {
+      setDeliveryPreviewError(
+        err instanceof Error ? err.message : 'Failed to load delivery preview.',
+      );
+    } finally {
+      setDeliveryPreviewLoading(false);
+    }
+  }, [session?.token, selectedId]);
 
   const handleValidateDelivery = useCallback(async () => {
     if (!session?.token || !selectedId) {
@@ -517,6 +565,79 @@ export default function SaleOrdersScreen() {
     }
   }, [session?.token, selectedId]);
 
+  const handleCreateInvoice = useCallback(async () => {
+    if (!session?.token || !selectedId) {
+      return;
+    }
+    setDetailCreatingInvoice(true);
+    setDetailError('');
+    try {
+      const updated = await createSaleOrderInvoice(session.token, selectedId);
+      setDetail(updated);
+      setCreateInvoiceVisible(false);
+      setSnackbar(
+        updated.invoiceName
+          ? `Invoice ${updated.invoiceName} created for ${updated.number}.`
+          : `Invoice created for ${updated.number}.`,
+      );
+    } catch (err) {
+      setDetailError(
+        err instanceof Error ? err.message : 'Failed to create invoice.',
+      );
+    } finally {
+      setDetailCreatingInvoice(false);
+    }
+  }, [session?.token, selectedId]);
+
+  const openPayInvoice = useCallback(async () => {
+    if (!session?.token) {
+      return;
+    }
+    setPayInvoiceVisible(true);
+    setPaymentMethodsLoading(true);
+    try {
+      const methods = await fetchPaymentMethods(session.token);
+      setPaymentMethods(methods);
+    } catch (err) {
+      setDetailError(
+        err instanceof Error ? err.message : 'Failed to load payment methods.',
+      );
+    } finally {
+      setPaymentMethodsLoading(false);
+    }
+  }, [session?.token]);
+
+  const handlePayInvoice = useCallback(
+    async (paymentMethodLineId: string) => {
+      if (!session?.token || !selectedId) {
+        return;
+      }
+      setDetailPayingInvoice(true);
+      setDetailError('');
+      try {
+        const updated = await paySaleOrderInvoice(
+          session.token,
+          selectedId,
+          paymentMethodLineId,
+        );
+        setDetail(updated);
+        setPayInvoiceVisible(false);
+        setSnackbar(
+          updated.paymentLabel
+            ? `Paid ${updated.paymentLabel} for ${updated.number}.`
+            : `Payment registered for ${updated.number}.`,
+        );
+      } catch (err) {
+        setDetailError(
+          err instanceof Error ? err.message : 'Failed to register payment.',
+        );
+      } finally {
+        setDetailPayingInvoice(false);
+      }
+    },
+    [session?.token, selectedId],
+  );
+
   useEffect(() => {
     if (!selectedId) {
       setDetailHeader(null);
@@ -524,6 +645,8 @@ export default function SaleOrdersScreen() {
     }
 
     const showValidate = detail ? canValidateDelivery(detail) : false;
+    const showInvoice = detail ? canCreateInvoice(detail) : false;
+    const showPay = detail ? canPayInvoice(detail) : false;
 
     setDetailHeader({
       title: detail?.number ?? 'Sale Order',
@@ -536,9 +659,21 @@ export default function SaleOrdersScreen() {
         ? format => setPrintPreview({ format, detail })
         : undefined,
       onValidateDelivery: showValidate
-        ? () => setValidateDeliveryVisible(true)
+        ? () => {
+            void openValidateDelivery();
+          }
         : undefined,
       validatingDelivery: detailValidatingDelivery,
+      onCreateInvoice: showInvoice
+        ? () => setCreateInvoiceVisible(true)
+        : undefined,
+      creatingInvoice: detailCreatingInvoice,
+      onPayInvoice: showPay
+        ? () => {
+            void openPayInvoice();
+          }
+        : undefined,
+      payingInvoice: detailPayingInvoice,
     });
 
     return () => setDetailHeader(null);
@@ -549,6 +684,10 @@ export default function SaleOrdersScreen() {
     setDetailHeader,
     mode,
     detailValidatingDelivery,
+    detailCreatingInvoice,
+    detailPayingInvoice,
+    openValidateDelivery,
+    openPayInvoice,
   ]);
 
   const toggleView = useCallback(() => {
@@ -664,39 +803,61 @@ export default function SaleOrdersScreen() {
           loading={detailLoading}
           error={detailError}
         />
+        <DeliveryValidatePreview
+          visible={validateDeliveryVisible}
+          orderLabel={detail?.number}
+          deliveries={deliveryPreviews}
+          loading={deliveryPreviewLoading}
+          error={deliveryPreviewError}
+          validating={detailValidatingDelivery}
+          onDismiss={() => setValidateDeliveryVisible(false)}
+          onConfirm={() => {
+            void handleValidateDelivery();
+          }}
+        />
         <Portal>
           <Dialog
-            visible={validateDeliveryVisible}
+            visible={createInvoiceVisible}
             onDismiss={() =>
-              detailValidatingDelivery
-                ? undefined
-                : setValidateDeliveryVisible(false)
+              detailCreatingInvoice ? undefined : setCreateInvoiceVisible(false)
             }>
-            <Dialog.Title>Validate delivery?</Dialog.Title>
+            <Dialog.Title>Create invoice?</Dialog.Title>
             <Dialog.Content>
               <Text>
-                Validate the outgoing delivery for{' '}
-                {detail?.number ?? 'this order'} in Odoo?
+                Create a customer invoice in Odoo for{' '}
+                {detail?.number ?? 'this order'}?
               </Text>
             </Dialog.Content>
             <Dialog.Actions>
               <Button
-                disabled={detailValidatingDelivery}
-                onPress={() => setValidateDeliveryVisible(false)}>
+                disabled={detailCreatingInvoice}
+                onPress={() => setCreateInvoiceVisible(false)}>
                 Cancel
               </Button>
               <Button
                 mode="contained"
-                loading={detailValidatingDelivery}
-                disabled={detailValidatingDelivery}
+                loading={detailCreatingInvoice}
+                disabled={detailCreatingInvoice}
                 onPress={() => {
-                  void handleValidateDelivery();
+                  void handleCreateInvoice();
                 }}>
-                Validate
+                Create Invoice
               </Button>
             </Dialog.Actions>
           </Dialog>
         </Portal>
+        <PayInvoiceDialog
+          visible={payInvoiceVisible}
+          orderLabel={detail?.number}
+          payableInvoice={detail?.payableInvoice}
+          paymentMethods={paymentMethods}
+          methodsLoading={paymentMethodsLoading}
+          paying={detailPayingInvoice}
+          onDismiss={() => setPayInvoiceVisible(false)}
+          onConfirm={methodId => {
+            void handlePayInvoice(methodId);
+          }}
+        />
         {printPreview ? (
           <SaleOrderPrintPreview
             detail={printPreview.detail}
