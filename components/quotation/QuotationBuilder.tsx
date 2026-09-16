@@ -51,7 +51,6 @@ const SALE_PERSON_OPTIONS = [
   'Me Me',
   'Htet Htet',
   'Thiri',
-  'Kaung Htet San',
   'Shine Aung',
   'Par Kyaung',
 ] as const;
