@@ -30,7 +30,7 @@ const MONTH_LONG = [
   'December',
 ] as const;
 
-export type OrderDateDayGroup<T extends { orderDate: string; total: number }> = {
+export type OrderDateDayGroup<T extends { total: number }> = {
   key: string;
   label: string;
   orders: T[];
@@ -38,7 +38,7 @@ export type OrderDateDayGroup<T extends { orderDate: string; total: number }> = 
   total: number;
 };
 
-export type OrderDateMonthGroup<T extends { orderDate: string; total: number }> = {
+export type OrderDateMonthGroup<T extends { total: number }> = {
   key: string;
   label: string;
   days: OrderDateDayGroup<T>[];
@@ -64,17 +64,23 @@ export function formatOrderDayLabel(dayKey: string): string {
   return `${String(day).padStart(2, '0')} ${MONTH_SHORT[month - 1]} ${year}`;
 }
 
+function defaultOrderDate(order: { orderDate?: string; createDate?: string }): string {
+  return String(order.orderDate || order.createDate || '');
+}
+
 /**
- * Group orders by Order Date → Month → Day (newest first), matching Odoo
+ * Group rows by date → Month → Day (newest first), matching Odoo
  * "Group By: Order Date: Month > Order Date: Day".
  */
-export function groupOrdersByMonthDay<T extends { orderDate: string; total: number }>(
+export function groupOrdersByMonthDay<T extends { total: number }>(
   orders: T[],
+  getDate: (order: T) => string = order =>
+    defaultOrderDate(order as { orderDate?: string; createDate?: string }),
 ): OrderDateMonthGroup<T>[] {
   const monthMap = new Map<string, Map<string, T[]>>();
 
   for (const order of orders) {
-    const dayKey = saleOrderDateKey(order.orderDate);
+    const dayKey = saleOrderDateKey(getDate(order));
     if (!dayKey || dayKey.length < 7) {
       const fallbackDay = 'unknown';
       const fallbackMonth = 'unknown';

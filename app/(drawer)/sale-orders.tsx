@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Button,
   Checkbox,
+  Chip,
   Dialog,
   Icon,
   IconButton,
@@ -22,6 +23,7 @@ import {
 } from 'react-native-paper';
 
 import { PayInvoiceDialog } from '@/components/delivery/PayInvoiceDialog';
+import { OrderDateGroupHeader } from '@/components/order/OrderDateGroupHeader';
 import { SaleOrderDateTotalBar } from '@/components/sale-order/SaleOrderDateTotalBar';
 import { SaleOrderDetailView } from '@/components/sale-order/SaleOrderDetailView';
 import {
@@ -63,6 +65,7 @@ import { fetchPaymentMethods } from '@/services/quotations';
 import { PaymentMethod } from '@/types/quotation';
 import { SaleOrder, SaleOrderDetail } from '@/types/sale-order';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
+import { groupOrdersByMonthDay } from '@/utils/order-date-groups';
 import { pushOrderDeliveries } from '@/utils/order-delivery-nav';
 import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
 import { PrintFormat } from '@/utils/print-quotation';
@@ -73,6 +76,7 @@ type ViewMode = 'list' | 'card';
 
 type SaleOrdersListUi = {
   viewMode: ViewMode;
+  groupByOrderDate: boolean;
   orderFilters: SaleOrderFilters;
   selectedIds: string[];
 };
@@ -416,6 +420,8 @@ export default function SaleOrdersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [groupByOrderDate, setGroupByOrderDate] = useState(true);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -442,15 +448,19 @@ export default function SaleOrdersScreen() {
   const listUiSnapshot = useMemo<SaleOrdersListUi>(
     () => ({
       viewMode,
+      groupByOrderDate,
       orderFilters,
       selectedIds: [...selectedIds],
     }),
-    [viewMode, orderFilters, selectedIds],
+    [viewMode, groupByOrderDate, orderFilters, selectedIds],
   );
 
   useListUiCache<SaleOrdersListUi>('sale-orders', listUiSnapshot, saved => {
     if (saved.viewMode === 'list' || saved.viewMode === 'card') {
       setViewMode(saved.viewMode);
+    }
+    if (typeof saved.groupByOrderDate === 'boolean') {
+      setGroupByOrderDate(saved.groupByOrderDate);
     }
     if (saved.orderFilters && typeof saved.orderFilters === 'object') {
       setOrderFilters({
@@ -468,9 +478,22 @@ export default function SaleOrdersScreen() {
 
   const filterPanel = useMemo(
     () => (
-      <SaleOrderFilterBar filters={orderFilters} onChange={setOrderFilters} />
+      <View>
+        <View style={styles.groupFilterRow}>
+          <Chip
+            compact
+            selected={groupByOrderDate}
+            onPress={() => setGroupByOrderDate(prev => !prev)}
+            icon={groupByOrderDate ? 'calendar-month' : 'calendar-blank'}
+            style={styles.groupFilterChip}
+          >
+            Group by date
+          </Chip>
+        </View>
+        <SaleOrderFilterBar filters={orderFilters} onChange={setOrderFilters} />
+      </View>
     ),
-    [orderFilters],
+    [orderFilters, groupByOrderDate],
   );
 
   useModuleFilters(filterPanel, !selectedId);
@@ -807,6 +830,12 @@ export default function SaleOrdersScreen() {
     [items, orderFilters],
   );
 
+  const showDateGroups = viewMode === 'list' && groupByOrderDate;
+  const monthGroups = useMemo(
+    () => (showDateGroups ? groupOrdersByMonthDay(filtered) : []),
+    [showDateGroups, filtered],
+  );
+
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
   const filtersActive = hasActiveSaleOrderFilters(orderFilters);
@@ -821,12 +850,27 @@ export default function SaleOrdersScreen() {
 
   useEffect(() => {
     setPage(1);
-  }, [query, viewMode, orderFilters]);
+  }, [query, viewMode, orderFilters, groupByOrderDate]);
 
   const paged = useMemo(
-    () => filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
-    [filtered, safePage],
+    () =>
+      showDateGroups
+        ? filtered
+        : filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filtered, safePage, showDateGroups],
   );
+
+  const toggleGroupCollapsed = useCallback((key: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
 
   const selectedOnPage = paged.reduce(
     (count, order) => count + (selectedIds.has(order.id) ? 1 : 0),
@@ -1020,21 +1064,75 @@ export default function SaleOrdersScreen() {
               refreshControl={
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
               }>
-              {paged.map((item, index) => (
-                <SaleOrderRow
-                  key={item.id}
-                  item={item}
-                  index={index}
-                  selected={selectedIds.has(item.id)}
-                  onToggle={toggleOne}
-                  onOpen={openDetail}
-                  onValidateDelivery={id => {
-                    const row = items.find(o => o.id === id);
-                    openDeliveriesPage(id, row?.number);
-                  }}
-                  validating={detailValidatingDelivery}
-                />
-              ))}
+              {showDateGroups
+                ? monthGroups.map(month => {
+                    const monthCollapsed = collapsedGroups.has(`m:${month.key}`);
+                    return (
+                      <View key={month.key}>
+                        <OrderDateGroupHeader
+                          label={month.label}
+                          count={month.count}
+                          total={month.total}
+                          collapsed={monthCollapsed}
+                          depth={0}
+                          onToggle={() => toggleGroupCollapsed(`m:${month.key}`)}
+                        />
+                        {!monthCollapsed
+                          ? month.days.map(day => {
+                              const dayCollapsed = collapsedGroups.has(
+                                `d:${day.key}`,
+                              );
+                              return (
+                                <View key={day.key}>
+                                  <OrderDateGroupHeader
+                                    label={day.label}
+                                    count={day.count}
+                                    total={day.total}
+                                    collapsed={dayCollapsed}
+                                    depth={1}
+                                    onToggle={() =>
+                                      toggleGroupCollapsed(`d:${day.key}`)
+                                    }
+                                  />
+                                  {!dayCollapsed
+                                    ? day.orders.map((item, index) => (
+                                        <SaleOrderRow
+                                          key={item.id}
+                                          item={item}
+                                          index={index}
+                                          selected={selectedIds.has(item.id)}
+                                          onToggle={toggleOne}
+                                          onOpen={openDetail}
+                                          onValidateDelivery={id => {
+                                            const row = items.find(o => o.id === id);
+                                            openDeliveriesPage(id, row?.number);
+                                          }}
+                                          validating={detailValidatingDelivery}
+                                        />
+                                      ))
+                                    : null}
+                                </View>
+                              );
+                            })
+                          : null}
+                      </View>
+                    );
+                  })
+                : paged.map((item, index) => (
+                    <SaleOrderRow
+                      key={item.id}
+                      item={item}
+                      index={index}
+                      selected={selectedIds.has(item.id)}
+                      onToggle={toggleOne}
+                      onOpen={openDetail}
+                      onValidateDelivery={id => {
+                        const row = items.find(o => o.id === id);
+                        openDeliveriesPage(id, row?.number);
+                      }}
+                      validating={detailValidatingDelivery}
+                    />
+                  ))}
             </ScrollView>
           </View>
         )
@@ -1079,15 +1177,24 @@ export default function SaleOrdersScreen() {
         />
       )}
 
-      <Pagination
-        page={safePage}
-        pageCount={pageCount}
-        total={filtered.length}
-        pageSize={PAGE_SIZE}
-        onChange={setPage}
-        centerLabel={`${filtered.length} from Odoo`}
-        itemLabel="order"
-      />
+      {showDateGroups ? (
+        <View style={styles.groupedFooter}>
+          <Text style={{ opacity: 0.7 }}>
+            {filtered.length} order{filtered.length === 1 ? '' : 's'} · Grouped by
+            Order Date (Month {'>'} Day)
+          </Text>
+        </View>
+      ) : (
+        <Pagination
+          page={safePage}
+          pageCount={pageCount}
+          total={filtered.length}
+          pageSize={PAGE_SIZE}
+          onChange={setPage}
+          centerLabel={`${filtered.length} from Odoo`}
+          itemLabel="order"
+        />
+      )}
       <Portal>
         <Dialog
           visible={bulkValidateVisible}
@@ -1144,6 +1251,23 @@ const styles = StyleSheet.create({
   },
   listBody: {
     flex: 1,
+  },
+  groupFilterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingBottom: 4,
+    justifyContent: 'center',
+  },
+  groupFilterChip: {
+    marginRight: 0,
+  },
+  groupedFooter: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.08)',
   },
   tableEmptyContent: {
     flexGrow: 1,

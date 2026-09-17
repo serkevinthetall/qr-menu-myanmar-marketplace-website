@@ -24,6 +24,7 @@ import {
 } from 'react-native-paper';
 
 import { PayInvoiceDialog } from '@/components/delivery/PayInvoiceDialog';
+import { OrderDateGroupHeader } from '@/components/order/OrderDateGroupHeader';
 import { SaleOrderDateTotalBar } from '@/components/sale-order/SaleOrderDateTotalBar';
 import { SaleOrderDetailView } from '@/components/sale-order/SaleOrderDetailView';
 import {
@@ -128,70 +129,6 @@ function StatusBadge({ status }: { status: string }) {
         {label}
       </Text>
     </View>
-  );
-}
-
-function formatGroupMoney(value: number): string {
-  return `${value.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
-function OrderDateGroupHeader({
-  label,
-  count,
-  total,
-  collapsed,
-  depth,
-  onToggle,
-}: {
-  label: string;
-  count: number;
-  total: number;
-  collapsed: boolean;
-  depth: 0 | 1;
-  onToggle: () => void;
-}) {
-  const theme = useTheme();
-
-  return (
-    <Pressable
-      onPress={onToggle}
-      style={({ hovered }) => [
-        styles.groupHeader,
-        depth === 0 ? styles.groupHeaderMonth : styles.groupHeaderDay,
-        {
-          backgroundColor: hovered
-            ? theme.colors.primaryContainer
-            : depth === 0
-              ? theme.colors.surfaceVariant
-              : theme.colors.surface,
-          borderBottomColor: theme.colors.outlineVariant ?? theme.colors.outline,
-          paddingLeft: depth === 0 ? 10 : 28,
-        },
-      ]}>
-      <Icon
-        source={collapsed ? 'chevron-right' : 'chevron-down'}
-        size={20}
-        color={theme.colors.onSurfaceVariant}
-      />
-      <Text
-        style={[
-          styles.groupHeaderLabel,
-          depth === 0 ? styles.groupHeaderLabelMonth : null,
-          { color: theme.colors.onSurface },
-        ]}
-        numberOfLines={1}>
-        {label}
-      </Text>
-      <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 13 }}>
-        {count}
-      </Text>
-      <Text style={[styles.groupHeaderTotal, { color: theme.colors.primary }]}>
-        {formatGroupMoney(total)}
-      </Text>
-    </Pressable>
   );
 }
 
@@ -1510,33 +1447,6 @@ const styles = StyleSheet.create({
   },
   listBody: {
     flex: 1,
-  },
-  groupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingRight: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    minHeight: 44,
-  },
-  groupHeaderMonth: {},
-  groupHeaderDay: {},
-  groupHeaderLabel: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    minWidth: 0,
-  },
-  groupHeaderLabelMonth: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  groupHeaderTotal: {
-    fontSize: 13,
-    fontWeight: '700',
-    minWidth: 88,
-    textAlign: 'right',
   },
   groupedFooter: {
     paddingHorizontal: 16,

@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   Checkbox,
+  Chip,
   Dialog,
   Portal,
   Snackbar,
@@ -29,6 +30,7 @@ import {
 } from '@/components/quotation/QuotationFilterBar';
 import { QuotationPrintPreview } from '@/components/quotation/QuotationPrintPreview';
 import { PayInvoiceDialog } from '@/components/delivery/PayInvoiceDialog';
+import { OrderDateGroupHeader } from '@/components/order/OrderDateGroupHeader';
 import { SaleOrderDateTotalBar } from '@/components/sale-order/SaleOrderDateTotalBar';
 import { Pagination } from '@/components/ui/Pagination';
 import { useAuth } from '@/contexts/auth-context';
@@ -75,6 +77,7 @@ import {
   shouldResumeQuotationDraft,
 } from '@/utils/quotation-draft-storage';
 import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
+import { groupOrdersByMonthDay } from '@/utils/order-date-groups';
 import { pushOrderDeliveries } from '@/utils/order-delivery-nav';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
 import { PrintFormat } from '@/utils/print-quotation';
@@ -89,6 +92,7 @@ type ViewMode = 'list' | 'card';
 
 type QuotationsListUi = {
   viewMode: ViewMode;
+  groupByOrderDate: boolean;
   quotationFilters: QuotationFilters;
   selectedIds: string[];
 };
@@ -367,6 +371,8 @@ export default function QuotationScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [groupByOrderDate, setGroupByOrderDate] = useState(true);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [snackbar, setSnackbar] = useState('');
@@ -412,15 +418,19 @@ export default function QuotationScreen() {
   const listUiSnapshot = useMemo<QuotationsListUi>(
     () => ({
       viewMode,
+      groupByOrderDate,
       quotationFilters,
       selectedIds: [...selectedIds],
     }),
-    [viewMode, quotationFilters, selectedIds],
+    [viewMode, groupByOrderDate, quotationFilters, selectedIds],
   );
 
   useListUiCache<QuotationsListUi>('quotations', listUiSnapshot, saved => {
     if (saved.viewMode === 'list' || saved.viewMode === 'card') {
       setViewMode(saved.viewMode);
+    }
+    if (typeof saved.groupByOrderDate === 'boolean') {
+      setGroupByOrderDate(saved.groupByOrderDate);
     }
     if (saved.quotationFilters && typeof saved.quotationFilters === 'object') {
       setQuotationFilters({
@@ -441,9 +451,22 @@ export default function QuotationScreen() {
 
   const filterPanel = useMemo(
     () => (
-      <QuotationFilterBar filters={quotationFilters} onChange={setQuotationFilters} />
+      <View>
+        <View style={styles.groupFilterRow}>
+          <Chip
+            compact
+            selected={groupByOrderDate}
+            onPress={() => setGroupByOrderDate(prev => !prev)}
+            icon={groupByOrderDate ? 'calendar-month' : 'calendar-blank'}
+            style={styles.groupFilterChip}
+          >
+            Group by date
+          </Chip>
+        </View>
+        <QuotationFilterBar filters={quotationFilters} onChange={setQuotationFilters} />
+      </View>
     ),
-    [quotationFilters],
+    [quotationFilters, groupByOrderDate],
   );
 
   useModuleFilters(filterPanel, !builderOpen && !detailId);
@@ -1035,6 +1058,18 @@ export default function QuotationScreen() {
 
   useHeaderActions(headerActions);
 
+  const showDateGroups = viewMode === 'list' && groupByOrderDate;
+  const monthGroups = useMemo(
+    () =>
+      showDateGroups
+        ? groupOrdersByMonthDay(
+            filteredQuotations,
+            quotation => quotation.createDate,
+          )
+        : [],
+    [showDateGroups, filteredQuotations],
+  );
+
   const pageCount = Math.max(1, Math.ceil(filteredQuotations.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
   const filtersActive = hasActiveQuotationFilters(quotationFilters);
@@ -1060,12 +1095,27 @@ export default function QuotationScreen() {
 
   useEffect(() => {
     setPage(1);
-  }, [query, viewMode, quotationFilters]);
+  }, [query, viewMode, quotationFilters, groupByOrderDate]);
 
   const pagedQuotations = useMemo(
-    () => filteredQuotations.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
-    [filteredQuotations, safePage],
+    () =>
+      showDateGroups
+        ? filteredQuotations
+        : filteredQuotations.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filteredQuotations, safePage, showDateGroups],
   );
+
+  const toggleGroupCollapsed = useCallback((key: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
 
   const selectedOnPage = pagedQuotations.reduce(
     (count, quotation) => count + (selectedIds.has(quotation.id) ? 1 : 0),
@@ -1442,16 +1492,65 @@ export default function QuotationScreen() {
               refreshControl={
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
               }>
-              {pagedQuotations.map((item, index) => (
-                <QuotationRow
-                  key={item.id}
-                  item={item}
-                  index={index}
-                  selected={selectedIds.has(item.id)}
-                  onToggle={toggleOne}
-                  onOpen={openDetail}
-                />
-              ))}
+              {showDateGroups
+                ? monthGroups.map(month => {
+                    const monthCollapsed = collapsedGroups.has(`m:${month.key}`);
+                    return (
+                      <View key={month.key}>
+                        <OrderDateGroupHeader
+                          label={month.label}
+                          count={month.count}
+                          total={month.total}
+                          collapsed={monthCollapsed}
+                          depth={0}
+                          onToggle={() => toggleGroupCollapsed(`m:${month.key}`)}
+                        />
+                        {!monthCollapsed
+                          ? month.days.map(day => {
+                              const dayCollapsed = collapsedGroups.has(
+                                `d:${day.key}`,
+                              );
+                              return (
+                                <View key={day.key}>
+                                  <OrderDateGroupHeader
+                                    label={day.label}
+                                    count={day.count}
+                                    total={day.total}
+                                    collapsed={dayCollapsed}
+                                    depth={1}
+                                    onToggle={() =>
+                                      toggleGroupCollapsed(`d:${day.key}`)
+                                    }
+                                  />
+                                  {!dayCollapsed
+                                    ? day.orders.map((item, index) => (
+                                        <QuotationRow
+                                          key={item.id}
+                                          item={item}
+                                          index={index}
+                                          selected={selectedIds.has(item.id)}
+                                          onToggle={toggleOne}
+                                          onOpen={openDetail}
+                                        />
+                                      ))
+                                    : null}
+                                </View>
+                              );
+                            })
+                          : null}
+                      </View>
+                    );
+                  })
+                : pagedQuotations.map((item, index) => (
+                    <QuotationRow
+                      key={item.id}
+                      item={item}
+                      index={index}
+                      selected={selectedIds.has(item.id)}
+                      onToggle={toggleOne}
+                      onOpen={openDetail}
+                    />
+                  ))}
             </ScrollView>
           </View>
         )
@@ -1486,15 +1585,25 @@ export default function QuotationScreen() {
         />
       )}
 
-      <Pagination
-        page={safePage}
-        pageCount={pageCount}
-        total={filteredQuotations.length}
-        pageSize={PAGE_SIZE}
-        onChange={setPage}
-        centerLabel={`${filteredQuotations.length} from Odoo`}
-        itemLabel="quotation"
-      />
+      {showDateGroups ? (
+        <View style={styles.groupedFooter}>
+          <Text style={{ opacity: 0.7 }}>
+            {filteredQuotations.length} quotation
+            {filteredQuotations.length === 1 ? '' : 's'} · Grouped by Creation Date
+            (Month {'>'} Day)
+          </Text>
+        </View>
+      ) : (
+        <Pagination
+          page={safePage}
+          pageCount={pageCount}
+          total={filteredQuotations.length}
+          pageSize={PAGE_SIZE}
+          onChange={setPage}
+          centerLabel={`${filteredQuotations.length} from Odoo`}
+          itemLabel="quotation"
+        />
+      )}
 
       <Snackbar
         visible={!!snackbar}
@@ -1521,6 +1630,23 @@ const styles = StyleSheet.create({
   },
   listBody: {
     flex: 1,
+  },
+  groupFilterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingBottom: 4,
+    justifyContent: 'center',
+  },
+  groupFilterChip: {
+    marginRight: 0,
+  },
+  groupedFooter: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.08)',
   },
   tableEmptyContent: {
     flexGrow: 1,
