@@ -47,11 +47,12 @@ import {
 import { useAppOrderUnread } from '@/contexts/app-order-unread-context';
 import { useAuth } from '@/contexts/auth-context';
 import {
+  DetailHeader,
   HeaderAction,
+  useDetailHeader,
   useHeaderActions,
   useModuleFilters,
   useModuleSearch,
-  useSearch,
 } from '@/contexts/search-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useAppColors } from '@/hooks/use-app-colors';
@@ -550,8 +551,6 @@ export default function OnlineOrdersScreen() {
   });
 
   const query = useModuleSearch('Search by number or customer', !selectedId);
-  const { setDetailHeader } = useSearch();
-
   const filterPanel = useMemo(
     () => (
       <View style={styles.readFilterPanel}>
@@ -863,17 +862,14 @@ export default function OnlineOrdersScreen() {
     [session?.token, selectedId],
   );
 
-  useEffect(() => {
+  const detailHeaderConfig = useMemo<DetailHeader | null>(() => {
     if (!selectedId) {
-      setDetailHeader(null);
-      return;
+      return null;
     }
-
     const showValidate = detail ? canValidateDelivery(detail) : false;
     const showInvoice = detail ? canCreateInvoice(detail) : false;
     const showPay = detail ? canPayInvoice(detail) : false;
-
-    setDetailHeader({
+    return {
       title: detail?.number ?? 'App Order',
       onBack: closeDetail,
       statusLabel: detail
@@ -906,14 +902,11 @@ export default function OnlineOrdersScreen() {
           }
         : undefined,
       payingInvoice: detailPayingInvoice,
-    });
-
-    return () => setDetailHeader(null);
+    };
   }, [
     selectedId,
     detail,
     closeDetail,
-    setDetailHeader,
     mode,
     detailValidatingDelivery,
     detailCreatingInvoice,
@@ -921,6 +914,9 @@ export default function OnlineOrdersScreen() {
     openDeliveriesPage,
     openPayInvoice,
   ]);
+
+  useDetailHeader(detailHeaderConfig);
+
 
   const toggleView = useCallback(() => {
     setViewMode(prev => (prev === 'list' ? 'card' : 'list'));

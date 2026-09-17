@@ -38,11 +38,12 @@ import { useAppTheme } from '@/contexts/theme-context';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { getQuotationStatusColors, canCancelQuotation, canConfirmQuotation, canValidateDelivery, canCreateInvoice, canPayInvoice } from '@/constants/status-colors';
 import {
+  DetailHeader,
   HeaderAction,
+  useDetailHeader,
   useHeaderActions,
   useModuleFilters,
   useModuleSearch,
-  useSearch,
 } from '@/contexts/search-context';
 import { useResponsive } from '@/hooks/use-responsive';
 import { fetchCustomersPage } from '@/services/customers';
@@ -446,7 +447,6 @@ export default function QuotationScreen() {
     'Search by number or customer',
     !builderOpen && !detailId,
   );
-  const { setDetailHeader } = useSearch();
 
   const filterPanel = useMemo(
     () => (
@@ -879,19 +879,16 @@ export default function QuotationScreen() {
     [session?.token, detailId],
   );
 
-  useEffect(() => {
+  const detailHeaderConfig = useMemo<DetailHeader | null>(() => {
     if (!detailId) {
-      setDetailHeader(null);
-      return;
+      return null;
     }
-
     const canCancel = detail ? canCancelQuotation(detail.status) : false;
     const canConfirm = detail ? canConfirmQuotation(detail.status) : false;
     const showValidate = detail ? canValidateDelivery(detail) : false;
     const showInvoice = detail ? canCreateInvoice(detail) : false;
     const showPay = detail ? canPayInvoice(detail) : false;
-
-    setDetailHeader({
+    return {
       title: detail?.number ?? 'Quotation',
       onBack: closeDetail,
       statusLabel: detail
@@ -928,14 +925,11 @@ export default function QuotationScreen() {
       payingInvoice: detailPayingInvoice,
       onCancel: canCancel ? () => setCancelConfirmVisible(true) : undefined,
       cancelling: detailCancelling,
-    });
-
-    return () => setDetailHeader(null);
+    };
   }, [
     detailId,
     detail,
     closeDetail,
-    setDetailHeader,
     mode,
     detailCancelling,
     detailConfirming,
@@ -945,6 +939,9 @@ export default function QuotationScreen() {
     openDeliveriesPage,
     openPayInvoice,
   ]);
+
+  useDetailHeader(detailHeaderConfig);
+
 
   const exportExcel = useCallback(async () => {
     if (!session?.token) {

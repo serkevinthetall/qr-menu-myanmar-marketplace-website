@@ -227,22 +227,30 @@ export function useModuleSearch(placeholder: string, enabled = true) {
   const { query, enableSearch, disableSearch } = useSearch();
   const placeholderRef = useRef(placeholder);
   placeholderRef.current = placeholder;
+  const focusedRef = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
+      focusedRef.current = true;
       if (enabled) {
         enableSearch(placeholderRef.current);
-        return () => disableSearch();
+        return () => {
+          focusedRef.current = false;
+          disableSearch();
+        };
       }
       disableSearch();
-      return undefined;
+      return () => {
+        focusedRef.current = false;
+      };
     }, [enabled, enableSearch, disableSearch]),
   );
 
   useEffect(() => {
-    if (enabled) {
-      enableSearch(placeholder);
+    if (!focusedRef.current || !enabled) {
+      return;
     }
+    enableSearch(placeholder);
   }, [placeholder, enabled, enableSearch]);
 
   return query;
@@ -253,13 +261,7 @@ export function useDetailHeader(header: DetailHeader | null) {
   const { setDetailHeader } = useSearch();
   const headerRef = useRef(header);
   headerRef.current = header;
-
-  useFocusEffect(
-    useCallback(() => {
-      setDetailHeader(headerRef.current);
-      return () => setDetailHeader(null);
-    }, [setDetailHeader]),
-  );
+  const focusedRef = useRef(false);
 
   // Depend on content, not object identity — inline `{ ... }` headers
   // would otherwise setState every render and hit max update depth (#185).
@@ -285,7 +287,21 @@ export function useDetailHeader(header: DetailHeader | null) {
       ].join('|')
     : '';
 
+  useFocusEffect(
+    useCallback(() => {
+      focusedRef.current = true;
+      setDetailHeader(headerRef.current);
+      return () => {
+        focusedRef.current = false;
+        setDetailHeader(null);
+      };
+    }, [setDetailHeader]),
+  );
+
   useEffect(() => {
+    if (!focusedRef.current) {
+      return;
+    }
     setDetailHeader(headerRef.current);
   }, [headerSyncKey, setDetailHeader]);
 }
@@ -302,15 +318,23 @@ export function useHeaderActions(actions: HeaderAction[]) {
   const { setActions } = useSearch();
   const actionsRef = useRef(actions);
   actionsRef.current = actions;
+  const focusedRef = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
+      focusedRef.current = true;
       setActions(actionsRef.current);
-      return () => setActions([]);
+      return () => {
+        focusedRef.current = false;
+        setActions([]);
+      };
     }, [setActions]),
   );
 
   useEffect(() => {
+    if (!focusedRef.current) {
+      return;
+    }
     setActions(actions);
   }, [actions, setActions]);
 }
@@ -324,21 +348,29 @@ export function useModuleFilters(panel: ReactNode, enabled = true) {
     useSearch();
   const panelRef = useRef(panel);
   panelRef.current = panel;
+  const focusedRef = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
+      focusedRef.current = true;
       if (enabled) {
         enableFilters(panelRef.current);
-        return () => unregisterFilters();
+        return () => {
+          focusedRef.current = false;
+          unregisterFilters();
+        };
       }
       unregisterFilters();
-      return undefined;
+      return () => {
+        focusedRef.current = false;
+      };
     }, [enabled, enableFilters, unregisterFilters]),
   );
 
   useEffect(() => {
-    if (enabled && filtersEnabled) {
-      setFilterPanel(panel);
+    if (!focusedRef.current || !enabled || !filtersEnabled) {
+      return;
     }
+    setFilterPanel(panel);
   }, [panel, enabled, filtersEnabled, setFilterPanel]);
 }

@@ -45,11 +45,12 @@ import {
 } from '@/constants/status-colors';
 import { useAuth } from '@/contexts/auth-context';
 import {
+  DetailHeader,
   HeaderAction,
+  useDetailHeader,
   useHeaderActions,
   useModuleFilters,
   useModuleSearch,
-  useSearch,
 } from '@/contexts/search-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useAppColors } from '@/hooks/use-app-colors';
@@ -473,8 +474,6 @@ export default function SaleOrdersScreen() {
   });
 
   const query = useModuleSearch('Search by number or customer', !selectedId);
-  const { setDetailHeader } = useSearch();
-
   const filterPanel = useMemo(
     () => (
       <View>
@@ -698,18 +697,15 @@ export default function SaleOrdersScreen() {
     [session?.token, selectedId],
   );
 
-  useEffect(() => {
+  const detailHeaderConfig = useMemo<DetailHeader | null>(() => {
     if (!selectedId) {
-      setDetailHeader(null);
-      return;
+      return null;
     }
-
     const showValidate = detail ? canValidateDelivery(detail) : false;
     const showInvoice = detail ? canCreateInvoice(detail) : false;
     const showPay = detail ? canPayInvoice(detail) : false;
     const deliveryCount = detail?.deliveryCount ?? 0;
-
-    setDetailHeader({
+    return {
       title: detail?.number ?? 'Sale Order',
       onBack: closeDetail,
       statusLabel: detail
@@ -742,14 +738,11 @@ export default function SaleOrdersScreen() {
           }
         : undefined,
       payingInvoice: detailPayingInvoice,
-    });
-
-    return () => setDetailHeader(null);
+    };
   }, [
     selectedId,
     detail,
     closeDetail,
-    setDetailHeader,
     mode,
     detailValidatingDelivery,
     detailCreatingInvoice,
@@ -757,6 +750,8 @@ export default function SaleOrdersScreen() {
     openDeliveriesPage,
     openPayInvoice,
   ]);
+
+  useDetailHeader(detailHeaderConfig);
 
   const toggleView = useCallback(() => {
     setViewMode(prev => (prev === 'list' ? 'card' : 'list'));
