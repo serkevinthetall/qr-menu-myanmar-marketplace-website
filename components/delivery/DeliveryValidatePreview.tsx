@@ -25,9 +25,12 @@ type Props = {
 
 function formatQty(value: number): string {
   if (!Number.isFinite(value)) {
-    return '0';
+    return '0.00';
   }
-  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+  return value.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function statusColors(state: string, isDark: boolean) {
@@ -158,27 +161,31 @@ export function DeliveryValidatePreview({
                         styles.tableHeader,
                         { borderBottomColor: borderColor },
                       ]}>
-                      <Text
-                        style={[styles.colProduct, styles.th, { color: muted }]}>
-                        Product
-                      </Text>
-                      <Text
-                        style={[styles.colQty, styles.th, { color: muted }]}>
-                        Demand
-                      </Text>
-                      <Text
-                        style={[styles.colQty, styles.th, { color: muted }]}>
-                        Quantity
-                      </Text>
-                      <Text
-                        style={[styles.colUnit, styles.th, { color: muted }]}>
-                        Unit
-                      </Text>
+                      <View style={styles.colProduct}>
+                        <Text style={[styles.th, { color: muted }]}>
+                          Product
+                        </Text>
+                      </View>
+                      <View style={styles.colQty}>
+                        <Text
+                          style={[styles.th, styles.qtyText, { color: muted }]}>
+                          Demand
+                        </Text>
+                      </View>
+                      <View style={styles.colQty}>
+                        <Text
+                          style={[styles.th, styles.qtyText, { color: muted }]}>
+                          Qty
+                        </Text>
+                      </View>
+                      <View style={styles.colUnit}>
+                        <Text style={[styles.th, { color: muted }]}>Unit</Text>
+                      </View>
                     </View>
 
                     {picking.lines.length === 0 ? (
                       <Text style={[styles.emptyLines, { color: muted }]}>
-                        No move lines.
+                        No product lines on this delivery.
                       </Text>
                     ) : (
                       picking.lines.map(line => (
@@ -188,18 +195,42 @@ export function DeliveryValidatePreview({
                             styles.tableRow,
                             { borderBottomColor: borderColor },
                           ]}>
-                          <Text style={styles.colProduct} numberOfLines={2}>
-                            {line.product}
-                          </Text>
-                          <Text style={styles.colQty}>
-                            {formatQty(line.demand)}
-                          </Text>
-                          <Text style={styles.colQty}>
-                            {formatQty(line.quantity)}
-                          </Text>
-                          <Text style={styles.colUnit} numberOfLines={1}>
-                            {line.unit}
-                          </Text>
+                          <View style={styles.colProduct}>
+                            <Text
+                              style={[
+                                styles.productText,
+                                { color: theme.colors.primary },
+                              ]}
+                              numberOfLines={3}>
+                              {line.product?.trim() || '—'}
+                            </Text>
+                          </View>
+                          <View style={styles.colQty}>
+                            <Text
+                              style={[
+                                styles.qtyText,
+                                { color: theme.colors.onSurface },
+                              ]}>
+                              {formatQty(line.demand)}
+                            </Text>
+                          </View>
+                          <View style={styles.colQty}>
+                            <Text
+                              style={[
+                                styles.qtyText,
+                                styles.qtyEmphasis,
+                                { color: theme.colors.onSurface },
+                              ]}>
+                              {formatQty(line.quantity)}
+                            </Text>
+                          </View>
+                          <View style={styles.colUnit}>
+                            <Text
+                              style={{ color: muted, fontSize: 13 }}
+                              numberOfLines={1}>
+                              {line.unit || 'Units'}
+                            </Text>
+                          </View>
                         </View>
                       ))
                     )}
@@ -293,33 +324,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingBottom: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 6,
+    gap: 8,
   },
   tableRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 6,
+    gap: 8,
   },
   th: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
   colProduct: {
-    flex: 1.6,
-    fontSize: 13,
+    flex: 2.2,
+    minWidth: 140,
   },
   colQty: {
-    flex: 0.7,
-    fontSize: 13,
-    textAlign: 'right',
+    flex: 0.85,
+    minWidth: 64,
   },
   colUnit: {
     flex: 0.7,
-    fontSize: 13,
+    minWidth: 52,
+  },
+  productText: {
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  qtyText: {
+    fontSize: 14,
+    textAlign: 'right',
+    fontVariant: ['tabular-nums'],
+  },
+  qtyEmphasis: {
+    fontWeight: '800',
   },
   emptyLines: {
     paddingVertical: 10,

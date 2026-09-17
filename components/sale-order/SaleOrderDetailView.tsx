@@ -245,12 +245,15 @@ function LinesTable({
               <Text
                 style={{ color: theme.colors.primary, fontWeight: '700', fontSize: 13 }}
                 numberOfLines={2}>
-                {line.product || '—'}
+                {line.product?.trim() || '—'}
               </Text>
             </View>
             <View style={styles.lineColQty}>
               <Text style={[styles.cell, styles.right, { color: detail.onSurface }]}>
-                {line.quantity.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                {Number(line.quantity || 0).toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </Text>
             </View>
             <View style={styles.lineColUnit}>
@@ -700,12 +703,12 @@ const styles = StyleSheet.create({
   cell: { fontSize: 12, lineHeight: 16 },
   right: { textAlign: 'right' },
   center: { textAlign: 'center' },
-  lineColIndex: { width: 28 },
-  lineColProduct: { flex: 2.4, minWidth: 0 },
-  lineColQty: { flex: 0.75, minWidth: 0 },
-  lineColUnit: { flex: 0.7, minWidth: 0 },
-  lineColPrice: { flex: 1.15, minWidth: 0 },
-  lineColAmount: { flex: 1.15, minWidth: 0 },
+  lineColIndex: { width: 28, flexShrink: 0 },
+  lineColProduct: { flex: 2.4, minWidth: 140 },
+  lineColQty: { flex: 0.75, minWidth: 64 },
+  lineColUnit: { flex: 0.7, minWidth: 52 },
+  lineColPrice: { flex: 1.15, minWidth: 88 },
+  lineColAmount: { flex: 1.15, minWidth: 88 },
   totalsWrap: {
     alignSelf: 'flex-end',
     width: 340,

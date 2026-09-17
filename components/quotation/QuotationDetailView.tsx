@@ -333,14 +333,14 @@ function LinesTable({
               <Text
                 style={[styles.lineProductText, { color: theme.colors.primary }]}
                 numberOfLines={2}>
-                {line.product}
+                {line.product?.trim() || '—'}
               </Text>
             </View>
             <View style={styles.lineColQty}>
               <Text
                 style={[styles.lineCellText, styles.cellTextRight, { color: detail.cellText }]}
                 numberOfLines={1}>
-                {line.quantity.toLocaleString('en-US', {
+                {Number(line.quantity || 0).toLocaleString('en-US', {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
@@ -925,13 +925,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 40,
   },
-  lineColProduct: { flex: 2.2, minWidth: 0, justifyContent: 'center' },
-  lineColQty: { flex: 0.75, minWidth: 0, justifyContent: 'center' },
-  lineColUnit: { flex: 0.55, minWidth: 0, justifyContent: 'center' },
-  lineColPrice: { flex: 1.1, minWidth: 0, justifyContent: 'center' },
-  lineColTaxes: { flex: 0.45, minWidth: 0, justifyContent: 'center' },
-  lineColDisc: { flex: 0.45, minWidth: 0, justifyContent: 'center' },
-  lineColAmount: { flex: 1.1, minWidth: 0, justifyContent: 'center' },
+  lineColProduct: { flex: 2.2, minWidth: 140, justifyContent: 'center' },
+  lineColQty: { flex: 0.75, minWidth: 64, justifyContent: 'center' },
+  lineColUnit: { flex: 0.55, minWidth: 52, justifyContent: 'center' },
+  lineColPrice: { flex: 1.1, minWidth: 88, justifyContent: 'center' },
+  lineColTaxes: { flex: 0.45, minWidth: 48, justifyContent: 'center' },
+  lineColDisc: { flex: 0.45, minWidth: 48, justifyContent: 'center' },
+  lineColAmount: { flex: 1.1, minWidth: 88, justifyContent: 'center' },
   cellTextRight: { textAlign: 'right' },
   cellTextCenter: { textAlign: 'center' },
   otherGrid: {

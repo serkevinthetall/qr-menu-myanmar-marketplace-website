@@ -222,6 +222,8 @@ function SaleOrderRow({
   onToggle,
   onOpen,
   onToggleRead,
+  onValidateDelivery,
+  validating,
 }: {
   item: SaleOrder;
   index: number;
@@ -229,10 +231,13 @@ function SaleOrderRow({
   onToggle: (id: string) => void;
   onOpen: (id: string) => void;
   onToggleRead: (id: string, nextRead: boolean) => void;
+  onValidateDelivery?: (id: string) => void;
+  validating?: boolean;
 }) {
   const theme = useTheme();
   const zebra = index % 2 === 1;
   const unread = Boolean(item.unread);
+  const showValidate = Boolean(item.canValidateDelivery && onValidateDelivery);
 
   return (
     <Pressable
@@ -334,6 +339,17 @@ function SaleOrderRow({
           </View>
         );
       })}
+      <View style={styles.actionCell}>
+        {showValidate ? (
+          <IconButton
+            icon="truck-check-outline"
+            size={20}
+            disabled={validating}
+            onPress={() => onValidateDelivery?.(item.id)}
+            accessibilityLabel={`Validate delivery for ${item.number}`}
+          />
+        ) : null}
+      </View>
     </Pressable>
   );
 }
@@ -376,6 +392,7 @@ function TableHeader({
           </Text>
         </View>
       ))}
+      <View style={styles.actionCell} />
     </View>
   );
 }
@@ -386,18 +403,23 @@ function SaleOrderCard({
   onToggle,
   onOpen,
   onToggleRead,
+  onValidateDelivery,
+  validating,
 }: {
   item: SaleOrder;
   selected: boolean;
   onToggle: (id: string) => void;
   onOpen: (id: string) => void;
   onToggleRead: (id: string, nextRead: boolean) => void;
+  onValidateDelivery?: (id: string) => void;
+  validating?: boolean;
 }) {
   const theme = useTheme();
   const { mode } = useAppTheme();
   const colors = useAppColors();
   const statusColors = getSaleOrderStatusColors(mode, item.status);
   const unread = Boolean(item.unread);
+  const showValidate = Boolean(item.canValidateDelivery && onValidateDelivery);
 
   return (
     <Pressable
@@ -439,6 +461,15 @@ function SaleOrderCard({
               accessibilityLabel={unread ? 'Mark as read' : 'Mark as unread'}
             />
             <StatusBadge status={item.status} />
+            {showValidate ? (
+              <IconButton
+                icon="truck-check-outline"
+                size={18}
+                disabled={validating}
+                onPress={() => onValidateDelivery?.(item.id)}
+                accessibilityLabel={`Validate delivery for ${item.number}`}
+              />
+            ) : null}
           </View>
 
           <CustomerNameText style={{ fontWeight: '600' }}>
@@ -528,6 +559,8 @@ export default function OnlineOrdersScreen() {
   const [detailError, setDetailError] = useState('');
   const [detailValidatingDelivery, setDetailValidatingDelivery] = useState(false);
   const [validateDeliveryVisible, setValidateDeliveryVisible] = useState(false);
+  const [validateTargetId, setValidateTargetId] = useState<string | null>(null);
+  const [bulkValidateVisible, setBulkValidateVisible] = useState(false);
   const [deliveryPreviews, setDeliveryPreviews] = useState<DeliveryPreview[]>([]);
   const [deliveryPreviewLoading, setDeliveryPreviewLoading] = useState(false);
   const [deliveryPreviewError, setDeliveryPreviewError] = useState('');
@@ -763,6 +796,7 @@ export default function OnlineOrdersScreen() {
     setDetailError('');
     setDetailValidatingDelivery(false);
     setValidateDeliveryVisible(false);
+    setValidateTargetId(null);
     setDeliveryPreviews([]);
     setDeliveryPreviewLoading(false);
     setDeliveryPreviewError('');
@@ -774,28 +808,34 @@ export default function OnlineOrdersScreen() {
     setPaymentMethodsLoading(false);
   }, []);
 
-  const openValidateDelivery = useCallback(async () => {
-    if (!session?.token || !selectedId) {
-      return;
-    }
-    setValidateDeliveryVisible(true);
-    setDeliveryPreviewLoading(true);
-    setDeliveryPreviewError('');
-    setDeliveryPreviews([]);
-    try {
-      const data = await fetchOnlineOrderDeliveries(session.token, selectedId);
-      setDeliveryPreviews(data);
-    } catch (err) {
-      setDeliveryPreviewError(
-        err instanceof Error ? err.message : 'Failed to load delivery preview.',
-      );
-    } finally {
-      setDeliveryPreviewLoading(false);
-    }
-  }, [session?.token, selectedId]);
+  const openValidateDelivery = useCallback(
+    async (orderId: string) => {
+      if (!session?.token || !orderId) {
+        return;
+      }
+      setValidateTargetId(orderId);
+      setValidateDeliveryVisible(true);
+      setDeliveryPreviewLoading(true);
+      setDeliveryPreviewError('');
+      setDeliveryPreviews([]);
+      try {
+        const data = await fetchOnlineOrderDeliveries(session.token, orderId);
+        setDeliveryPreviews(data);
+      } catch (err) {
+        setDeliveryPreviewError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to load delivery preview.',
+        );
+      } finally {
+        setDeliveryPreviewLoading(false);
+      }
+    },
+    [session?.token],
+  );
 
   const handleValidateDelivery = useCallback(async () => {
-    if (!session?.token || !selectedId) {
+    if (!session?.token || !validateTargetId) {
       return;
     }
     setDetailValidatingDelivery(true);
@@ -803,19 +843,83 @@ export default function OnlineOrdersScreen() {
     try {
       const updated = await validateOnlineOrderDelivery(
         session.token,
-        selectedId,
+        validateTargetId,
       );
-      setDetail(updated);
+      if (selectedId === validateTargetId) {
+        setDetail(updated);
+      }
+      setItems(prev =>
+        prev.map(order =>
+          order.id === updated.id
+            ? {
+                ...order,
+                canValidateDelivery: Boolean(updated.canValidateDelivery),
+              }
+            : order,
+        ),
+      );
       setValidateDeliveryVisible(false);
+      setValidateTargetId(null);
       setSnackbar(`Delivery validated for ${updated.number}.`);
     } catch (err) {
-      setDetailError(
-        err instanceof Error ? err.message : 'Failed to validate delivery.',
-      );
+      const message =
+        err instanceof Error ? err.message : 'Failed to validate delivery.';
+      if (selectedId === validateTargetId) {
+        setDetailError(message);
+      } else {
+        setSnackbar(message);
+      }
     } finally {
       setDetailValidatingDelivery(false);
     }
-  }, [session?.token, selectedId]);
+  }, [session?.token, validateTargetId, selectedId]);
+
+  const handleBulkValidateDelivery = useCallback(async () => {
+    if (!session?.token) {
+      return;
+    }
+    const targets = items.filter(
+      order => selectedIds.has(order.id) && order.canValidateDelivery,
+    );
+    if (targets.length === 0) {
+      return;
+    }
+    setDetailValidatingDelivery(true);
+    setBulkValidateVisible(false);
+    let ok = 0;
+    let fail = 0;
+    for (const order of targets) {
+      try {
+        const updated = await validateOnlineOrderDelivery(
+          session.token,
+          order.id,
+        );
+        ok += 1;
+        setItems(prev =>
+          prev.map(row =>
+            row.id === updated.id
+              ? {
+                  ...row,
+                  canValidateDelivery: Boolean(updated.canValidateDelivery),
+                }
+              : row,
+          ),
+        );
+      } catch {
+        fail += 1;
+      }
+    }
+    setDetailValidatingDelivery(false);
+    if (fail === 0) {
+      setSnackbar(
+        `Validated delivery for ${ok} order${ok === 1 ? '' : 's'}.`,
+      );
+    } else {
+      setSnackbar(
+        `Validated ${ok}, failed ${fail} of ${targets.length} orders.`,
+      );
+    }
+  }, [session?.token, items, selectedIds]);
 
   const handleCreateInvoice = useCallback(async () => {
     if (!session?.token || !selectedId) {
@@ -912,7 +1016,7 @@ export default function OnlineOrdersScreen() {
         : undefined,
       onValidateDelivery: showValidate
         ? () => {
-            void openValidateDelivery();
+            void openValidateDelivery(selectedId);
           }
         : undefined,
       validatingDelivery: detailValidatingDelivery,
@@ -976,11 +1080,26 @@ export default function OnlineOrdersScreen() {
     }
   }, [filtered, markAllOrdersRead, load]);
 
+  const selectedValidatable = useMemo(
+    () =>
+      items.filter(
+        order => selectedIds.has(order.id) && Boolean(order.canValidateDelivery),
+      ),
+    [items, selectedIds],
+  );
+
+  const validateOrderLabel = useMemo(() => {
+    if (detail?.id === validateTargetId) {
+      return detail.number;
+    }
+    return items.find(order => order.id === validateTargetId)?.number;
+  }, [detail, items, validateTargetId]);
+
   const headerActions = useMemo<HeaderAction[]>(() => {
     if (selectedId) {
       return [];
     }
-    return [
+    const actions: HeaderAction[] = [
       {
         key: 'mark-all-read',
         icon: 'email-check-outline',
@@ -996,7 +1115,34 @@ export default function OnlineOrdersScreen() {
         accessibilityLabel: 'Toggle list or card view',
       },
     ];
-  }, [selectedId, viewMode, toggleView, markAllVisibleRead]);
+    if (selectedValidatable.length === 1) {
+      actions.push({
+        key: 'validate-delivery',
+        icon: 'truck-check-outline',
+        label: 'Validate',
+        onPress: () => {
+          void openValidateDelivery(selectedValidatable[0].id);
+        },
+        accessibilityLabel: 'Validate delivery for selected order',
+      });
+    } else if (selectedValidatable.length > 1) {
+      actions.push({
+        key: 'validate-delivery',
+        icon: 'truck-check-outline',
+        label: `Validate (${selectedValidatable.length})`,
+        onPress: () => setBulkValidateVisible(true),
+        accessibilityLabel: 'Validate delivery for selected orders',
+      });
+    }
+    return actions;
+  }, [
+    selectedId,
+    viewMode,
+    toggleView,
+    markAllVisibleRead,
+    selectedValidatable,
+    openValidateDelivery,
+  ]);
 
   useHeaderActions(headerActions);
 
@@ -1111,12 +1257,15 @@ export default function OnlineOrdersScreen() {
         />
         <DeliveryValidatePreview
           visible={validateDeliveryVisible}
-          orderLabel={detail?.number}
+          orderLabel={validateOrderLabel}
           deliveries={deliveryPreviews}
           loading={deliveryPreviewLoading}
           error={deliveryPreviewError}
           validating={detailValidatingDelivery}
-          onDismiss={() => setValidateDeliveryVisible(false)}
+          onDismiss={() => {
+            setValidateDeliveryVisible(false);
+            setValidateTargetId(null);
+          }}
           onConfirm={() => {
             void handleValidateDelivery();
           }}
@@ -1279,6 +1428,10 @@ export default function OnlineOrdersScreen() {
                                           onToggle={toggleOne}
                                           onOpen={openDetail}
                                           onToggleRead={toggleRead}
+                                          onValidateDelivery={id => {
+                                            void openValidateDelivery(id);
+                                          }}
+                                          validating={detailValidatingDelivery}
                                         />
                                       ))
                                     : null}
@@ -1298,6 +1451,10 @@ export default function OnlineOrdersScreen() {
                       onToggle={toggleOne}
                       onOpen={openDetail}
                       onToggleRead={toggleRead}
+                      onValidateDelivery={id => {
+                        void openValidateDelivery(id);
+                      }}
+                      validating={detailValidatingDelivery}
                     />
                   ))}
             </ScrollView>
@@ -1327,6 +1484,10 @@ export default function OnlineOrdersScreen() {
                 onToggle={toggleOne}
                 onOpen={openDetail}
                 onToggleRead={toggleRead}
+                onValidateDelivery={id => {
+                  void openValidateDelivery(id);
+                }}
+                validating={detailValidatingDelivery}
               />
             </View>
           )}
@@ -1358,6 +1519,59 @@ export default function OnlineOrdersScreen() {
           itemLabel="order"
         />
       )}
+
+      <DeliveryValidatePreview
+        visible={validateDeliveryVisible}
+        orderLabel={validateOrderLabel}
+        deliveries={deliveryPreviews}
+        loading={deliveryPreviewLoading}
+        error={deliveryPreviewError}
+        validating={detailValidatingDelivery}
+        onDismiss={() => {
+          setValidateDeliveryVisible(false);
+          setValidateTargetId(null);
+        }}
+        onConfirm={() => {
+          void handleValidateDelivery();
+        }}
+      />
+      <Portal>
+        <Dialog
+          visible={bulkValidateVisible}
+          onDismiss={() =>
+            detailValidatingDelivery ? undefined : setBulkValidateVisible(false)
+          }>
+          <Dialog.Title>Validate delivery?</Dialog.Title>
+          <Dialog.Content>
+            <Text>
+              Validate delivery for {selectedValidatable.length} selected order
+              {selectedValidatable.length === 1 ? '' : 's'}?
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button
+              disabled={detailValidatingDelivery}
+              onPress={() => setBulkValidateVisible(false)}>
+              Cancel
+            </Button>
+            <Button
+              mode="contained"
+              loading={detailValidatingDelivery}
+              disabled={detailValidatingDelivery}
+              onPress={() => {
+                void handleBulkValidateDelivery();
+              }}>
+              Validate
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+      <Snackbar
+        visible={!!snackbar}
+        onDismiss={() => setSnackbar('')}
+        duration={3000}>
+        {snackbar}
+      </Snackbar>
     </View>
   );
 }
@@ -1445,6 +1659,11 @@ const styles = StyleSheet.create({
   },
   readCell: {
     width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionCell: {
+    width: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

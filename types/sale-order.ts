@@ -22,6 +22,8 @@ export type SaleOrder = {
   salePersonName: string;
   /** Shared team read state for App Orders (false = read). */
   unread?: boolean;
+  /** True when an outgoing Odoo delivery can be validated (list + detail). */
+  canValidateDelivery?: boolean;
 };
 
 export type SaleOrderDetail = SaleOrder & {
@@ -35,8 +37,6 @@ export type SaleOrderDetail = SaleOrder & {
   /** Studio Delivery Notes (`x_studio_delivery_notes`). */
   deliveryNotes: string;
   lines: SaleOrderLine[];
-  /** True when an outgoing Odoo delivery can be validated. */
-  canValidateDelivery?: boolean;
   /** True when Odoo invoice_status is "to invoice". */
   canCreateInvoice?: boolean;
   /** True when an unpaid customer invoice exists. */
