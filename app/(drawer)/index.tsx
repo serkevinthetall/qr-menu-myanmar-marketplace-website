@@ -448,6 +448,8 @@ export default function QuotationScreen() {
 
   useModuleFilters(filterPanel, !builderOpen && !detailId);
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const { createForCustomerId } = useLocalSearchParams<{
     createForCustomerId?: string;
   }>();
@@ -730,12 +732,12 @@ export default function QuotationScreen() {
     if (!detailId) {
       return;
     }
-    pushOrderDeliveries(router, {
+    pushOrderDeliveries(routerRef.current, {
       source: 'quotations',
       orderId: detailId,
       orderNumber: detail?.number,
     });
-  }, [detailId, detail?.number, router]);
+  }, [detailId, detail?.number]);
 
 
   const handleCancelDetail = useCallback(async () => {

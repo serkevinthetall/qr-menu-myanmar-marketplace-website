@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -26,6 +26,8 @@ import {
 export default function OrderDeliveryDetailScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const { session } = useAuth();
   const params = useLocalSearchParams<{
     source?: string;
@@ -100,14 +102,14 @@ export default function OrderDeliveryDetailScreen() {
   const header = useMemo(
     () => ({
       title: delivery?.name || 'Delivery',
-      onBack: () => router.back(),
+      onBack: () => routerRef.current.back(),
       breadcrumbParent: orderNumber || 'Deliveries',
       onValidateDelivery: canValidate
         ? () => setConfirmVisible(true)
         : undefined,
       validatingDelivery: validating,
     }),
-    [delivery?.name, router, orderNumber, canValidate, validating],
+    [delivery?.name, orderNumber, canValidate, validating],
   );
 
   useDetailHeader(header);

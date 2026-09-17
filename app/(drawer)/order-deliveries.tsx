@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from 'react-native-paper';
@@ -17,6 +17,8 @@ import {
 export default function OrderDeliveriesScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const { session } = useAuth();
   const params = useLocalSearchParams<{
     source?: string;
@@ -58,16 +60,25 @@ export default function OrderDeliveriesScreen() {
     void load();
   }, [load]);
 
-  useDetailHeader({
-    title: orderNumber ? `Deliveries · ${orderNumber}` : 'Deliveries',
-    onBack: () => router.back(),
-    breadcrumbParent:
-      source === 'online-orders'
-        ? 'App Order'
-        : source === 'quotations' || source === 'app-quotations'
-          ? 'Orders'
-          : 'Sale Order',
-  });
+  const onBack = useCallback(() => {
+    routerRef.current.back();
+  }, []);
+
+  const header = useMemo(
+    () => ({
+      title: orderNumber ? `Deliveries · ${orderNumber}` : 'Deliveries',
+      onBack,
+      breadcrumbParent:
+        source === 'online-orders'
+          ? 'App Order'
+          : source === 'quotations' || source === 'app-quotations'
+            ? 'Orders'
+            : 'Sale Order',
+    }),
+    [orderNumber, source, onBack],
+  );
+
+  useDetailHeader(header);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -76,7 +87,7 @@ export default function OrderDeliveriesScreen() {
         loading={loading}
         error={error}
         onOpen={pickingId => {
-          pushOrderDeliveryDetail(router, {
+          pushOrderDeliveryDetail(routerRef.current, {
             source,
             orderId,
             pickingId,

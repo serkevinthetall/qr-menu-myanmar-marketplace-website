@@ -261,9 +261,33 @@ export function useDetailHeader(header: DetailHeader | null) {
     }, [setDetailHeader]),
   );
 
+  // Depend on content, not object identity — inline `{ ... }` headers
+  // would otherwise setState every render and hit max update depth (#185).
+  const headerSyncKey = header
+    ? [
+        header.title,
+        header.breadcrumbParent ?? '',
+        header.statusLabel ?? '',
+        String(header.deliveryCount ?? 0),
+        header.validatingDelivery ? '1' : '0',
+        header.creatingInvoice ? '1' : '0',
+        header.payingInvoice ? '1' : '0',
+        header.confirming ? '1' : '0',
+        header.cancelling ? '1' : '0',
+        header.onValidateDelivery ? '1' : '0',
+        header.onOpenDelivery ? '1' : '0',
+        header.onPrint ? '1' : '0',
+        header.onConfirm ? '1' : '0',
+        header.onCreateInvoice ? '1' : '0',
+        header.onPayInvoice ? '1' : '0',
+        header.onCancel ? '1' : '0',
+        header.onCreateQuotation ? '1' : '0',
+      ].join('|')
+    : '';
+
   useEffect(() => {
-    setDetailHeader(header);
-  }, [header, setDetailHeader]);
+    setDetailHeader(headerRef.current);
+  }, [headerSyncKey, setDetailHeader]);
 }
 
 /**

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import {
   FlatList,
@@ -538,6 +538,8 @@ function SaleOrderCard({
 export default function OnlineOrdersScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const { mode } = useAppTheme();
   const { session } = useAuth();
   const { width } = useResponsive();
@@ -803,13 +805,13 @@ export default function OnlineOrdersScreen() {
       if (!orderId) {
         return;
       }
-      pushOrderDeliveries(router, {
+      pushOrderDeliveries(routerRef.current, {
         source: 'online-orders',
         orderId,
         orderNumber,
       });
     },
-    [router],
+    [],
   );
 
 

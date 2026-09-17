@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import {
   Button,
@@ -39,6 +39,8 @@ export default function AppQuotationDetailScreen() {
   const navigation = useNavigation();
   const { session } = useAuth();
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const [detail, setDetail] = useState<QuotationDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -107,12 +109,12 @@ export default function AppQuotationDetailScreen() {
     if (!id) {
       return;
     }
-    pushOrderDeliveries(router, {
+    pushOrderDeliveries(routerRef.current, {
       source: 'app-quotations',
       orderId: id,
       orderNumber: detail?.number,
     });
-  }, [id, detail?.number, router]);
+  }, [id, detail?.number]);
 
 
 

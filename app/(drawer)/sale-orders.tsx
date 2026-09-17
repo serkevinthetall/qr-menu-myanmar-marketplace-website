@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -406,6 +406,8 @@ export default function SaleOrdersScreen() {
   const { session } = useAuth();
   const { width } = useResponsive();
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const { detailId: routeDetailId } = useLocalSearchParams<{
     detailId?: string;
   }>();
@@ -555,13 +557,13 @@ export default function SaleOrdersScreen() {
       if (!orderId) {
         return;
       }
-      pushOrderDeliveries(router, {
+      pushOrderDeliveries(routerRef.current, {
         source: 'sale-orders',
         orderId,
         orderNumber,
       });
     },
-    [router],
+    [],
   );
 
 
