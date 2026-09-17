@@ -1294,20 +1294,6 @@ export default function QuotationScreen() {
           error={detailError}
           onBack={closeDetail}
           onReorder={handleReorderFromDetail}
-          onOpenDelivery={
-            (detail?.deliveryCount ?? 0) > 0
-              ? () => {
-                  openDeliveriesPage();
-                }
-              : undefined
-          }
-          onOpenInvoices={
-            (detail?.invoiceCount ?? 0) > 0
-              ? () => {
-                  openInvoicesPage();
-                }
-              : undefined
-          }
         />
         <Portal>
           <Dialog

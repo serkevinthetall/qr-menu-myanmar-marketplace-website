@@ -947,20 +947,6 @@ export default function SaleOrdersScreen() {
           detail={detail}
           loading={detailLoading}
           error={detailError}
-          onOpenDelivery={
-            (detail?.deliveryCount ?? 0) > 0
-              ? () => {
-                  openDeliveriesPage(selectedId, detail?.number);
-                }
-              : undefined
-          }
-          onOpenInvoices={
-            (detail?.invoiceCount ?? 0) > 0
-              ? () => {
-                  openInvoicesPage(selectedId, detail?.number);
-                }
-              : undefined
-          }
         />
         <Portal>
           <Dialog

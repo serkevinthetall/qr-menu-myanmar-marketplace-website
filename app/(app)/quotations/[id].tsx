@@ -330,20 +330,6 @@ export default function AppQuotationDetailScreen() {
         error={error}
         onBack={() => router.back()}
         contentBottomInset={88}
-        onOpenDelivery={
-          (detail?.deliveryCount ?? 0) > 0
-            ? () => {
-                openDeliveriesPage();
-              }
-            : undefined
-        }
-        onOpenInvoices={
-          (detail?.invoiceCount ?? 0) > 0
-            ? () => {
-                openInvoicesPage();
-              }
-            : undefined
-        }
       />
 
       <Portal>

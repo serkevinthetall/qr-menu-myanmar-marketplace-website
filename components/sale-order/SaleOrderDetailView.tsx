@@ -2,8 +2,6 @@ import { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Icon, Text, useTheme } from 'react-native-paper';
 
-import { DeliverySmartButton } from '@/components/delivery/DeliverySmartButton';
-import { InvoiceSmartButton } from '@/components/invoice/InvoiceSmartButton';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { getSaleOrderStatusColors } from '@/constants/status-colors';
 import { useAppTheme } from '@/contexts/theme-context';
@@ -315,16 +313,12 @@ type SaleOrderDetailViewProps = {
   detail: SaleOrderDetail | null;
   loading: boolean;
   error: string;
-  onOpenDelivery?: () => void;
-  onOpenInvoices?: () => void;
 };
 
 export function SaleOrderDetailView({
   detail,
   loading,
   error,
-  onOpenDelivery,
-  onOpenInvoices,
 }: SaleOrderDetailViewProps) {
   const theme = useTheme();
   const detailTheme = useDetailTheme();
@@ -430,23 +424,6 @@ export function SaleOrderDetailView({
               </View>
             </View>
           </SurfaceCard>
-
-          {(detail.deliveryCount ?? 0) > 0 || (detail.invoiceCount ?? 0) > 0 ? (
-            <View style={styles.smartRow}>
-              {(detail.deliveryCount ?? 0) > 0 ? (
-                <DeliverySmartButton
-                  count={detail.deliveryCount ?? 0}
-                  onPress={onOpenDelivery}
-                />
-              ) : null}
-              {(detail.invoiceCount ?? 0) > 0 ? (
-                <InvoiceSmartButton
-                  count={detail.invoiceCount ?? 0}
-                  onPress={onOpenInvoices}
-                />
-              ) : null}
-            </View>
-          ) : null}
 
           <View style={[styles.metaGrid, isMobile && styles.metaGridStack]}>
             <MetaTile
@@ -599,12 +576,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
-  },
-  smartRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    flexWrap: 'wrap',
-    gap: 8,
   },
   heroEyebrow: {
     color: 'rgba(255,255,255,0.75)',
