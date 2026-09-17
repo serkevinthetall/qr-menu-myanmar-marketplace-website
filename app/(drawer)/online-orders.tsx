@@ -981,6 +981,14 @@ export default function OnlineOrdersScreen() {
     }
     const actions: HeaderAction[] = [
       {
+        key: 'group-date',
+        icon: groupByOrderDate ? 'calendar-month' : 'calendar-blank',
+        label: groupByOrderDate ? 'Grouped' : 'Group',
+        active: groupByOrderDate,
+        onPress: () => setGroupByOrderDate(prev => !prev),
+        accessibilityLabel: 'Toggle group by month and day',
+      },
+      {
         key: 'mark-all-read',
         icon: 'email-check-outline',
         onPress: () => {
@@ -1022,6 +1030,7 @@ export default function OnlineOrdersScreen() {
     markAllVisibleRead,
     selectedValidatable,
     openDeliveriesPage,
+    groupByOrderDate,
   ]);
 
   useHeaderActions(headerActions);
@@ -1235,6 +1244,21 @@ export default function OnlineOrdersScreen() {
           itemLabel="order"
           placement="top"
         />
+      ) : null}
+
+      {viewMode === 'list' ? (
+        <View style={styles.groupChipBar}>
+          <Chip
+            compact
+            selected={groupByOrderDate}
+            onPress={() => setGroupByOrderDate(prev => !prev)}
+            icon={groupByOrderDate ? 'calendar-month' : 'calendar-blank'}
+            style={styles.readFilterChip}>
+            {groupByOrderDate
+              ? 'Order Date: Month › Day'
+              : 'Group by date'}
+          </Chip>
+        </View>
       ) : null}
 
       {viewMode === 'list' ? (
@@ -1519,6 +1543,14 @@ const styles = StyleSheet.create({
   },
   readFilterChip: {
     marginRight: 0,
+  },
+  groupChipBar: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
   cardNumberRow: {
     flex: 1,
