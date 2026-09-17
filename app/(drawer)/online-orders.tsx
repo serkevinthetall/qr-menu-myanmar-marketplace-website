@@ -1228,14 +1228,6 @@ export default function OnlineOrdersScreen() {
       ) : null}
 
       {viewMode === 'list' ? (
-        <View style={styles.groupChipBar}>
-          <Chip compact selected icon="calendar-month" style={styles.readFilterChip}>
-            Order Date: Month › Day
-          </Chip>
-        </View>
-      ) : null}
-
-      {viewMode === 'list' ? (
         filtered.length === 0 ? (
           <ScrollView
             style={styles.tableScroll}

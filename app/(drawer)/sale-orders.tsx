@@ -1030,14 +1030,6 @@ export default function SaleOrdersScreen() {
       ) : null}
 
       {viewMode === 'list' ? (
-        <View style={styles.groupChipBar}>
-          <Chip compact selected icon="calendar-month" style={styles.groupFilterChip}>
-            Order Date: Month › Day
-          </Chip>
-        </View>
-      ) : null}
-
-      {viewMode === 'list' ? (
         filtered.length === 0 ? (
           <ScrollView
             style={styles.tableScroll}

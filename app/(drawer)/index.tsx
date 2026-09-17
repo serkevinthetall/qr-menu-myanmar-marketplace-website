@@ -1466,14 +1466,6 @@ export default function QuotationScreen() {
       ) : null}
 
       {viewMode === 'list' ? (
-        <View style={styles.groupChipBar}>
-          <Chip compact selected icon="calendar-month" style={styles.groupFilterChip}>
-            Creation Date: Month › Day
-          </Chip>
-        </View>
-      ) : null}
-
-      {viewMode === 'list' ? (
         filteredQuotations.length === 0 ? (
           <ScrollView
             style={styles.tableScroll}
