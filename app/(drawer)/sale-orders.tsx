@@ -68,6 +68,7 @@ import { SaleOrder, SaleOrderDetail } from '@/types/sale-order';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
 import { groupOrdersByMonthDay } from '@/utils/order-date-groups';
 import { pushOrderDeliveries } from '@/utils/order-delivery-nav';
+import { pushOrderInvoices } from '@/utils/order-invoice-nav';
 import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
 import { PrintFormat } from '@/utils/print-quotation';
 
@@ -576,6 +577,20 @@ export default function SaleOrdersScreen() {
     [],
   );
 
+  const openInvoicesPage = useCallback(
+    (orderId: string, orderNumber?: string) => {
+      if (!orderId) {
+        return;
+      }
+      pushOrderInvoices(routerRef.current, {
+        source: 'sale-orders',
+        orderId,
+        orderNumber,
+      });
+    },
+    [],
+  );
+
 
   const handleBulkValidateDelivery = useCallback(async () => {
     if (!session?.token) {
@@ -702,7 +717,10 @@ export default function SaleOrdersScreen() {
       return null;
     }
     const showValidate = detail ? canValidateDelivery(detail) : false;
-    const showInvoice = detail ? canCreateInvoice(detail) : false;
+    const invoiceCount = detail?.invoiceCount ?? 0;
+    // Odoo: Create Invoice only on sale/done + to invoice when none exist yet.
+    const showInvoice =
+      Boolean(detail && canCreateInvoice(detail) && invoiceCount === 0);
     const showPay = detail ? canPayInvoice(detail) : false;
     const deliveryCount = detail?.deliveryCount ?? 0;
     return {
@@ -728,6 +746,13 @@ export default function SaleOrdersScreen() {
             }
           : undefined,
       deliveryCount,
+      onOpenInvoices:
+        invoiceCount > 0
+          ? () => {
+              openInvoicesPage(selectedId, detail?.number);
+            }
+          : undefined,
+      invoiceCount,
       onCreateInvoice: showInvoice
         ? () => setCreateInvoiceVisible(true)
         : undefined,
@@ -748,6 +773,7 @@ export default function SaleOrdersScreen() {
     detailCreatingInvoice,
     detailPayingInvoice,
     openDeliveriesPage,
+    openInvoicesPage,
     openPayInvoice,
   ]);
 
@@ -925,6 +951,13 @@ export default function SaleOrdersScreen() {
             (detail?.deliveryCount ?? 0) > 0
               ? () => {
                   openDeliveriesPage(selectedId, detail?.number);
+                }
+              : undefined
+          }
+          onOpenInvoices={
+            (detail?.invoiceCount ?? 0) > 0
+              ? () => {
+                  openInvoicesPage(selectedId, detail?.number);
                 }
               : undefined
           }

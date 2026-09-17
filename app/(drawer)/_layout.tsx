@@ -134,6 +134,20 @@ export default function DrawerLayout() {
           }}
         />
         <Drawer.Screen
+          name="order-invoices"
+          options={{
+            title: 'Invoices',
+            drawerItemStyle: { display: 'none' },
+          }}
+        />
+        <Drawer.Screen
+          name="order-invoice-detail"
+          options={{
+            title: 'Invoice',
+            drawerItemStyle: { display: 'none' },
+          }}
+        />
+        <Drawer.Screen
           name="app-user-list"
           options={{
             title: 'App user list',

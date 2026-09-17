@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Button, Checkbox, Icon, Text, useTheme } from 'react-native-paper';
 
 import { DeliverySmartButton } from '@/components/delivery/DeliverySmartButton';
+import { InvoiceSmartButton } from '@/components/invoice/InvoiceSmartButton';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
 import { QuotationDetail, QuotationLine, QuotationReorderSeed } from '@/types/quotation';
@@ -487,6 +488,7 @@ type QuotationDetailViewProps = {
   onBack: () => void;
   onReorder?: (seed: QuotationReorderSeed) => void;
   onOpenDelivery?: () => void;
+  onOpenInvoices?: () => void;
   /** Extra scroll padding (e.g. floating Print FAB on phone app). */
   contentBottomInset?: number;
 };
@@ -497,6 +499,7 @@ export function QuotationDetailView({
   error,
   onReorder,
   onOpenDelivery,
+  onOpenInvoices,
   contentBottomInset = 0,
 }: QuotationDetailViewProps) {
   const theme = useTheme();
@@ -598,12 +601,20 @@ export function QuotationDetailView({
           ]}
           showsVerticalScrollIndicator={false}>
           <View style={styles.page}>
-            {(detail.deliveryCount ?? 0) > 0 ? (
+            {(detail.deliveryCount ?? 0) > 0 || (detail.invoiceCount ?? 0) > 0 ? (
               <View style={styles.smartRow}>
-                <DeliverySmartButton
-                  count={detail.deliveryCount ?? 0}
-                  onPress={onOpenDelivery}
-                />
+                {(detail.deliveryCount ?? 0) > 0 ? (
+                  <DeliverySmartButton
+                    count={detail.deliveryCount ?? 0}
+                    onPress={onOpenDelivery}
+                  />
+                ) : null}
+                {(detail.invoiceCount ?? 0) > 0 ? (
+                  <InvoiceSmartButton
+                    count={detail.invoiceCount ?? 0}
+                    onPress={onOpenInvoices}
+                  />
+                ) : null}
               </View>
             ) : null}
             <SurfaceCard>

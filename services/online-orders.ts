@@ -1,7 +1,8 @@
-import { webApiRequest } from '@/services/web/client';
-import { SaleOrder, SaleOrderDetail } from '@/types/sale-order';
 import { DeliveryPreview } from '@/types/delivery';
+import { InvoicePreview } from '@/types/invoice';
 import { mergeById } from '@/utils/quotation-builder-cache';
+import { SaleOrder, SaleOrderDetail } from '@/types/sale-order';
+import { webApiRequest } from '@/services/web/client';
 
 type ListResponse = {
   data: SaleOrder[];
@@ -114,6 +115,17 @@ export async function fetchOnlineOrderDeliveries(
 ): Promise<DeliveryPreview[]> {
   const response = await webApiRequest<{ data: DeliveryPreview[] }>(
     `/online-orders/${id}/deliveries`,
+    { token },
+  );
+  return response.data;
+}
+
+export async function fetchOnlineOrderInvoices(
+  token: string,
+  id: string,
+): Promise<InvoicePreview[]> {
+  const response = await webApiRequest<{ data: InvoicePreview[] }>(
+    `/online-orders/${id}/invoices`,
     { token },
   );
   return response.data;

@@ -71,9 +71,11 @@ export type QuotationDetail = Quotation & {
   lines: QuotationLine[];
   /** Outgoing delivery / picking count (Odoo Delivery smart button). */
   deliveryCount?: number;
+  /** Customer invoice count (Odoo Invoice smart button). */
+  invoiceCount?: number;
   /** True when an outgoing Odoo delivery can be validated. */
   canValidateDelivery?: boolean;
-  /** True when Odoo invoice_status is "to invoice". */
+  /** True when Odoo invoice_status is "to invoice" on sale/done. */
   canCreateInvoice?: boolean;
   /** True when an unpaid customer invoice exists. */
   canPayInvoice?: boolean;

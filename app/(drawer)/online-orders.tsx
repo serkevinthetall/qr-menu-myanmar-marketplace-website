@@ -73,6 +73,7 @@ import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
 import { ONLINE_ORDERS_REFRESH_EVENT } from '@/utils/online-order-alerts-preference';
 import { groupOrdersByMonthDay } from '@/utils/order-date-groups';
 import { pushOrderDeliveries } from '@/utils/order-delivery-nav';
+import { pushOrderInvoices } from '@/utils/order-invoice-nav';
 import { PrintFormat } from '@/utils/print-quotation';
 
 const PAGE_SIZE = 50;
@@ -740,6 +741,20 @@ export default function OnlineOrdersScreen() {
     [],
   );
 
+  const openInvoicesPage = useCallback(
+    (orderId: string, orderNumber?: string) => {
+      if (!orderId) {
+        return;
+      }
+      pushOrderInvoices(routerRef.current, {
+        source: 'online-orders',
+        orderId,
+        orderNumber,
+      });
+    },
+    [],
+  );
+
 
 
   const handleBulkValidateDelivery = useCallback(async () => {
@@ -867,7 +882,9 @@ export default function OnlineOrdersScreen() {
       return null;
     }
     const showValidate = detail ? canValidateDelivery(detail) : false;
-    const showInvoice = detail ? canCreateInvoice(detail) : false;
+    const invoiceCount = detail?.invoiceCount ?? 0;
+    const showInvoice =
+      Boolean(detail && canCreateInvoice(detail) && invoiceCount === 0);
     const showPay = detail ? canPayInvoice(detail) : false;
     return {
       title: detail?.number ?? 'App Order',
@@ -892,6 +909,13 @@ export default function OnlineOrdersScreen() {
             }
           : undefined,
       deliveryCount: detail?.deliveryCount ?? 0,
+      onOpenInvoices:
+        invoiceCount > 0
+          ? () => {
+              openInvoicesPage(selectedId, detail?.number);
+            }
+          : undefined,
+      invoiceCount,
       onCreateInvoice: showInvoice
         ? () => setCreateInvoiceVisible(true)
         : undefined,
@@ -912,6 +936,7 @@ export default function OnlineOrdersScreen() {
     detailCreatingInvoice,
     detailPayingInvoice,
     openDeliveriesPage,
+    openInvoicesPage,
     openPayInvoice,
   ]);
 
@@ -1124,6 +1149,13 @@ export default function OnlineOrdersScreen() {
             (detail?.deliveryCount ?? 0) > 0
               ? () => {
                   openDeliveriesPage(selectedId, detail?.number);
+                }
+              : undefined
+          }
+          onOpenInvoices={
+            (detail?.invoiceCount ?? 0) > 0
+              ? () => {
+                  openInvoicesPage(selectedId, detail?.number);
                 }
               : undefined
           }

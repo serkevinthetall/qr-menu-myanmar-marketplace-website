@@ -1,6 +1,7 @@
 import { webApiRequest } from '@/services/web/client';
 import { QuotationDraft } from '@/components/quotation/QuotationBuilder';
 import { DeliveryPreview } from '@/types/delivery';
+import { InvoicePreview } from '@/types/invoice';
 import { PaymentMethod, Quotation, QuotationDetail } from '@/types/quotation';
 
 type QuotationsResponse = {
@@ -113,6 +114,17 @@ export async function fetchQuotationDeliveries(
 ): Promise<DeliveryPreview[]> {
   const response = await webApiRequest<{ data: DeliveryPreview[] }>(
     `/quotations/${id}/deliveries`,
+    { token },
+  );
+  return response.data;
+}
+
+export async function fetchQuotationInvoices(
+  token: string,
+  id: string,
+): Promise<InvoicePreview[]> {
+  const response = await webApiRequest<{ data: InvoicePreview[] }>(
+    `/quotations/${id}/invoices`,
     { token },
   );
   return response.data;

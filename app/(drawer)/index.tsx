@@ -80,6 +80,7 @@ import {
 import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
 import { groupOrdersByMonthDay } from '@/utils/order-date-groups';
 import { pushOrderDeliveries } from '@/utils/order-delivery-nav';
+import { pushOrderInvoices } from '@/utils/order-invoice-nav';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
 import { PrintFormat } from '@/utils/print-quotation';
 
@@ -750,6 +751,17 @@ export default function QuotationScreen() {
     });
   }, [detailId, detail?.number]);
 
+  const openInvoicesPage = useCallback(() => {
+    if (!detailId) {
+      return;
+    }
+    pushOrderInvoices(routerRef.current, {
+      source: 'quotations',
+      orderId: detailId,
+      orderNumber: detail?.number,
+    });
+  }, [detailId, detail?.number]);
+
 
   const handleCancelDetail = useCallback(async () => {
     if (!session?.token || !detailId) {
@@ -886,7 +898,9 @@ export default function QuotationScreen() {
     const canCancel = detail ? canCancelQuotation(detail.status) : false;
     const canConfirm = detail ? canConfirmQuotation(detail.status) : false;
     const showValidate = detail ? canValidateDelivery(detail) : false;
-    const showInvoice = detail ? canCreateInvoice(detail) : false;
+    const invoiceCount = detail?.invoiceCount ?? 0;
+    const showInvoice =
+      Boolean(detail && canCreateInvoice(detail) && invoiceCount === 0);
     const showPay = detail ? canPayInvoice(detail) : false;
     return {
       title: detail?.number ?? 'Quotation',
@@ -913,6 +927,13 @@ export default function QuotationScreen() {
             }
           : undefined,
       deliveryCount: detail?.deliveryCount ?? 0,
+      onOpenInvoices:
+        invoiceCount > 0
+          ? () => {
+              openInvoicesPage();
+            }
+          : undefined,
+      invoiceCount,
       onCreateInvoice: showInvoice
         ? () => setCreateInvoiceVisible(true)
         : undefined,
@@ -937,6 +958,7 @@ export default function QuotationScreen() {
     detailCreatingInvoice,
     detailPayingInvoice,
     openDeliveriesPage,
+    openInvoicesPage,
     openPayInvoice,
   ]);
 
@@ -1276,6 +1298,13 @@ export default function QuotationScreen() {
             (detail?.deliveryCount ?? 0) > 0
               ? () => {
                   openDeliveriesPage();
+                }
+              : undefined
+          }
+          onOpenInvoices={
+            (detail?.invoiceCount ?? 0) > 0
+              ? () => {
+                  openInvoicesPage();
                 }
               : undefined
           }

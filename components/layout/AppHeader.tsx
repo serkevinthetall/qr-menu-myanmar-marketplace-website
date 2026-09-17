@@ -392,10 +392,35 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
                   </Pressable>
                 )
               ) : null}
-              {detailHeader.onCreateInvoice ? (
+              {(detailHeader.invoiceCount ?? 0) > 0 && detailHeader.onOpenInvoices ? (
                 isMobile ? (
                   <IconButton
                     icon="file-document-outline"
+                    iconColor={colors.onPrimary}
+                    containerColor="transparent"
+                    rippleColor={colors.headerRipple}
+                    size={22}
+                    onPress={detailHeader.onOpenInvoices}
+                    accessibilityLabel={`${detailHeader.invoiceCount} Invoice`}
+                  />
+                ) : (
+                  <Pressable
+                    onPress={detailHeader.onOpenInvoices}
+                    style={styles.detailActionGhost}>
+                    <Text style={[styles.detailActionGhostText, { color: colors.onPrimary }]}>
+                      {detailHeader.invoiceCount}
+                    </Text>
+                    <Icon source="file-document-outline" size={16} color={colors.onPrimary} />
+                    <Text style={[styles.detailActionGhostText, { color: colors.onPrimary }]}>
+                      {(detailHeader.invoiceCount ?? 0) === 1 ? 'INVOICE' : 'INVOICES'}
+                    </Text>
+                  </Pressable>
+                )
+              ) : null}
+              {detailHeader.onCreateInvoice ? (
+                isMobile ? (
+                  <IconButton
+                    icon="file-plus-outline"
                     iconColor={colors.onPrimary}
                     containerColor="transparent"
                     rippleColor={colors.headerRipple}
@@ -424,9 +449,9 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
                       styles.detailActionGhost,
                       detailHeader.creatingInvoice ? { opacity: 0.5 } : null,
                     ]}>
-                    <Icon source="file-document-outline" size={16} color={colors.onPrimary} />
+                    <Icon source="file-plus-outline" size={16} color={colors.onPrimary} />
                     <Text style={[styles.detailActionGhostText, { color: colors.onPrimary }]}>
-                      {detailHeader.creatingInvoice ? 'INVOICING…' : 'INVOICE'}
+                      {detailHeader.creatingInvoice ? 'INVOICING…' : 'CREATE INVOICE'}
                     </Text>
                   </Pressable>
                 )

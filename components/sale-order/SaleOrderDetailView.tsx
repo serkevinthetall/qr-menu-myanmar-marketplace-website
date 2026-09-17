@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Icon, Text, useTheme } from 'react-native-paper';
 
 import { DeliverySmartButton } from '@/components/delivery/DeliverySmartButton';
+import { InvoiceSmartButton } from '@/components/invoice/InvoiceSmartButton';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { getSaleOrderStatusColors } from '@/constants/status-colors';
 import { useAppTheme } from '@/contexts/theme-context';
@@ -315,6 +316,7 @@ type SaleOrderDetailViewProps = {
   loading: boolean;
   error: string;
   onOpenDelivery?: () => void;
+  onOpenInvoices?: () => void;
 };
 
 export function SaleOrderDetailView({
@@ -322,6 +324,7 @@ export function SaleOrderDetailView({
   loading,
   error,
   onOpenDelivery,
+  onOpenInvoices,
 }: SaleOrderDetailViewProps) {
   const theme = useTheme();
   const detailTheme = useDetailTheme();
@@ -428,12 +431,20 @@ export function SaleOrderDetailView({
             </View>
           </SurfaceCard>
 
-          {(detail.deliveryCount ?? 0) > 0 ? (
+          {(detail.deliveryCount ?? 0) > 0 || (detail.invoiceCount ?? 0) > 0 ? (
             <View style={styles.smartRow}>
-              <DeliverySmartButton
-                count={detail.deliveryCount ?? 0}
-                onPress={onOpenDelivery}
-              />
+              {(detail.deliveryCount ?? 0) > 0 ? (
+                <DeliverySmartButton
+                  count={detail.deliveryCount ?? 0}
+                  onPress={onOpenDelivery}
+                />
+              ) : null}
+              {(detail.invoiceCount ?? 0) > 0 ? (
+                <InvoiceSmartButton
+                  count={detail.invoiceCount ?? 0}
+                  onPress={onOpenInvoices}
+                />
+              ) : null}
             </View>
           ) : null}
 

@@ -44,7 +44,13 @@ export type DetailHeader = {
    */
   onOpenDelivery?: () => void;
   deliveryCount?: number;
-  /** Create Odoo customer invoice — shown beside Validate. */
+  /** Odoo Invoice smart button — opens invoice list when invoices exist. */
+  onOpenInvoices?: () => void;
+  invoiceCount?: number;
+  /**
+   * Create Odoo customer invoice — only when sale/done + to invoice
+   * and typically when no invoices yet (Odoo Create Invoice).
+   */
   onCreateInvoice?: () => void;
   creatingInvoice?: boolean;
   /** Register payment on unpaid invoice — shown beside Invoice. */
@@ -271,6 +277,7 @@ export function useDetailHeader(header: DetailHeader | null) {
         header.breadcrumbParent ?? '',
         header.statusLabel ?? '',
         String(header.deliveryCount ?? 0),
+        String(header.invoiceCount ?? 0),
         header.validatingDelivery ? '1' : '0',
         header.creatingInvoice ? '1' : '0',
         header.payingInvoice ? '1' : '0',
@@ -278,6 +285,7 @@ export function useDetailHeader(header: DetailHeader | null) {
         header.cancelling ? '1' : '0',
         header.onValidateDelivery ? '1' : '0',
         header.onOpenDelivery ? '1' : '0',
+        header.onOpenInvoices ? '1' : '0',
         header.onPrint ? '1' : '0',
         header.onConfirm ? '1' : '0',
         header.onCreateInvoice ? '1' : '0',

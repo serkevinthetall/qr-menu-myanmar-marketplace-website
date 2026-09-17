@@ -43,7 +43,9 @@ export type SaleOrderDetail = SaleOrder & {
   lines: SaleOrderLine[];
   /** Outgoing delivery / picking count (Odoo Delivery smart button). */
   deliveryCount?: number;
-  /** True when Odoo invoice_status is "to invoice". */
+  /** Customer invoice count (Odoo Invoice smart button). */
+  invoiceCount?: number;
+  /** True when Odoo invoice_status is "to invoice" on sale/done. */
   canCreateInvoice?: boolean;
   /** True when an unpaid customer invoice exists. */
   canPayInvoice?: boolean;

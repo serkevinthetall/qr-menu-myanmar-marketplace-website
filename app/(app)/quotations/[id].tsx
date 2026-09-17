@@ -32,6 +32,7 @@ import {
 } from '@/services/app/quotations';
 import { PaymentMethod, QuotationDetail } from '@/types/quotation';
 import { pushOrderDeliveries } from '@/utils/order-delivery-nav';
+import { pushOrderInvoices } from '@/utils/order-invoice-nav';
 
 export default function AppQuotationDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -116,6 +117,17 @@ export default function AppQuotationDetailScreen() {
     });
   }, [id, detail?.number]);
 
+  const openInvoicesPage = useCallback(() => {
+    if (!id) {
+      return;
+    }
+    pushOrderInvoices(routerRef.current, {
+      source: 'app-quotations',
+      orderId: id,
+      orderNumber: detail?.number,
+    });
+  }, [id, detail?.number]);
+
 
 
   const handleCreateInvoice = useCallback(async () => {
@@ -175,16 +187,20 @@ export default function AppQuotationDetailScreen() {
     const showCancel = detail ? canCancelQuotation(detail.status) : false;
     const showConfirm = detail ? canConfirmQuotation(detail.status) : false;
     const showValidate = detail ? canValidateDelivery(detail) : false;
-    const showInvoice = detail ? canCreateInvoice(detail) : false;
+    const invoiceCount = detail?.invoiceCount ?? 0;
+    const showInvoice =
+      Boolean(detail && canCreateInvoice(detail) && invoiceCount === 0);
     const showPay = detail ? canPayInvoice(detail) : false;
     const deliveryCount = detail?.deliveryCount ?? 0;
     const showDelivery = deliveryCount > 0;
+    const showInvoices = invoiceCount > 0;
     navigation.setOptions({
       headerRight:
         showCancel ||
         showConfirm ||
         showValidate ||
         showDelivery ||
+        showInvoices ||
         showInvoice ||
         showPay
           ? () => (
@@ -231,9 +247,19 @@ export default function AppQuotationDetailScreen() {
                     accessibilityLabel={`${deliveryCount} Delivery`}
                   />
                 ) : null}
-                {showInvoice ? (
+                {showInvoices ? (
                   <IconButton
                     icon="file-document-outline"
+                    iconColor={theme.colors.onPrimary}
+                    onPress={() => {
+                      openInvoicesPage();
+                    }}
+                    accessibilityLabel={`${invoiceCount} Invoice`}
+                  />
+                ) : null}
+                {showInvoice ? (
+                  <IconButton
+                    icon="file-plus-outline"
                     iconColor={theme.colors.onPrimary}
                     disabled={
                       creatingInvoice ||
@@ -292,6 +318,7 @@ export default function AppQuotationDetailScreen() {
     payingInvoice,
     theme.colors.onPrimary,
     openDeliveriesPage,
+    openInvoicesPage,
     openPayInvoice,
   ]);
 
@@ -307,6 +334,13 @@ export default function AppQuotationDetailScreen() {
           (detail?.deliveryCount ?? 0) > 0
             ? () => {
                 openDeliveriesPage();
+              }
+            : undefined
+        }
+        onOpenInvoices={
+          (detail?.invoiceCount ?? 0) > 0
+            ? () => {
+                openInvoicesPage();
               }
             : undefined
         }

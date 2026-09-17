@@ -1,5 +1,6 @@
 import { Quotation, QuotationDetail } from '@/types/quotation';
 import { DeliveryPreview } from '@/types/delivery';
+import { InvoicePreview } from '@/types/invoice';
 import { appApiRequest } from '@/services/app/client';
 
 type ListResponse = { data: Quotation[] };
@@ -72,6 +73,17 @@ export async function fetchAppQuotationDeliveries(
 ): Promise<DeliveryPreview[]> {
   const response = await appApiRequest<{ data: DeliveryPreview[] }>(
     `/quotations/${id}/deliveries`,
+    { token },
+  );
+  return response.data;
+}
+
+export async function fetchAppQuotationInvoices(
+  token: string,
+  id: string,
+): Promise<InvoicePreview[]> {
+  const response = await appApiRequest<{ data: InvoicePreview[] }>(
+    `/quotations/${id}/invoices`,
     { token },
   );
   return response.data;
