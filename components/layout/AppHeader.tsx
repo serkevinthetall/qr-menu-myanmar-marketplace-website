@@ -367,6 +367,31 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
                   </Pressable>
                 )
               ) : null}
+              {(detailHeader.deliveryCount ?? 0) > 0 && detailHeader.onOpenDelivery ? (
+                isMobile ? (
+                  <IconButton
+                    icon="truck-delivery-outline"
+                    iconColor={colors.onPrimary}
+                    containerColor="transparent"
+                    rippleColor={colors.headerRipple}
+                    size={22}
+                    onPress={detailHeader.onOpenDelivery}
+                    accessibilityLabel={`${detailHeader.deliveryCount} Delivery`}
+                  />
+                ) : (
+                  <Pressable
+                    onPress={detailHeader.onOpenDelivery}
+                    style={styles.detailActionGhost}>
+                    <Text style={[styles.detailActionGhostText, { color: colors.onPrimary }]}>
+                      {detailHeader.deliveryCount}
+                    </Text>
+                    <Icon source="truck-delivery-outline" size={16} color={colors.onPrimary} />
+                    <Text style={[styles.detailActionGhostText, { color: colors.onPrimary }]}>
+                      {(detailHeader.deliveryCount ?? 0) === 1 ? 'DELIVERY' : 'DELIVERIES'}
+                    </Text>
+                  </Pressable>
+                )
+              ) : null}
               {detailHeader.onCreateInvoice ? (
                 isMobile ? (
                   <IconButton

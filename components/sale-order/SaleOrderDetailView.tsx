@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Icon, Text, useTheme } from 'react-native-paper';
 
+import { DeliverySmartButton } from '@/components/delivery/DeliverySmartButton';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { getSaleOrderStatusColors } from '@/constants/status-colors';
 import { useAppTheme } from '@/contexts/theme-context';
@@ -123,6 +124,13 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
+function formatLineQty(value: number): string {
+  return Number(value || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 function LinesTable({
   lines,
   compact,
@@ -137,9 +145,6 @@ function LinesTable({
     return (
       <View style={styles.mobileLines}>
         {lines.map((line, index) => {
-          const qty = line.quantity.toLocaleString('en-US', {
-            maximumFractionDigits: 2,
-          });
           return (
             <View
               key={line.id}
@@ -164,10 +169,15 @@ function LinesTable({
                   size="body"
                   style={{ color: detail.onSurface, fontWeight: '700' }}
                   numberOfLines={3}>
-                  {line.product}
+                  {line.product?.trim() || '—'}
                 </CustomerNameText>
                 <Text style={{ color: detail.label, fontSize: 12 }}>
-                  {qty} {line.unit || 'Units'} × {formatMoney(line.unitPrice)}
+                  Qty {formatLineQty(line.quantity)} · Delivered{' '}
+                  {formatLineQty(line.deliveredQty)} · Invoiced{' '}
+                  {formatLineQty(line.invoicedQty)}
+                </Text>
+                <Text style={{ color: detail.label, fontSize: 12 }}>
+                  {line.unit || 'Units'} × {formatMoney(line.unitPrice)}
                 </Text>
                 <Text
                   style={{
@@ -204,12 +214,22 @@ function LinesTable({
         </View>
         <View style={styles.lineColQty}>
           <Text style={[styles.headerText, styles.right, { color: detail.label }]}>
-            QTY
+            QUANTITY
+          </Text>
+        </View>
+        <View style={styles.lineColQty}>
+          <Text style={[styles.headerText, styles.right, { color: detail.label }]}>
+            DELIVERED
+          </Text>
+        </View>
+        <View style={styles.lineColQty}>
+          <Text style={[styles.headerText, styles.right, { color: detail.label }]}>
+            INVOICED
           </Text>
         </View>
         <View style={styles.lineColUnit}>
           <Text style={[styles.headerText, styles.center, { color: detail.label }]}>
-            UOM
+            UNIT
           </Text>
         </View>
         <View style={styles.lineColPrice}>
@@ -250,10 +270,17 @@ function LinesTable({
             </View>
             <View style={styles.lineColQty}>
               <Text style={[styles.cell, styles.right, { color: detail.onSurface }]}>
-                {Number(line.quantity || 0).toLocaleString('en-US', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                {formatLineQty(line.quantity)}
+              </Text>
+            </View>
+            <View style={styles.lineColQty}>
+              <Text style={[styles.cell, styles.right, { color: detail.onSurface }]}>
+                {formatLineQty(line.deliveredQty)}
+              </Text>
+            </View>
+            <View style={styles.lineColQty}>
+              <Text style={[styles.cell, styles.right, { color: detail.onSurface }]}>
+                {formatLineQty(line.invoicedQty)}
               </Text>
             </View>
             <View style={styles.lineColUnit}>
@@ -287,12 +314,14 @@ type SaleOrderDetailViewProps = {
   detail: SaleOrderDetail | null;
   loading: boolean;
   error: string;
+  onOpenDelivery?: () => void;
 };
 
 export function SaleOrderDetailView({
   detail,
   loading,
   error,
+  onOpenDelivery,
 }: SaleOrderDetailViewProps) {
   const theme = useTheme();
   const detailTheme = useDetailTheme();
@@ -398,6 +427,15 @@ export function SaleOrderDetailView({
               </View>
             </View>
           </SurfaceCard>
+
+          {(detail.deliveryCount ?? 0) > 0 ? (
+            <View style={styles.smartRow}>
+              <DeliverySmartButton
+                count={detail.deliveryCount ?? 0}
+                onPress={onOpenDelivery}
+              />
+            </View>
+          ) : null}
 
           <View style={[styles.metaGrid, isMobile && styles.metaGridStack]}>
             <MetaTile
@@ -550,6 +588,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
+  },
+  smartRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   heroEyebrow: {
     color: 'rgba(255,255,255,0.75)',

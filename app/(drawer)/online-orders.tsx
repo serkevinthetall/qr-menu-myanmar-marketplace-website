@@ -1020,6 +1020,13 @@ export default function OnlineOrdersScreen() {
           }
         : undefined,
       validatingDelivery: detailValidatingDelivery,
+      onOpenDelivery:
+        (detail?.deliveryCount ?? 0) > 0
+          ? () => {
+              void openValidateDelivery(selectedId);
+            }
+          : undefined,
+      deliveryCount: detail?.deliveryCount ?? 0,
       onCreateInvoice: showInvoice
         ? () => setCreateInvoiceVisible(true)
         : undefined,
@@ -1254,6 +1261,13 @@ export default function OnlineOrdersScreen() {
           detail={detail}
           loading={detailLoading}
           error={detailError}
+          onOpenDelivery={
+            (detail?.deliveryCount ?? 0) > 0
+              ? () => {
+                  void openValidateDelivery(selectedId);
+                }
+              : undefined
+          }
         />
         <DeliveryValidatePreview
           visible={validateDeliveryVisible}

@@ -3,6 +3,10 @@ export type SaleOrderLine = {
   productId: string;
   product: string;
   quantity: number;
+  /** Odoo qty_delivered — same as online sale "Delivered". */
+  deliveredQty: number;
+  /** Odoo qty_invoiced — same as online sale "Invoiced". */
+  invoicedQty: number;
   unit: string;
   unitPrice: number;
   amount: number;
@@ -37,6 +41,8 @@ export type SaleOrderDetail = SaleOrder & {
   /** Studio Delivery Notes (`x_studio_delivery_notes`). */
   deliveryNotes: string;
   lines: SaleOrderLine[];
+  /** Outgoing delivery / picking count (Odoo Delivery smart button). */
+  deliveryCount?: number;
   /** True when Odoo invoice_status is "to invoice". */
   canCreateInvoice?: boolean;
   /** True when an unpaid customer invoice exists. */

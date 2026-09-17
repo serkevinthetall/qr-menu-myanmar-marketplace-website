@@ -201,9 +201,16 @@ export default function AppQuotationDetailScreen() {
     const showValidate = detail ? canValidateDelivery(detail) : false;
     const showInvoice = detail ? canCreateInvoice(detail) : false;
     const showPay = detail ? canPayInvoice(detail) : false;
+    const deliveryCount = detail?.deliveryCount ?? 0;
+    const showDelivery = deliveryCount > 0;
     navigation.setOptions({
       headerRight:
-        showCancel || showConfirm || showValidate || showInvoice || showPay
+        showCancel ||
+        showConfirm ||
+        showValidate ||
+        showDelivery ||
+        showInvoice ||
+        showPay
           ? () => (
               <View style={styles.headerActions}>
                 {showConfirm ? (
@@ -236,6 +243,16 @@ export default function AppQuotationDetailScreen() {
                       void openValidateDelivery();
                     }}
                     accessibilityLabel="Validate delivery"
+                  />
+                ) : null}
+                {showDelivery ? (
+                  <IconButton
+                    icon="truck-delivery-outline"
+                    iconColor={theme.colors.onPrimary}
+                    onPress={() => {
+                      void openValidateDelivery();
+                    }}
+                    accessibilityLabel={`${deliveryCount} Delivery`}
                   />
                 ) : null}
                 {showInvoice ? (
@@ -310,6 +327,13 @@ export default function AppQuotationDetailScreen() {
         error={error}
         onBack={() => router.back()}
         contentBottomInset={88}
+        onOpenDelivery={
+          (detail?.deliveryCount ?? 0) > 0
+            ? () => {
+                void openValidateDelivery();
+              }
+            : undefined
+        }
       />
 
       <Portal>

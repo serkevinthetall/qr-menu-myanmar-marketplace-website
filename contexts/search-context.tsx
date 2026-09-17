@@ -38,6 +38,12 @@ export type DetailHeader = {
   /** Validate Odoo delivery (stock.picking) — shown beside Print/Confirm. */
   onValidateDelivery?: () => void;
   validatingDelivery?: boolean;
+  /**
+   * Odoo Delivery smart button — opens delivery preview (e.g. WH/OUT/…)
+   * even when already Done / not validatable.
+   */
+  onOpenDelivery?: () => void;
+  deliveryCount?: number;
   /** Create Odoo customer invoice — shown beside Validate. */
   onCreateInvoice?: () => void;
   creatingInvoice?: boolean;

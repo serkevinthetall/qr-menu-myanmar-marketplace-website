@@ -941,6 +941,13 @@ export default function QuotationScreen() {
           }
         : undefined,
       validatingDelivery: detailValidatingDelivery,
+      onOpenDelivery:
+        (detail?.deliveryCount ?? 0) > 0
+          ? () => {
+              void openValidateDelivery();
+            }
+          : undefined,
+      deliveryCount: detail?.deliveryCount ?? 0,
       onCreateInvoice: showInvoice
         ? () => setCreateInvoiceVisible(true)
         : undefined,
@@ -1265,6 +1272,13 @@ export default function QuotationScreen() {
           error={detailError}
           onBack={closeDetail}
           onReorder={handleReorderFromDetail}
+          onOpenDelivery={
+            (detail?.deliveryCount ?? 0) > 0
+              ? () => {
+                  void openValidateDelivery();
+                }
+              : undefined
+          }
         />
         <Portal>
           <Dialog

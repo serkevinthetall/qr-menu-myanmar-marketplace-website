@@ -756,6 +756,7 @@ export default function SaleOrdersScreen() {
     const showValidate = detail ? canValidateDelivery(detail) : false;
     const showInvoice = detail ? canCreateInvoice(detail) : false;
     const showPay = detail ? canPayInvoice(detail) : false;
+    const deliveryCount = detail?.deliveryCount ?? 0;
 
     setDetailHeader({
       title: detail?.number ?? 'Sale Order',
@@ -773,6 +774,13 @@ export default function SaleOrdersScreen() {
           }
         : undefined,
       validatingDelivery: detailValidatingDelivery,
+      onOpenDelivery:
+        deliveryCount > 0
+          ? () => {
+              void openValidateDelivery(selectedId);
+            }
+          : undefined,
+      deliveryCount,
       onCreateInvoice: showInvoice
         ? () => setCreateInvoiceVisible(true)
         : undefined,
@@ -952,6 +960,13 @@ export default function SaleOrdersScreen() {
           detail={detail}
           loading={detailLoading}
           error={detailError}
+          onOpenDelivery={
+            (detail?.deliveryCount ?? 0) > 0
+              ? () => {
+                  void openValidateDelivery(selectedId);
+                }
+              : undefined
+          }
         />
         <DeliveryValidatePreview
           visible={validateDeliveryVisible}

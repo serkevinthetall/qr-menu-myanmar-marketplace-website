@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Button, Checkbox, Icon, Text, useTheme } from 'react-native-paper';
 
+import { DeliverySmartButton } from '@/components/delivery/DeliverySmartButton';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
 import { QuotationDetail, QuotationLine, QuotationReorderSeed } from '@/types/quotation';
@@ -247,7 +248,14 @@ function LinesTable({
               <Text
                 style={[styles.mobileLineMeta, { color: detail.label }]}
                 numberOfLines={2}>
-                {qty} {line.unit || 'Units'} × {formatMoney(line.unitPrice)}
+                Qty {qty} · Delivered{' '}
+                {Number(line.deliveredQty || 0).toLocaleString('en-US', {
+                  maximumFractionDigits: 2,
+                })}{' '}
+                · Invoiced{' '}
+                {Number(line.invoicedQty || 0).toLocaleString('en-US', {
+                  maximumFractionDigits: 2,
+                })}
                 {disc}
               </Text>
               <Text
@@ -278,7 +286,17 @@ function LinesTable({
         </View>
         <View style={styles.lineColQty}>
           <Text style={[styles.headerText, styles.cellTextRight, { color: detail.label }]}>
-            QTY
+            QUANTITY
+          </Text>
+        </View>
+        <View style={styles.lineColQty}>
+          <Text style={[styles.headerText, styles.cellTextRight, { color: detail.label }]}>
+            DELIVERED
+          </Text>
+        </View>
+        <View style={styles.lineColQty}>
+          <Text style={[styles.headerText, styles.cellTextRight, { color: detail.label }]}>
+            INVOICED
           </Text>
         </View>
         <View style={styles.lineColUnit}>
@@ -341,6 +359,26 @@ function LinesTable({
                 style={[styles.lineCellText, styles.cellTextRight, { color: detail.cellText }]}
                 numberOfLines={1}>
                 {Number(line.quantity || 0).toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </Text>
+            </View>
+            <View style={styles.lineColQty}>
+              <Text
+                style={[styles.lineCellText, styles.cellTextRight, { color: detail.cellText }]}
+                numberOfLines={1}>
+                {Number(line.deliveredQty || 0).toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </Text>
+            </View>
+            <View style={styles.lineColQty}>
+              <Text
+                style={[styles.lineCellText, styles.cellTextRight, { color: detail.cellText }]}
+                numberOfLines={1}>
+                {Number(line.invoicedQty || 0).toLocaleString('en-US', {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
@@ -448,6 +486,7 @@ type QuotationDetailViewProps = {
   error: string;
   onBack: () => void;
   onReorder?: (seed: QuotationReorderSeed) => void;
+  onOpenDelivery?: () => void;
   /** Extra scroll padding (e.g. floating Print FAB on phone app). */
   contentBottomInset?: number;
 };
@@ -457,6 +496,7 @@ export function QuotationDetailView({
   loading,
   error,
   onReorder,
+  onOpenDelivery,
   contentBottomInset = 0,
 }: QuotationDetailViewProps) {
   const theme = useTheme();
@@ -558,6 +598,14 @@ export function QuotationDetailView({
           ]}
           showsVerticalScrollIndicator={false}>
           <View style={styles.page}>
+            {(detail.deliveryCount ?? 0) > 0 ? (
+              <View style={styles.smartRow}>
+                <DeliverySmartButton
+                  count={detail.deliveryCount ?? 0}
+                  onPress={onOpenDelivery}
+                />
+              </View>
+            ) : null}
             <SurfaceCard>
               <View style={[styles.infoLayout, isMobile && styles.infoLayoutStack]}>
                 <View style={styles.infoCol}>
@@ -714,6 +762,12 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 1100,
     gap: 14,
+  },
+  smartRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   surfaceCard: {
     borderRadius: 8,

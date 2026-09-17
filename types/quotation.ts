@@ -21,6 +21,10 @@ export type QuotationLine = {
   productId: string;
   product: string;
   quantity: number;
+  /** Odoo qty_delivered — same as online sale "Delivered". */
+  deliveredQty: number;
+  /** Odoo qty_invoiced — same as online sale "Invoiced". */
+  invoicedQty: number;
   unit: string;
   unitPrice: number;
   discountPercent: number;
@@ -65,6 +69,8 @@ export type QuotationDetail = Quotation & {
   preferredDeliveryDate: string;
   deliveryNotes: string;
   lines: QuotationLine[];
+  /** Outgoing delivery / picking count (Odoo Delivery smart button). */
+  deliveryCount?: number;
   /** True when an outgoing Odoo delivery can be validated. */
   canValidateDelivery?: boolean;
   /** True when Odoo invoice_status is "to invoice". */
