@@ -121,10 +121,15 @@ export async function fetchQuotationDeliveries(
 export async function validateQuotationDelivery(
   token: string,
   id: string,
+  pickingId?: string,
 ): Promise<QuotationDetail> {
   const response = await webApiRequest<QuotationDetailResponse>(
     `/quotations/${id}/validate-delivery`,
-    { method: 'POST', token },
+    {
+      method: 'POST',
+      token,
+      body: pickingId ? { pickingId } : undefined,
+    },
   );
   return response.data;
 }

@@ -98,10 +98,15 @@ export async function fetchSaleOrderDeliveries(
 export async function validateSaleOrderDelivery(
   token: string,
   id: string,
+  pickingId?: string,
 ): Promise<SaleOrderDetail> {
   const response = await webApiRequest<DetailResponse>(
     `/sale-orders/${id}/validate-delivery`,
-    { method: 'POST', token },
+    {
+      method: 'POST',
+      token,
+      body: pickingId ? { pickingId } : undefined,
+    },
   );
   return response.data;
 }

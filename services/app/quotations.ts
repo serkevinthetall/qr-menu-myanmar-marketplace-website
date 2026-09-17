@@ -80,10 +80,15 @@ export async function fetchAppQuotationDeliveries(
 export async function validateAppQuotationDelivery(
   token: string,
   id: string,
+  pickingId?: string,
 ): Promise<QuotationDetail> {
   const response = await appApiRequest<DetailResponse>(
     `/quotations/${id}/validate-delivery`,
-    { method: 'POST', token },
+    {
+      method: 'POST',
+      token,
+      body: pickingId ? { pickingId } : undefined,
+    },
   );
   return response.data;
 }

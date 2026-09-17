@@ -28,7 +28,6 @@ import {
   QuotationFilters,
 } from '@/components/quotation/QuotationFilterBar';
 import { QuotationPrintPreview } from '@/components/quotation/QuotationPrintPreview';
-import { DeliveryValidatePreview } from '@/components/delivery/DeliveryValidatePreview';
 import { PayInvoiceDialog } from '@/components/delivery/PayInvoiceDialog';
 import { SaleOrderDateTotalBar } from '@/components/sale-order/SaleOrderDateTotalBar';
 import { Pagination } from '@/components/ui/Pagination';
@@ -51,13 +50,11 @@ import {
 } from '@/services/web/product-catalog-cache';
 import {
   fetchQuotationDetail,
-  fetchQuotationDeliveries,
   fetchQuotationsPage,
   createQuotation,
   createQuotationInvoice,
   cancelQuotation,
   confirmQuotation,
-  validateQuotationDelivery,
   payQuotationInvoice,
   fetchPaymentMethods,
 } from '@/services/quotations';
@@ -69,7 +66,6 @@ import {
   setQuotationBuilderCache,
 } from '@/utils/quotation-builder-cache';
 import { Customer } from '@/types/customer';
-import { DeliveryPreview } from '@/types/delivery';
 import { Product } from '@/types/product';
 import { Quotation, QuotationDetail, PaymentMethod, QuotationReorderSeed } from '@/types/quotation';
 import { exportSelectedQuotations } from '@/utils/export-quotation-excel';
@@ -79,6 +75,7 @@ import {
   shouldResumeQuotationDraft,
 } from '@/utils/quotation-draft-storage';
 import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
+import { pushOrderDeliveries } from '@/utils/order-delivery-nav';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
 import { PrintFormat } from '@/utils/print-quotation';
 
@@ -397,10 +394,6 @@ export default function QuotationScreen() {
   const [detailConfirming, setDetailConfirming] = useState(false);
   const [confirmConfirmVisible, setConfirmConfirmVisible] = useState(false);
   const [detailValidatingDelivery, setDetailValidatingDelivery] = useState(false);
-  const [validateDeliveryVisible, setValidateDeliveryVisible] = useState(false);
-  const [deliveryPreviews, setDeliveryPreviews] = useState<DeliveryPreview[]>([]);
-  const [deliveryPreviewLoading, setDeliveryPreviewLoading] = useState(false);
-  const [deliveryPreviewError, setDeliveryPreviewError] = useState('');
   const [detailCreatingInvoice, setDetailCreatingInvoice] = useState(false);
   const [createInvoiceVisible, setCreateInvoiceVisible] = useState(false);
   const [detailPayingInvoice, setDetailPayingInvoice] = useState(false);
@@ -725,10 +718,6 @@ export default function QuotationScreen() {
     setDetailConfirming(false);
     setConfirmConfirmVisible(false);
     setDetailValidatingDelivery(false);
-    setValidateDeliveryVisible(false);
-    setDeliveryPreviews([]);
-    setDeliveryPreviewLoading(false);
-    setDeliveryPreviewError('');
     setDetailCreatingInvoice(false);
     setCreateInvoiceVisible(false);
     setDetailPayingInvoice(false);
@@ -737,25 +726,17 @@ export default function QuotationScreen() {
     setPaymentMethodsForPayLoading(false);
   }, []);
 
-  const openValidateDelivery = useCallback(async () => {
-    if (!session?.token || !detailId) {
+  const openDeliveriesPage = useCallback(() => {
+    if (!detailId) {
       return;
     }
-    setValidateDeliveryVisible(true);
-    setDeliveryPreviewLoading(true);
-    setDeliveryPreviewError('');
-    setDeliveryPreviews([]);
-    try {
-      const data = await fetchQuotationDeliveries(session.token, detailId);
-      setDeliveryPreviews(data);
-    } catch (err) {
-      setDeliveryPreviewError(
-        err instanceof Error ? err.message : 'Failed to load delivery preview.',
-      );
-    } finally {
-      setDeliveryPreviewLoading(false);
-    }
-  }, [session?.token, detailId]);
+    pushOrderDeliveries(router, {
+      source: 'quotations',
+      orderId: detailId,
+      orderNumber: detail?.number,
+    });
+  }, [detailId, detail?.number, router]);
+
 
   const handleCancelDetail = useCallback(async () => {
     if (!session?.token || !detailId) {
@@ -811,32 +792,6 @@ export default function QuotationScreen() {
     }
   }, [session?.token, detailId]);
 
-  const handleValidateDeliveryDetail = useCallback(async () => {
-    if (!session?.token || !detailId) {
-      return;
-    }
-    setDetailValidatingDelivery(true);
-    setDetailError('');
-    try {
-      const updated = await validateQuotationDelivery(session.token, detailId);
-      setDetail(updated);
-      setQuotations(prev =>
-        prev.map(item =>
-          item.id === updated.id
-            ? { ...item, status: updated.status, total: updated.total }
-            : item,
-        ),
-      );
-      setValidateDeliveryVisible(false);
-      setSnackbar(`Delivery validated for ${updated.number}.`);
-    } catch (err) {
-      setDetailError(
-        err instanceof Error ? err.message : 'Failed to validate delivery.',
-      );
-    } finally {
-      setDetailValidatingDelivery(false);
-    }
-  }, [session?.token, detailId]);
 
   const handleCreateInvoiceDetail = useCallback(async () => {
     if (!session?.token || !detailId) {
@@ -937,14 +892,14 @@ export default function QuotationScreen() {
       confirming: detailConfirming,
       onValidateDelivery: showValidate
         ? () => {
-            void openValidateDelivery();
+            openDeliveriesPage();
           }
         : undefined,
       validatingDelivery: detailValidatingDelivery,
       onOpenDelivery:
         (detail?.deliveryCount ?? 0) > 0
           ? () => {
-              void openValidateDelivery();
+              openDeliveriesPage();
             }
           : undefined,
       deliveryCount: detail?.deliveryCount ?? 0,
@@ -974,7 +929,7 @@ export default function QuotationScreen() {
     detailValidatingDelivery,
     detailCreatingInvoice,
     detailPayingInvoice,
-    openValidateDelivery,
+    openDeliveriesPage,
     openPayInvoice,
   ]);
 
@@ -1275,7 +1230,7 @@ export default function QuotationScreen() {
           onOpenDelivery={
             (detail?.deliveryCount ?? 0) > 0
               ? () => {
-                  void openValidateDelivery();
+                  openDeliveriesPage();
                 }
               : undefined
           }
@@ -1341,18 +1296,6 @@ export default function QuotationScreen() {
               </Button>
             </Dialog.Actions>
           </Dialog>
-          <DeliveryValidatePreview
-            visible={validateDeliveryVisible}
-            orderLabel={detail?.number}
-            deliveries={deliveryPreviews}
-            loading={deliveryPreviewLoading}
-            error={deliveryPreviewError}
-            validating={detailValidatingDelivery}
-            onDismiss={() => setValidateDeliveryVisible(false)}
-            onConfirm={() => {
-              void handleValidateDeliveryDetail();
-            }}
-          />
           <Dialog
             visible={createInvoiceVisible}
             onDismiss={() =>

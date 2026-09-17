@@ -13,7 +13,6 @@ import {
 
 import { QuotationDetailView } from '@/components/quotation/QuotationDetailView';
 import { QuotationPrintPreview } from '@/components/quotation/QuotationPrintPreview';
-import { DeliveryValidatePreview } from '@/components/delivery/DeliveryValidatePreview';
 import { PayInvoiceDialog } from '@/components/delivery/PayInvoiceDialog';
 import {
   canCancelQuotation,
@@ -29,12 +28,10 @@ import {
   createAppQuotationInvoice,
   fetchAppPaymentMethods,
   fetchAppQuotationDetail,
-  fetchAppQuotationDeliveries,
   payAppQuotationInvoice,
-  validateAppQuotationDelivery,
 } from '@/services/app/quotations';
-import { DeliveryPreview } from '@/types/delivery';
 import { PaymentMethod, QuotationDetail } from '@/types/quotation';
+import { pushOrderDeliveries } from '@/utils/order-delivery-nav';
 
 export default function AppQuotationDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -51,11 +48,7 @@ export default function AppQuotationDetailScreen() {
   const [cancelConfirmVisible, setCancelConfirmVisible] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [confirmConfirmVisible, setConfirmConfirmVisible] = useState(false);
-  const [validatingDelivery, setValidatingDelivery] = useState(false);
-  const [validateDeliveryVisible, setValidateDeliveryVisible] = useState(false);
-  const [deliveryPreviews, setDeliveryPreviews] = useState<DeliveryPreview[]>([]);
-  const [deliveryPreviewLoading, setDeliveryPreviewLoading] = useState(false);
-  const [deliveryPreviewError, setDeliveryPreviewError] = useState('');
+  const [validatingDelivery] = useState(false);
   const [creatingInvoice, setCreatingInvoice] = useState(false);
   const [createInvoiceVisible, setCreateInvoiceVisible] = useState(false);
   const [payingInvoice, setPayingInvoice] = useState(false);
@@ -110,37 +103,18 @@ export default function AppQuotationDetailScreen() {
     }
   }, [session?.token, id]);
 
-  const openValidateDelivery = useCallback(async () => {
-    if (!session?.token || !id) return;
-    setValidateDeliveryVisible(true);
-    setDeliveryPreviewLoading(true);
-    setDeliveryPreviewError('');
-    setDeliveryPreviews([]);
-    try {
-      const data = await fetchAppQuotationDeliveries(session.token, id);
-      setDeliveryPreviews(data);
-    } catch (err) {
-      setDeliveryPreviewError(
-        err instanceof Error ? err.message : 'Failed to load delivery preview.',
-      );
-    } finally {
-      setDeliveryPreviewLoading(false);
+  const openDeliveriesPage = useCallback(() => {
+    if (!id) {
+      return;
     }
-  }, [session?.token, id]);
+    pushOrderDeliveries(router, {
+      source: 'app-quotations',
+      orderId: id,
+      orderNumber: detail?.number,
+    });
+  }, [id, detail?.number, router]);
 
-  const handleValidateDelivery = useCallback(async () => {
-    if (!session?.token || !id) return;
-    setValidatingDelivery(true);
-    try {
-      const updated = await validateAppQuotationDelivery(session.token, id);
-      setDetail(updated);
-      setValidateDeliveryVisible(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to validate delivery.');
-    } finally {
-      setValidatingDelivery(false);
-    }
-  }, [session?.token, id]);
+
 
   const handleCreateInvoice = useCallback(async () => {
     if (!session?.token || !id) return;
@@ -240,7 +214,7 @@ export default function AppQuotationDetailScreen() {
                       payingInvoice
                     }
                     onPress={() => {
-                      void openValidateDelivery();
+                      openDeliveriesPage();
                     }}
                     accessibilityLabel="Validate delivery"
                   />
@@ -250,7 +224,7 @@ export default function AppQuotationDetailScreen() {
                     icon="truck-delivery-outline"
                     iconColor={theme.colors.onPrimary}
                     onPress={() => {
-                      void openValidateDelivery();
+                      openDeliveriesPage();
                     }}
                     accessibilityLabel={`${deliveryCount} Delivery`}
                   />
@@ -315,7 +289,7 @@ export default function AppQuotationDetailScreen() {
     creatingInvoice,
     payingInvoice,
     theme.colors.onPrimary,
-    openValidateDelivery,
+    openDeliveriesPage,
     openPayInvoice,
   ]);
 
@@ -330,7 +304,7 @@ export default function AppQuotationDetailScreen() {
         onOpenDelivery={
           (detail?.deliveryCount ?? 0) > 0
             ? () => {
-                void openValidateDelivery();
+                openDeliveriesPage();
               }
             : undefined
         }
@@ -419,19 +393,6 @@ export default function AppQuotationDetailScreen() {
             </Button>
           </Dialog.Actions>
         </Dialog>
-
-        <DeliveryValidatePreview
-          visible={validateDeliveryVisible}
-          orderLabel={detail?.number}
-          deliveries={deliveryPreviews}
-          loading={deliveryPreviewLoading}
-          error={deliveryPreviewError}
-          validating={validatingDelivery}
-          onDismiss={() => setValidateDeliveryVisible(false)}
-          onConfirm={() => {
-            void handleValidateDelivery();
-          }}
-        />
 
         <Dialog
           visible={createInvoiceVisible}

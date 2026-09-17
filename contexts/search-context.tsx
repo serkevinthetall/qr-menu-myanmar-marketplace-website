@@ -248,6 +248,24 @@ export function useModuleSearch(placeholder: string, enabled = true) {
   return query;
 }
 
+/** Detail breadcrumb/actions while this screen is focused. */
+export function useDetailHeader(header: DetailHeader | null) {
+  const { setDetailHeader } = useSearch();
+  const headerRef = useRef(header);
+  headerRef.current = header;
+
+  useFocusEffect(
+    useCallback(() => {
+      setDetailHeader(headerRef.current);
+      return () => setDetailHeader(null);
+    }, [setDetailHeader]),
+  );
+
+  useEffect(() => {
+    setDetailHeader(header);
+  }, [header, setDetailHeader]);
+}
+
 /**
  * Registers module-specific action buttons in the navbar while the calling
  * screen is focused.

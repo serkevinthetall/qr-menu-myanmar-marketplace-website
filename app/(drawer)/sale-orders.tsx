@@ -7,7 +7,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Button,
@@ -21,7 +21,6 @@ import {
   useTheme,
 } from 'react-native-paper';
 
-import { DeliveryValidatePreview } from '@/components/delivery/DeliveryValidatePreview';
 import { PayInvoiceDialog } from '@/components/delivery/PayInvoiceDialog';
 import { SaleOrderDateTotalBar } from '@/components/sale-order/SaleOrderDateTotalBar';
 import { SaleOrderDetailView } from '@/components/sale-order/SaleOrderDetailView';
@@ -56,16 +55,15 @@ import { useResponsive } from '@/hooks/use-responsive';
 import {
   createSaleOrderInvoice,
   fetchSaleOrderDetail,
-  fetchSaleOrderDeliveries,
   fetchSaleOrders,
   paySaleOrderInvoice,
   validateSaleOrderDelivery,
 } from '@/services/sale-orders';
 import { fetchPaymentMethods } from '@/services/quotations';
-import { DeliveryPreview } from '@/types/delivery';
 import { PaymentMethod } from '@/types/quotation';
 import { SaleOrder, SaleOrderDetail } from '@/types/sale-order';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
+import { pushOrderDeliveries } from '@/utils/order-delivery-nav';
 import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
 import { PrintFormat } from '@/utils/print-quotation';
 
@@ -407,6 +405,7 @@ export default function SaleOrdersScreen() {
   const { mode } = useAppTheme();
   const { session } = useAuth();
   const { width } = useResponsive();
+  const router = useRouter();
   const { detailId: routeDetailId } = useLocalSearchParams<{
     detailId?: string;
   }>();
@@ -422,11 +421,6 @@ export default function SaleOrdersScreen() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
   const [detailValidatingDelivery, setDetailValidatingDelivery] = useState(false);
-  const [validateDeliveryVisible, setValidateDeliveryVisible] = useState(false);
-  const [validateTargetId, setValidateTargetId] = useState<string | null>(null);
-  const [deliveryPreviews, setDeliveryPreviews] = useState<DeliveryPreview[]>([]);
-  const [deliveryPreviewLoading, setDeliveryPreviewLoading] = useState(false);
-  const [deliveryPreviewError, setDeliveryPreviewError] = useState('');
   const [bulkValidateVisible, setBulkValidateVisible] = useState(false);
   const [detailCreatingInvoice, setDetailCreatingInvoice] = useState(false);
   const [createInvoiceVisible, setCreateInvoiceVisible] = useState(false);
@@ -547,11 +541,6 @@ export default function SaleOrdersScreen() {
     setDetail(null);
     setDetailError('');
     setDetailValidatingDelivery(false);
-    setValidateDeliveryVisible(false);
-    setValidateTargetId(null);
-    setDeliveryPreviews([]);
-    setDeliveryPreviewLoading(false);
-    setDeliveryPreviewError('');
     setBulkValidateVisible(false);
     setDetailCreatingInvoice(false);
     setCreateInvoiceVisible(false);
@@ -561,71 +550,20 @@ export default function SaleOrdersScreen() {
     setPaymentMethodsLoading(false);
   }, []);
 
-  const openValidateDelivery = useCallback(
-    async (orderId: string) => {
-      if (!session?.token || !orderId) {
+  const openDeliveriesPage = useCallback(
+    (orderId: string, orderNumber?: string) => {
+      if (!orderId) {
         return;
       }
-      setValidateTargetId(orderId);
-      setValidateDeliveryVisible(true);
-      setDeliveryPreviewLoading(true);
-      setDeliveryPreviewError('');
-      setDeliveryPreviews([]);
-      try {
-        const data = await fetchSaleOrderDeliveries(session.token, orderId);
-        setDeliveryPreviews(data);
-      } catch (err) {
-        setDeliveryPreviewError(
-          err instanceof Error
-            ? err.message
-            : 'Failed to load delivery preview.',
-        );
-      } finally {
-        setDeliveryPreviewLoading(false);
-      }
+      pushOrderDeliveries(router, {
+        source: 'sale-orders',
+        orderId,
+        orderNumber,
+      });
     },
-    [session?.token],
+    [router],
   );
 
-  const handleValidateDelivery = useCallback(async () => {
-    if (!session?.token || !validateTargetId) {
-      return;
-    }
-    setDetailValidatingDelivery(true);
-    setDetailError('');
-    try {
-      const updated = await validateSaleOrderDelivery(
-        session.token,
-        validateTargetId,
-      );
-      if (selectedId === validateTargetId) {
-        setDetail(updated);
-      }
-      setItems(prev =>
-        prev.map(order =>
-          order.id === updated.id
-            ? {
-                ...order,
-                canValidateDelivery: Boolean(updated.canValidateDelivery),
-              }
-            : order,
-        ),
-      );
-      setValidateDeliveryVisible(false);
-      setValidateTargetId(null);
-      setSnackbar(`Delivery validated for ${updated.number}.`);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to validate delivery.';
-      if (selectedId === validateTargetId) {
-        setDetailError(message);
-      } else {
-        setSnackbar(message);
-      }
-    } finally {
-      setDetailValidatingDelivery(false);
-    }
-  }, [session?.token, validateTargetId, selectedId]);
 
   const handleBulkValidateDelivery = useCallback(async () => {
     if (!session?.token) {
@@ -770,14 +708,14 @@ export default function SaleOrdersScreen() {
         : undefined,
       onValidateDelivery: showValidate
         ? () => {
-            void openValidateDelivery(selectedId);
+            openDeliveriesPage(selectedId, detail?.number);
           }
         : undefined,
       validatingDelivery: detailValidatingDelivery,
       onOpenDelivery:
         deliveryCount > 0
           ? () => {
-              void openValidateDelivery(selectedId);
+              openDeliveriesPage(selectedId, detail?.number);
             }
           : undefined,
       deliveryCount,
@@ -803,7 +741,7 @@ export default function SaleOrdersScreen() {
     detailValidatingDelivery,
     detailCreatingInvoice,
     detailPayingInvoice,
-    openValidateDelivery,
+    openDeliveriesPage,
     openPayInvoice,
   ]);
 
@@ -819,12 +757,6 @@ export default function SaleOrdersScreen() {
     [items, selectedIds],
   );
 
-  const validateOrderLabel = useMemo(() => {
-    if (detail?.id === validateTargetId) {
-      return detail.number;
-    }
-    return items.find(order => order.id === validateTargetId)?.number;
-  }, [detail, items, validateTargetId]);
 
   const headerActions = useMemo<HeaderAction[]>(() => {
     if (selectedId) {
@@ -844,7 +776,7 @@ export default function SaleOrdersScreen() {
         icon: 'truck-check-outline',
         label: 'Validate',
         onPress: () => {
-          void openValidateDelivery(selectedValidatable[0].id);
+          openDeliveriesPage(selectedValidatable[0].id, selectedValidatable[0].number);
         },
         accessibilityLabel: 'Validate delivery for selected order',
       });
@@ -863,7 +795,7 @@ export default function SaleOrdersScreen() {
     viewMode,
     toggleView,
     selectedValidatable,
-    openValidateDelivery,
+    openDeliveriesPage,
   ]);
 
   useHeaderActions(headerActions);
@@ -963,25 +895,10 @@ export default function SaleOrdersScreen() {
           onOpenDelivery={
             (detail?.deliveryCount ?? 0) > 0
               ? () => {
-                  void openValidateDelivery(selectedId);
+                  openDeliveriesPage(selectedId, detail?.number);
                 }
               : undefined
           }
-        />
-        <DeliveryValidatePreview
-          visible={validateDeliveryVisible}
-          orderLabel={validateOrderLabel}
-          deliveries={deliveryPreviews}
-          loading={deliveryPreviewLoading}
-          error={deliveryPreviewError}
-          validating={detailValidatingDelivery}
-          onDismiss={() => {
-            setValidateDeliveryVisible(false);
-            setValidateTargetId(null);
-          }}
-          onConfirm={() => {
-            void handleValidateDelivery();
-          }}
         />
         <Portal>
           <Dialog
@@ -1110,7 +1027,8 @@ export default function SaleOrdersScreen() {
                   onToggle={toggleOne}
                   onOpen={openDetail}
                   onValidateDelivery={id => {
-                    void openValidateDelivery(id);
+                    const row = items.find(o => o.id === id);
+                    openDeliveriesPage(id, row?.number);
                   }}
                   validating={detailValidatingDelivery}
                 />
@@ -1142,7 +1060,8 @@ export default function SaleOrdersScreen() {
                 onToggle={toggleOne}
                 onOpen={openDetail}
                 onValidateDelivery={id => {
-                  void openValidateDelivery(id);
+                  const row = items.find(o => o.id === id);
+                  openDeliveriesPage(id, row?.number);
                 }}
                 validating={detailValidatingDelivery}
               />
@@ -1166,22 +1085,6 @@ export default function SaleOrdersScreen() {
         onChange={setPage}
         centerLabel={`${filtered.length} from Odoo`}
         itemLabel="order"
-      />
-
-      <DeliveryValidatePreview
-        visible={validateDeliveryVisible}
-        orderLabel={validateOrderLabel}
-        deliveries={deliveryPreviews}
-        loading={deliveryPreviewLoading}
-        error={deliveryPreviewError}
-        validating={detailValidatingDelivery}
-        onDismiss={() => {
-          setValidateDeliveryVisible(false);
-          setValidateTargetId(null);
-        }}
-        onConfirm={() => {
-          void handleValidateDelivery();
-        }}
       />
       <Portal>
         <Dialog

@@ -122,10 +122,15 @@ export async function fetchOnlineOrderDeliveries(
 export async function validateOnlineOrderDelivery(
   token: string,
   id: string,
+  pickingId?: string,
 ): Promise<SaleOrderDetail> {
   const response = await webApiRequest<DetailResponse>(
     `/online-orders/${id}/validate-delivery`,
-    { method: 'POST', token },
+    {
+      method: 'POST',
+      token,
+      body: pickingId ? { pickingId } : undefined,
+    },
   );
   return response.data;
 }

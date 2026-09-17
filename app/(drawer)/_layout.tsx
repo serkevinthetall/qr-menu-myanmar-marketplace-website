@@ -120,6 +120,20 @@ export default function DrawerLayout() {
           }}
         />
         <Drawer.Screen
+          name="order-deliveries"
+          options={{
+            title: 'Deliveries',
+            drawerItemStyle: { display: 'none' },
+          }}
+        />
+        <Drawer.Screen
+          name="order-delivery-detail"
+          options={{
+            title: 'Delivery',
+            drawerItemStyle: { display: 'none' },
+          }}
+        />
+        <Drawer.Screen
           name="app-user-list"
           options={{
             title: 'App user list',
