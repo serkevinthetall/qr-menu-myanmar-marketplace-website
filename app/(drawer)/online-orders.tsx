@@ -536,9 +536,8 @@ export default function OnlineOrdersScreen() {
     ) {
       setReadFilter(saved.readFilter);
     }
-    if (typeof saved.groupByOrderDate === 'boolean') {
-      setGroupByOrderDate(saved.groupByOrderDate);
-    }
+    // Month/Day grouping is always on for list view (ignore saved off).
+    setGroupByOrderDate(true);
     if (saved.orderFilters && typeof saved.orderFilters === 'object') {
       setOrderFilters({
         ...EMPTY_SALE_ORDER_FILTERS,
@@ -574,15 +573,6 @@ export default function OnlineOrdersScreen() {
               {opt.label}
             </Chip>
           ))}
-          <Chip
-            compact
-            selected={groupByOrderDate}
-            onPress={() => setGroupByOrderDate(prev => !prev)}
-            icon={groupByOrderDate ? 'calendar-month' : 'calendar-blank'}
-            style={styles.readFilterChip}
-          >
-            Group by date
-          </Chip>
         </View>
         <SaleOrderFilterBar filters={orderFilters} onChange={setOrderFilters} />
       </View>
@@ -981,14 +971,6 @@ export default function OnlineOrdersScreen() {
     }
     const actions: HeaderAction[] = [
       {
-        key: 'group-date',
-        icon: groupByOrderDate ? 'calendar-month' : 'calendar-blank',
-        label: groupByOrderDate ? 'Grouped' : 'Group',
-        active: groupByOrderDate,
-        onPress: () => setGroupByOrderDate(prev => !prev),
-        accessibilityLabel: 'Toggle group by month and day',
-      },
-      {
         key: 'mark-all-read',
         icon: 'email-check-outline',
         onPress: () => {
@@ -1030,12 +1012,11 @@ export default function OnlineOrdersScreen() {
     markAllVisibleRead,
     selectedValidatable,
     openDeliveriesPage,
-    groupByOrderDate,
   ]);
 
   useHeaderActions(headerActions);
 
-  const showDateGroups = viewMode === 'list' && groupByOrderDate;
+  const showDateGroups = viewMode === 'list';
   const monthGroups = useMemo(
     () => (showDateGroups ? groupOrdersByMonthDay(filtered) : []),
     [showDateGroups, filtered],
@@ -1248,15 +1229,8 @@ export default function OnlineOrdersScreen() {
 
       {viewMode === 'list' ? (
         <View style={styles.groupChipBar}>
-          <Chip
-            compact
-            selected={groupByOrderDate}
-            onPress={() => setGroupByOrderDate(prev => !prev)}
-            icon={groupByOrderDate ? 'calendar-month' : 'calendar-blank'}
-            style={styles.readFilterChip}>
-            {groupByOrderDate
-              ? 'Order Date: Month › Day'
-              : 'Group by date'}
+          <Chip compact selected icon="calendar-month" style={styles.readFilterChip}>
+            Order Date: Month › Day
           </Chip>
         </View>
       ) : null}

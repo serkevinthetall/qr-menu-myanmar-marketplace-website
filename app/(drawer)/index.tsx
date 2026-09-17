@@ -429,9 +429,8 @@ export default function QuotationScreen() {
     if (saved.viewMode === 'list' || saved.viewMode === 'card') {
       setViewMode(saved.viewMode);
     }
-    if (typeof saved.groupByOrderDate === 'boolean') {
-      setGroupByOrderDate(saved.groupByOrderDate);
-    }
+    // Month/Day grouping is always on for list view (ignore saved off).
+    setGroupByOrderDate(true);
     if (saved.quotationFilters && typeof saved.quotationFilters === 'object') {
       setQuotationFilters({
         ...EMPTY_QUOTATION_FILTERS,
@@ -452,17 +451,6 @@ export default function QuotationScreen() {
   const filterPanel = useMemo(
     () => (
       <View>
-        <View style={styles.groupFilterRow}>
-          <Chip
-            compact
-            selected={groupByOrderDate}
-            onPress={() => setGroupByOrderDate(prev => !prev)}
-            icon={groupByOrderDate ? 'calendar-month' : 'calendar-blank'}
-            style={styles.groupFilterChip}
-          >
-            Group by date
-          </Chip>
-        </View>
         <QuotationFilterBar filters={quotationFilters} onChange={setQuotationFilters} />
       </View>
     ),
@@ -1028,14 +1016,6 @@ export default function QuotationScreen() {
     }
     return [
       {
-        key: 'group-date',
-        icon: groupByOrderDate ? 'calendar-month' : 'calendar-blank',
-        label: groupByOrderDate ? 'Grouped' : 'Group',
-        active: groupByOrderDate,
-        onPress: () => setGroupByOrderDate(prev => !prev),
-        accessibilityLabel: 'Toggle group by month and day',
-      },
-      {
         key: 'view',
         icon: viewMode === 'list' ? 'view-grid-outline' : 'format-list-bulleted',
         onPress: toggleView,
@@ -1070,12 +1050,11 @@ export default function QuotationScreen() {
     exportExcel,
     exportPdf,
     openBuilder,
-    groupByOrderDate,
   ]);
 
   useHeaderActions(headerActions);
 
-  const showDateGroups = viewMode === 'list' && groupByOrderDate;
+  const showDateGroups = viewMode === 'list';
   const monthGroups = useMemo(
     () =>
       showDateGroups
@@ -1488,15 +1467,8 @@ export default function QuotationScreen() {
 
       {viewMode === 'list' ? (
         <View style={styles.groupChipBar}>
-          <Chip
-            compact
-            selected={groupByOrderDate}
-            onPress={() => setGroupByOrderDate(prev => !prev)}
-            icon={groupByOrderDate ? 'calendar-month' : 'calendar-blank'}
-            style={styles.groupFilterChip}>
-            {groupByOrderDate
-              ? 'Creation Date: Month › Day'
-              : 'Group by date'}
+          <Chip compact selected icon="calendar-month" style={styles.groupFilterChip}>
+            Creation Date: Month › Day
           </Chip>
         </View>
       ) : null}

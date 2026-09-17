@@ -459,9 +459,8 @@ export default function SaleOrdersScreen() {
     if (saved.viewMode === 'list' || saved.viewMode === 'card') {
       setViewMode(saved.viewMode);
     }
-    if (typeof saved.groupByOrderDate === 'boolean') {
-      setGroupByOrderDate(saved.groupByOrderDate);
-    }
+    // Month/Day grouping is always on for list view (ignore saved off).
+    setGroupByOrderDate(true);
     if (saved.orderFilters && typeof saved.orderFilters === 'object') {
       setOrderFilters({
         ...EMPTY_SALE_ORDER_FILTERS,
@@ -479,17 +478,6 @@ export default function SaleOrdersScreen() {
   const filterPanel = useMemo(
     () => (
       <View>
-        <View style={styles.groupFilterRow}>
-          <Chip
-            compact
-            selected={groupByOrderDate}
-            onPress={() => setGroupByOrderDate(prev => !prev)}
-            icon={groupByOrderDate ? 'calendar-month' : 'calendar-blank'}
-            style={styles.groupFilterChip}
-          >
-            Group by date
-          </Chip>
-        </View>
         <SaleOrderFilterBar filters={orderFilters} onChange={setOrderFilters} />
       </View>
     ),
@@ -789,14 +777,6 @@ export default function SaleOrdersScreen() {
     }
     const actions: HeaderAction[] = [
       {
-        key: 'group-date',
-        icon: groupByOrderDate ? 'calendar-month' : 'calendar-blank',
-        label: groupByOrderDate ? 'Grouped' : 'Group',
-        active: groupByOrderDate,
-        onPress: () => setGroupByOrderDate(prev => !prev),
-        accessibilityLabel: 'Toggle group by month and day',
-      },
-      {
         key: 'view',
         icon: viewMode === 'list' ? 'view-grid-outline' : 'format-list-bulleted',
         onPress: toggleView,
@@ -829,7 +809,6 @@ export default function SaleOrdersScreen() {
     toggleView,
     selectedValidatable,
     openDeliveriesPage,
-    groupByOrderDate,
   ]);
 
   useHeaderActions(headerActions);
@@ -839,7 +818,7 @@ export default function SaleOrdersScreen() {
     [items, orderFilters],
   );
 
-  const showDateGroups = viewMode === 'list' && groupByOrderDate;
+  const showDateGroups = viewMode === 'list';
   const monthGroups = useMemo(
     () => (showDateGroups ? groupOrdersByMonthDay(filtered) : []),
     [showDateGroups, filtered],
@@ -1052,15 +1031,8 @@ export default function SaleOrdersScreen() {
 
       {viewMode === 'list' ? (
         <View style={styles.groupChipBar}>
-          <Chip
-            compact
-            selected={groupByOrderDate}
-            onPress={() => setGroupByOrderDate(prev => !prev)}
-            icon={groupByOrderDate ? 'calendar-month' : 'calendar-blank'}
-            style={styles.groupFilterChip}>
-            {groupByOrderDate
-              ? 'Order Date: Month › Day'
-              : 'Group by date'}
+          <Chip compact selected icon="calendar-month" style={styles.groupFilterChip}>
+            Order Date: Month › Day
           </Chip>
         </View>
       ) : null}
