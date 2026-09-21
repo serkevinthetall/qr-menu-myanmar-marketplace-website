@@ -1,5 +1,5 @@
-import { Pressable, StyleSheet, View } from 'react-native';
-import { Checkbox, Text, useTheme } from 'react-native-paper';
+import { StyleSheet, View } from 'react-native';
+import { Chip } from 'react-native-paper';
 
 type ListFilterCheckboxProps = {
   enabled: boolean;
@@ -7,31 +7,25 @@ type ListFilterCheckboxProps = {
   label?: string;
 };
 
-/** Checkbox for the search chevron filter panel (e.g. Group by date). */
+/** Toggle chip for the search chevron filter panel (e.g. Group by date). */
 export function ListFilterCheckbox({
   enabled,
   onChange,
   label = 'Group by date',
 }: ListFilterCheckboxProps) {
-  const theme = useTheme();
-
   return (
-    <Pressable
-      onPress={() => onChange(!enabled)}
-      style={styles.row}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: enabled }}
-      accessibilityLabel={label}>
-      <Checkbox
-        status={enabled ? 'checked' : 'unchecked'}
+    <View style={styles.row}>
+      <Chip
+        compact
+        selected={enabled}
         onPress={() => onChange(!enabled)}
-      />
-      <Text
-        variant="bodyMedium"
-        style={{ color: theme.colors.onSurface, flex: 1 }}>
+        accessibilityRole="button"
+        accessibilityState={{ selected: enabled }}
+        accessibilityLabel={label}
+        style={styles.chip}>
         {label}
-      </Text>
-    </Pressable>
+      </Chip>
+    </View>
   );
 }
 
@@ -41,9 +35,13 @@ export const ListSelectionModeToggle = ListFilterCheckbox;
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 4,
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 12,
     paddingBottom: 4,
-    gap: 2,
+    justifyContent: 'center',
+  },
+  chip: {
+    marginRight: 0,
   },
 });
