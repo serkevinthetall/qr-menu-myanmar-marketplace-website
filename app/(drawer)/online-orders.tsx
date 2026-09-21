@@ -31,7 +31,6 @@ import {
   EMPTY_SALE_ORDER_FILTERS,
   getSaleOrderFilterDateLabel,
   hasActiveSaleOrderFilters,
-  matchesSaleOrderFilters,
   SaleOrderFilterBar,
   SaleOrderFilters,
 } from '@/components/sale-order/SaleOrderFilterBar';
@@ -535,10 +534,9 @@ export default function OnlineOrdersScreen() {
     format: PrintFormat;
     detail: SaleOrderDetail;
   } | null>(null);
-  const [orderFilters, setOrderFilters] = useState<SaleOrderFilters>({
-    ...EMPTY_SALE_ORDER_FILTERS,
-    period: 'today',
-  });
+  const [orderFilters, setOrderFilters] = useState<SaleOrderFilters>(
+    EMPTY_SALE_ORDER_FILTERS,
+  );
 
   const listUiSnapshot = useMemo<OnlineOrdersListUi>(
     () => ({
@@ -551,7 +549,7 @@ export default function OnlineOrdersScreen() {
     [viewMode, readFilter, groupByOrderDate, orderFilters, selectedIds],
   );
 
-  useListUiCache<OnlineOrdersListUi>('online-orders', listUiSnapshot, saved => {
+  useListUiCache<OnlineOrdersListUi>('online-orders-v2', listUiSnapshot, saved => {
     if (saved.viewMode === 'list' || saved.viewMode === 'card') {
       setViewMode(saved.viewMode);
     }
@@ -1003,7 +1001,8 @@ export default function OnlineOrdersScreen() {
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
     return items.filter(order => {
-      if (!matchesSaleOrderFilters(order, orderFilters)) return false;
+      // Date range is applied by the API (from/to) — do not filter dates again
+      // here (timezone mismatches can hide unread orders the badge still counts).
       if (readFilter === 'unread') {
         if (!order.unread) return false;
       } else if (readFilter === 'read') {
@@ -1019,7 +1018,7 @@ export default function OnlineOrdersScreen() {
         order.salePersonName?.toLowerCase().includes(term)
       );
     });
-  }, [items, orderFilters, readFilter, query]);
+  }, [items, readFilter, query]);
 
   const markAllVisibleRead = useCallback(async () => {
     const unreadIds = filtered

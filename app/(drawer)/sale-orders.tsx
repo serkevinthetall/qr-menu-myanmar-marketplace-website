@@ -30,7 +30,6 @@ import {
   EMPTY_SALE_ORDER_FILTERS,
   getSaleOrderFilterDateLabel,
   hasActiveSaleOrderFilters,
-  matchesSaleOrderFilters,
   SaleOrderFilterBar,
   SaleOrderFilters,
 } from '@/components/sale-order/SaleOrderFilterBar';
@@ -886,9 +885,7 @@ export default function SaleOrdersScreen() {
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
     return items.filter(order => {
-      if (!matchesSaleOrderFilters(order, orderFilters)) {
-        return false;
-      }
+      // Date range is applied by the API (from/to) — avoid double-filtering.
       if (!term) {
         return true;
       }
@@ -899,7 +896,7 @@ export default function SaleOrdersScreen() {
         order.salePersonName?.toLowerCase().includes(term)
       );
     });
-  }, [items, orderFilters, query]);
+  }, [items, query]);
 
   const showDateGroups = viewMode === 'list' && groupByOrderDate;
   const monthGroups = useMemo(

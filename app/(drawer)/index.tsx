@@ -24,7 +24,6 @@ import {
   getQuotationFilterDateLabel,
   hasActiveQuotationDateFilters,
   hasActiveQuotationFilters,
-  matchesQuotationFilters,
   QuotationFilterBar,
   QuotationFilters,
 } from '@/components/quotation/QuotationFilterBar';
@@ -505,9 +504,7 @@ export default function QuotationScreen() {
   const filteredQuotations = useMemo(() => {
     const term = query.trim().toLowerCase();
     return quotations.filter(quotation => {
-      if (!matchesQuotationFilters(quotation, quotationFilters)) {
-        return false;
-      }
+      // Date + status filters are applied by the API — only search locally.
       if (!term) {
         return true;
       }
@@ -518,7 +515,7 @@ export default function QuotationScreen() {
         quotation.salePersonName?.toLowerCase().includes(term)
       );
     });
-  }, [quotations, query, quotationFilters]);
+  }, [quotations, query]);
 
   const toggleOne = useCallback((id: string) => {
     setSelectedIds(prev => {
