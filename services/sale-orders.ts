@@ -25,12 +25,19 @@ export type SaleOrdersPage = {
 
 export async function fetchSaleOrdersPage(
   token: string,
-  options?: { q?: string; limit?: number; offset?: number },
+  options?: {
+    q?: string;
+    limit?: number;
+    offset?: number;
+    /** When true, enrich list with canValidateDelivery (extra Odoo call). */
+    includeValidate?: boolean;
+  },
 ): Promise<SaleOrdersPage> {
   const params = new URLSearchParams();
   if (options?.q) params.set('q', options.q);
   if (options?.limit !== undefined) params.set('limit', String(options.limit));
   if (options?.offset !== undefined) params.set('offset', String(options.offset));
+  if (options?.includeValidate) params.set('includeValidate', '1');
   const query = params.toString() ? `?${params.toString()}` : '';
   const response = await webApiRequest<ListResponse>(`/sale-orders${query}`, {
     token,
@@ -51,6 +58,7 @@ export async function fetchSaleOrders(
   options?: {
     q?: string;
     pageSize?: number;
+    includeValidate?: boolean;
     onPage?: (all: SaleOrder[]) => void;
   },
 ): Promise<SaleOrder[]> {
@@ -64,6 +72,7 @@ export async function fetchSaleOrders(
       q: options?.q,
       limit: pageSize,
       offset,
+      includeValidate: options?.includeValidate,
     });
     all = mergeById(all, page.data);
     options?.onPage?.(all);

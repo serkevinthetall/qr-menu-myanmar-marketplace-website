@@ -37,6 +37,7 @@ import {
 } from '@/components/sale-order/SaleOrderFilterBar';
 import { SaleOrderPrintPreview } from '@/components/sale-order/SaleOrderPrintPreview';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
+import { ListSelectionModeToggle } from '@/components/ui/ListSelectionModeToggle';
 import { Pagination } from '@/components/ui/Pagination';
 import {
   canCreateInvoice,
@@ -157,6 +158,7 @@ function SaleOrderRow({
   item,
   index,
   selected,
+  selectionMode,
   onToggle,
   onOpen,
   onToggleRead,
@@ -166,6 +168,7 @@ function SaleOrderRow({
   item: SaleOrder;
   index: number;
   selected: boolean;
+  selectionMode: boolean;
   onToggle: (id: string) => void;
   onOpen: (id: string) => void;
   onToggleRead: (id: string, nextRead: boolean) => void;
@@ -175,7 +178,9 @@ function SaleOrderRow({
   const theme = useTheme();
   const zebra = index % 2 === 1;
   const unread = Boolean(item.unread);
-  const showValidate = Boolean(item.canValidateDelivery && onValidateDelivery);
+  const showValidate = Boolean(
+    selectionMode && item.canValidateDelivery && onValidateDelivery,
+  );
 
   return (
     <Pressable
@@ -194,12 +199,14 @@ function SaleOrderRow({
           opacity: pressed ? 0.9 : 1,
         },
       ]}>
-      <View style={styles.checkCell}>
-        <Checkbox
-          status={selected ? 'checked' : 'unchecked'}
-          onPress={() => onToggle(item.id)}
-        />
-      </View>
+      {selectionMode ? (
+        <View style={styles.checkCell}>
+          <Checkbox
+            status={selected ? 'checked' : 'unchecked'}
+            onPress={() => onToggle(item.id)}
+          />
+        </View>
+      ) : null}
       <View style={styles.readCell}>
         <IconButton
           icon={unread ? 'email-mark-as-unread' : 'email-open-outline'}
@@ -294,9 +301,11 @@ function SaleOrderRow({
 
 function TableHeader({
   status,
+  selectionMode,
   onToggleAll,
 }: {
   status: 'checked' | 'unchecked' | 'indeterminate';
+  selectionMode: boolean;
   onToggleAll: () => void;
 }) {
   const theme = useTheme();
@@ -307,14 +316,16 @@ function TableHeader({
         styles.headerRow,
         { backgroundColor: theme.colors.primary },
       ]}>
-      <View style={styles.checkCell}>
-        <Checkbox
-          status={status}
-          onPress={onToggleAll}
-          color={theme.colors.onPrimary}
-          uncheckedColor={theme.colors.onPrimary}
-        />
-      </View>
+      {selectionMode ? (
+        <View style={styles.checkCell}>
+          <Checkbox
+            status={status}
+            onPress={onToggleAll}
+            color={theme.colors.onPrimary}
+            uncheckedColor={theme.colors.onPrimary}
+          />
+        </View>
+      ) : null}
       <View style={styles.readCell} />
       {COLUMNS.map(col => (
         <View key={col.key} style={[styles.cell, { flex: col.flex }]}>
@@ -338,6 +349,7 @@ function TableHeader({
 function SaleOrderCard({
   item,
   selected,
+  selectionMode,
   onToggle,
   onOpen,
   onToggleRead,
@@ -346,6 +358,7 @@ function SaleOrderCard({
 }: {
   item: SaleOrder;
   selected: boolean;
+  selectionMode: boolean;
   onToggle: (id: string) => void;
   onOpen: (id: string) => void;
   onToggleRead: (id: string, nextRead: boolean) => void;
@@ -357,7 +370,9 @@ function SaleOrderCard({
   const colors = useAppColors();
   const statusColors = getSaleOrderStatusColors(mode, item.status);
   const unread = Boolean(item.unread);
-  const showValidate = Boolean(item.canValidateDelivery && onValidateDelivery);
+  const showValidate = Boolean(
+    selectionMode && item.canValidateDelivery && onValidateDelivery,
+  );
 
   return (
     <Pressable
@@ -377,12 +392,14 @@ function SaleOrderCard({
         <View style={[styles.cardAccent, { backgroundColor: statusColors.bg }]} />
         <View style={styles.cardBody}>
           <View style={styles.cardTop}>
-            <View style={styles.cardCheck}>
-              <Checkbox
-                status={selected ? 'checked' : 'unchecked'}
-                onPress={() => onToggle(item.id)}
-              />
-            </View>
+            {selectionMode ? (
+              <View style={styles.cardCheck}>
+                <Checkbox
+                  status={selected ? 'checked' : 'unchecked'}
+                  onPress={() => onToggle(item.id)}
+                />
+              </View>
+            ) : null}
             <View style={styles.cardNumberRow}>
               {unread ? <Badge size={8} style={styles.unreadDot} /> : null}
               <Text
@@ -498,6 +515,7 @@ export default function OnlineOrdersScreen() {
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectionMode, setSelectionMode] = useState(false);
   const [detail, setDetail] = useState<SaleOrderDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
@@ -558,6 +576,13 @@ export default function OnlineOrdersScreen() {
   const filterPanel = useMemo(
     () => (
       <View style={styles.readFilterPanel}>
+        <ListSelectionModeToggle
+          enabled={selectionMode}
+          onChange={next => {
+            setSelectionMode(next);
+            if (!next) setSelectedIds(new Set());
+          }}
+        />
         <View style={styles.readFilterRow}>
           {(
             [
@@ -580,7 +605,7 @@ export default function OnlineOrdersScreen() {
         <SaleOrderFilterBar filters={orderFilters} onChange={setOrderFilters} />
       </View>
     ),
-    [orderFilters, readFilter, groupByOrderDate],
+    [orderFilters, readFilter, groupByOrderDate, selectionMode],
   );
 
   useModuleFilters(filterPanel, !selectedId);
@@ -595,6 +620,7 @@ export default function OnlineOrdersScreen() {
       await fetchOnlineOrders(session.token, {
         q: query.trim() || undefined,
         pageSize: 100,
+        includeValidate: selectionMode,
         onPage: all => {
           setItems(all);
           if (!quiet) {
@@ -615,7 +641,7 @@ export default function OnlineOrdersScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [session?.token, query]);
+  }, [session?.token, query, selectionMode]);
 
   useEffect(() => {
     setLoading(true);
@@ -1019,7 +1045,7 @@ export default function OnlineOrdersScreen() {
         accessibilityLabel: 'Toggle list or card view',
       },
     ];
-    if (selectedValidatable.length === 1) {
+    if (selectionMode && selectedValidatable.length === 1) {
       actions.push({
         key: 'validate-delivery',
         icon: 'truck-check-outline',
@@ -1029,7 +1055,7 @@ export default function OnlineOrdersScreen() {
         },
         accessibilityLabel: 'Validate delivery for selected order',
       });
-    } else if (selectedValidatable.length > 1) {
+    } else if (selectionMode && selectedValidatable.length > 1) {
       actions.push({
         key: 'validate-delivery',
         icon: 'truck-check-outline',
@@ -1044,6 +1070,7 @@ export default function OnlineOrdersScreen() {
     viewMode,
     toggleView,
     markAllVisibleRead,
+    selectionMode,
     selectedValidatable,
     openDeliveriesPage,
   ]);
@@ -1270,7 +1297,11 @@ export default function OnlineOrdersScreen() {
           </ScrollView>
         ) : (
           <View style={styles.tableScroll}>
-            <TableHeader status={headerStatus} onToggleAll={toggleAllOnPage} />
+            <TableHeader
+              status={headerStatus}
+              selectionMode={selectionMode}
+              onToggleAll={toggleAllOnPage}
+            />
             <ScrollView
               style={styles.listBody}
               showsVerticalScrollIndicator={false}
@@ -1314,6 +1345,7 @@ export default function OnlineOrdersScreen() {
                                           item={item}
                                           index={index}
                                           selected={selectedIds.has(item.id)}
+                                          selectionMode={selectionMode}
                                           onToggle={toggleOne}
                                           onOpen={openDetail}
                                           onToggleRead={toggleRead}
@@ -1337,6 +1369,7 @@ export default function OnlineOrdersScreen() {
                       item={item}
                       index={index}
                       selected={selectedIds.has(item.id)}
+                      selectionMode={selectionMode}
                       onToggle={toggleOne}
                       onOpen={openDetail}
                       onToggleRead={toggleRead}
@@ -1370,6 +1403,7 @@ export default function OnlineOrdersScreen() {
               <SaleOrderCard
                 item={item}
                 selected={selectedIds.has(item.id)}
+                selectionMode={selectionMode}
                 onToggle={toggleOne}
                 onOpen={openDetail}
                 onToggleRead={toggleRead}

@@ -33,6 +33,7 @@ import { PayInvoiceDialog } from '@/components/delivery/PayInvoiceDialog';
 import { OrderDateGroupHeader } from '@/components/order/OrderDateGroupHeader';
 import { SaleOrderDateTotalBar } from '@/components/sale-order/SaleOrderDateTotalBar';
 import { Pagination } from '@/components/ui/Pagination';
+import { ListSelectionModeToggle } from '@/components/ui/ListSelectionModeToggle';
 import { useAuth } from '@/contexts/auth-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
@@ -175,12 +176,14 @@ function QuotationRow({
   item,
   index,
   selected,
+  selectionMode,
   onToggle,
   onOpen,
 }: {
   item: Quotation;
   index: number;
   selected: boolean;
+  selectionMode: boolean;
   onToggle: (id: string) => void;
   onOpen: (id: string) => void;
 }) {
@@ -204,12 +207,14 @@ function QuotationRow({
           opacity: pressed ? 0.9 : 1,
         },
       ]}>
-      <View style={styles.checkCell}>
-        <Checkbox
-          status={selected ? 'checked' : 'unchecked'}
-          onPress={() => onToggle(item.id)}
-        />
-      </View>
+      {selectionMode ? (
+        <View style={styles.checkCell}>
+          <Checkbox
+            status={selected ? 'checked' : 'unchecked'}
+            onPress={() => onToggle(item.id)}
+          />
+        </View>
+      ) : null}
       {COLUMNS.map(col => {
         if (col.key === 'status') {
           return (
@@ -263,9 +268,11 @@ function QuotationRow({
 
 function TableHeader({
   status,
+  selectionMode,
   onToggleAll,
 }: {
   status: 'checked' | 'unchecked' | 'indeterminate';
+  selectionMode: boolean;
   onToggleAll: () => void;
 }) {
   const theme = useTheme();
@@ -276,14 +283,16 @@ function TableHeader({
         styles.headerRow,
         { backgroundColor: theme.colors.primary },
       ]}>
-      <View style={styles.checkCell}>
-        <Checkbox
-          status={status}
-          onPress={onToggleAll}
-          color={theme.colors.onPrimary}
-          uncheckedColor={theme.colors.onPrimary}
-        />
-      </View>
+      {selectionMode ? (
+        <View style={styles.checkCell}>
+          <Checkbox
+            status={status}
+            onPress={onToggleAll}
+            color={theme.colors.onPrimary}
+            uncheckedColor={theme.colors.onPrimary}
+          />
+        </View>
+      ) : null}
       {COLUMNS.map(col => (
         <View key={col.key} style={[styles.cell, { flex: col.flex }]}>
           <Text
@@ -304,9 +313,15 @@ function TableHeader({
 
 function QuotationCard({
   item,
+  selected,
+  selectionMode,
+  onToggle,
   onOpen,
 }: {
   item: Quotation;
+  selected: boolean;
+  selectionMode: boolean;
+  onToggle: (id: string) => void;
   onOpen: (id: string) => void;
 }) {
   const theme = useTheme();
@@ -318,12 +333,22 @@ function QuotationCard({
       style={[
         styles.quotationCard,
         {
-          backgroundColor: theme.colors.surface,
-          borderColor: theme.colors.outline,
+          backgroundColor: selected
+            ? theme.colors.primaryContainer
+            : theme.colors.surface,
+          borderColor: selected ? theme.colors.primary : theme.colors.outline,
         },
       ]}>
       <Card.Content style={styles.cardContent}>
         <View style={styles.cardTop}>
+          {selectionMode ? (
+            <View style={styles.cardCheck}>
+              <Checkbox
+                status={selected ? 'checked' : 'unchecked'}
+                onPress={() => onToggle(item.id)}
+              />
+            </View>
+          ) : null}
           <Text variant="titleMedium" style={styles.cardNumber} numberOfLines={1}>
             {item.number}
           </Text>
@@ -377,6 +402,7 @@ export default function QuotationScreen() {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectionMode, setSelectionMode] = useState(false);
   const [snackbar, setSnackbar] = useState('');
   const [builderOpen, setBuilderOpen] = useState(false);
   const [builderInitialCustomerId, setBuilderInitialCustomerId] = useState<string | null>(
@@ -452,10 +478,19 @@ export default function QuotationScreen() {
   const filterPanel = useMemo(
     () => (
       <View>
+        <ListSelectionModeToggle
+          enabled={selectionMode}
+          onChange={next => {
+            setSelectionMode(next);
+            if (!next) {
+              setSelectedIds(new Set());
+            }
+          }}
+        />
         <QuotationFilterBar filters={quotationFilters} onChange={setQuotationFilters} />
       </View>
     ),
-    [quotationFilters, groupByOrderDate],
+    [quotationFilters, selectionMode],
   );
 
   useModuleFilters(filterPanel, !builderOpen && !detailId);
@@ -1504,7 +1539,11 @@ export default function QuotationScreen() {
           </ScrollView>
         ) : (
           <View style={styles.tableScroll}>
-            <TableHeader status={headerStatus} onToggleAll={toggleAllOnPage} />
+            <TableHeader
+              status={headerStatus}
+              selectionMode={selectionMode}
+              onToggleAll={toggleAllOnPage}
+            />
             <ScrollView
               style={styles.listBody}
               showsVerticalScrollIndicator={false}
@@ -1548,6 +1587,7 @@ export default function QuotationScreen() {
                                           item={item}
                                           index={index}
                                           selected={selectedIds.has(item.id)}
+                                          selectionMode={selectionMode}
                                           onToggle={toggleOne}
                                           onOpen={openDetail}
                                         />
@@ -1566,6 +1606,7 @@ export default function QuotationScreen() {
                       item={item}
                       index={index}
                       selected={selectedIds.has(item.id)}
+                      selectionMode={selectionMode}
                       onToggle={toggleOne}
                       onOpen={openDetail}
                     />
@@ -1591,7 +1632,13 @@ export default function QuotationScreen() {
                 styles.cardWrapper,
                 { width: numColumns > 1 ? cardWidth : '100%' },
               ]}>
-              <QuotationCard item={item} onOpen={openDetail} />
+              <QuotationCard
+                item={item}
+                selected={selectedIds.has(item.id)}
+                selectionMode={selectionMode}
+                onToggle={toggleOne}
+                onOpen={openDetail}
+              />
             </View>
           )}
           ListEmptyComponent={
@@ -1743,6 +1790,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 8,
+  },
+  cardCheck: {
+    marginLeft: -8,
+    transform: [{ scale: 0.85 }],
   },
   cardNumber: {
     fontWeight: '700',

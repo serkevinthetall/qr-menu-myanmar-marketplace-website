@@ -32,6 +32,8 @@ export async function fetchOnlineOrdersPage(
     limit?: number;
     offset?: number;
     read?: 'read' | 'unread';
+    /** When true, enrich list with canValidateDelivery (extra Odoo call). */
+    includeValidate?: boolean;
   },
 ): Promise<OnlineOrdersPage> {
   const params = new URLSearchParams();
@@ -39,6 +41,7 @@ export async function fetchOnlineOrdersPage(
   if (options?.limit !== undefined) params.set('limit', String(options.limit));
   if (options?.offset !== undefined) params.set('offset', String(options.offset));
   if (options?.read) params.set('read', options.read);
+  if (options?.includeValidate) params.set('includeValidate', '1');
   const query = params.toString() ? `?${params.toString()}` : '';
   const response = await webApiRequest<ListResponse>(`/online-orders${query}`, {
     token,
@@ -63,6 +66,7 @@ export async function fetchOnlineOrders(
     /** When set, fetches a single page only (used by new-order alerts). */
     limit?: number;
     pageSize?: number;
+    includeValidate?: boolean;
     onPage?: (all: SaleOrder[]) => void;
   },
 ): Promise<SaleOrder[]> {
@@ -73,6 +77,7 @@ export async function fetchOnlineOrders(
       read: options.read,
       limit: options.limit,
       offset: 0,
+      includeValidate: options.includeValidate,
     });
     return page.data;
   }
@@ -87,6 +92,7 @@ export async function fetchOnlineOrders(
       q: options?.q,
       read: options?.read,
       limit: pageSize,
+      includeValidate: options?.includeValidate,
       offset,
     });
     all = mergeById(all, page.data);
