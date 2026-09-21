@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppOrderUnread } from '@/contexts/app-order-unread-context';
 import { useMemberRequestBadge } from '@/contexts/member-request-badge-context';
-import { useSearch } from '@/contexts/search-context';
+import { useSearch, useSearchInput } from '@/contexts/search-context';
 import {
   ENABLE_APP_INSTALL_CALL_LIST,
   useCallListBadge,
@@ -72,11 +72,8 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
   const { unreadCount } = useAppOrderUnread();
   const { requestedCount } = useMemberRequestBadge();
   const { newCount } = useCallListBadge();
+  const { visible, placeholder, inputQuery, setInputQuery } = useSearchInput();
   const {
-    visible,
-    placeholder,
-    inputQuery,
-    setInputQuery,
     setQuery,
     actions,
     filtersEnabled,

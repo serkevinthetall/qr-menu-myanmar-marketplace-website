@@ -1,7 +1,7 @@
 /**
  * On Hand list — current stock quantities from Odoo (accounting).
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   RefreshControl,
   ScrollView,
@@ -68,6 +68,7 @@ export default function OnHandScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
+  const hasLoadedOnceRef = useRef(false);
 
   useEffect(() => {
     setFiltersExpanded(true);
@@ -96,8 +97,9 @@ export default function OnHandScreen() {
         setRefreshing(false);
         return;
       }
-      if (!opts?.soft) setLoading(true);
-      setError('');
+      const soft = Boolean(opts?.soft) || hasLoadedOnceRef.current;
+      if (!soft) setLoading(true);
+      if (!soft) setError('');
       try {
         const { rows: data, meta } = await fetchOnHandProducts(session.token, {
           q: query.trim() || undefined,
@@ -109,10 +111,13 @@ export default function OnHandScreen() {
         setRows(data);
         setTotalOnHand(meta.totalOnHand);
         setPage(1);
+        hasLoadedOnceRef.current = true;
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : 'Failed to load on-hand stock.',
-        );
+        if (!soft) {
+          setError(
+            err instanceof Error ? err.message : 'Failed to load on-hand stock.',
+          );
+        }
       } finally {
         setLoading(false);
         setRefreshing(false);

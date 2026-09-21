@@ -4,7 +4,7 @@
  * Standalone Call List module for phone-app install follow-ups.
  * Does NOT use App Order / online-orders unread, alerts, or Redis read state.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Linking,
@@ -627,6 +627,8 @@ export default function CallListScreen() {
       ? 'Search App User List by name, phone, township, or tag'
       : '',
   );
+  const loadGenRef = useRef(0);
+  const hasLoadedOnceRef = useRef(false);
 
   const filterPanel = useMemo(
     () => (
@@ -784,12 +786,17 @@ export default function CallListScreen() {
 
   const load = useCallback(async () => {
     if (!ENABLE_APP_INSTALL_CALL_LIST || !session?.token) return;
-    setError('');
+    const gen = ++loadGenRef.current;
+    const quiet = hasLoadedOnceRef.current;
+    if (!quiet) {
+      setError('');
+    }
     try {
       const result = await fetchCallList(session.token, {
         status: statusFilter.length > 0 ? statusFilter : undefined,
         q: query.trim() || undefined,
       });
+      if (gen !== loadGenRef.current) return;
       setItems(result.data);
       setAvailableTags(result.tags);
       setAvailableTownships(result.townships);
@@ -799,11 +806,17 @@ export default function CallListScreen() {
       setTownshipFilter(prev =>
         prev && result.townships.includes(prev) ? prev : '',
       );
+      hasLoadedOnceRef.current = true;
     } catch (err) {
-      setSaveError(mongoSaveErrorMessage(err, 'Loading App User List'));
+      if (gen !== loadGenRef.current) return;
+      if (!quiet) {
+        setSaveError(mongoSaveErrorMessage(err, 'Loading App User List'));
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (gen === loadGenRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [session?.token, statusFilter, query]);
 
@@ -812,11 +825,10 @@ export default function CallListScreen() {
       setLoading(false);
       return;
     }
-    setLoading(true);
-    const timer = setTimeout(() => {
-      void load();
-    }, 200);
-    return () => clearTimeout(timer);
+    if (!hasLoadedOnceRef.current) {
+      setLoading(true);
+    }
+    void load();
   }, [load]);
 
   useEffect(() => {

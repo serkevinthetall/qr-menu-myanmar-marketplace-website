@@ -2,7 +2,7 @@
  * App Promoter Commission list from Odoo — filter by month and promoter in the header.
  */
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   RefreshControl,
   ScrollView,
@@ -69,6 +69,7 @@ export default function AppPromoterCommissionsScreen() {
   const [promoterId, setPromoterId] = useState('');
   const [promoters, setPromoters] = useState<AppPromoter[]>([]);
   const [promotersLoading, setPromotersLoading] = useState(false);
+  const hasLoadedOnceRef = useRef(false);
 
   const selectedMonthLabel = formatMonthLabel(monthKey);
   const selectedPromoterName = useMemo(() => {
@@ -133,6 +134,7 @@ export default function AppPromoterCommissionsScreen() {
       setLoading(false);
       return;
     }
+    const quiet = hasLoadedOnceRef.current;
     try {
       const { rows: data, meta } = await fetchAppPromoterCommissions(
         session.token,
@@ -146,10 +148,13 @@ export default function AppPromoterCommissionsScreen() {
       setRows(data);
       setTotalAmount(meta.totalAmount ?? 0);
       setError('');
+      hasLoadedOnceRef.current = true;
     } catch (err) {
-      setRows([]);
-      setTotalAmount(0);
-      setError(mongoSaveErrorMessage(err, 'Loading commissions'));
+      if (!quiet) {
+        setRows([]);
+        setTotalAmount(0);
+        setError(mongoSaveErrorMessage(err, 'Loading commissions'));
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -157,11 +162,10 @@ export default function AppPromoterCommissionsScreen() {
   }, [enabled, session?.token, monthKey, promoterId, query]);
 
   useEffect(() => {
-    setLoading(true);
-    const timer = setTimeout(() => {
-      void load();
-    }, 200);
-    return () => clearTimeout(timer);
+    if (!hasLoadedOnceRef.current) {
+      setLoading(true);
+    }
+    void load();
   }, [load]);
 
   useEffect(() => {

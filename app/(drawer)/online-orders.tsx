@@ -516,6 +516,8 @@ export default function OnlineOrdersScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
+  const loadGenRef = useRef(0);
+  const hasLoadedOnceRef = useRef(false);
   const [detail, setDetail] = useState<SaleOrderDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
@@ -612,7 +614,8 @@ export default function OnlineOrdersScreen() {
 
   const load = useCallback(async (opts?: { quiet?: boolean }) => {
     if (!session?.token) return;
-    const quiet = Boolean(opts?.quiet);
+    const gen = ++loadGenRef.current;
+    const quiet = Boolean(opts?.quiet) || hasLoadedOnceRef.current;
     if (!quiet) {
       setError('');
     }
@@ -622,33 +625,38 @@ export default function OnlineOrdersScreen() {
         pageSize: 100,
         includeValidate: selectionMode,
         onPage: all => {
+          if (gen !== loadGenRef.current) return;
           setItems(all);
+          hasLoadedOnceRef.current = true;
           if (!quiet) {
             setLoading(false);
           }
         },
       });
+      if (gen !== loadGenRef.current) return;
       if (!quiet) {
         setError('');
       }
     } catch (err) {
+      if (gen !== loadGenRef.current) return;
       if (!quiet) {
         setError(
           err instanceof Error ? err.message : 'Failed to load app orders.',
         );
       }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (gen === loadGenRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [session?.token, query, selectionMode]);
 
   useEffect(() => {
-    setLoading(true);
-    const timer = setTimeout(() => {
-      void load();
-    }, 250);
-    return () => clearTimeout(timer);
+    if (!hasLoadedOnceRef.current) {
+      setLoading(true);
+    }
+    void load();
   }, [load]);
 
   // Keep the App Order list live without a manual refresh (30s, visible tab).

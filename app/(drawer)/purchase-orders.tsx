@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -311,6 +311,8 @@ export default function PurchaseOrdersScreen() {
   const [detail, setDetail] = useState<PurchaseOrderDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
+  const loadGenRef = useRef(0);
+  const hasLoadedOnceRef = useRef(false);
 
   const listUiSnapshot = useMemo<PurchaseOrdersListUi>(
     () => ({ viewMode }),
@@ -328,29 +330,39 @@ export default function PurchaseOrdersScreen() {
 
   const load = useCallback(async () => {
     if (!session?.token) return;
-    setError('');
+    const gen = ++loadGenRef.current;
+    const quiet = hasLoadedOnceRef.current;
+    if (!quiet) {
+      setError('');
+    }
     try {
       const data = await fetchPurchaseOrders(session.token, {
         q: query.trim() || undefined,
         limit: 300,
       });
+      if (gen !== loadGenRef.current) return;
       setItems(data);
+      hasLoadedOnceRef.current = true;
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to load purchase orders.',
-      );
+      if (gen !== loadGenRef.current) return;
+      if (!quiet) {
+        setError(
+          err instanceof Error ? err.message : 'Failed to load purchase orders.',
+        );
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (gen === loadGenRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [session?.token, query]);
 
   useEffect(() => {
-    setLoading(true);
-    const timer = setTimeout(() => {
-      void load();
-    }, 250);
-    return () => clearTimeout(timer);
+    if (!hasLoadedOnceRef.current) {
+      setLoading(true);
+    }
+    void load();
   }, [load]);
 
   const openDetail = useCallback(

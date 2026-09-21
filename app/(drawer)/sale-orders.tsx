@@ -464,6 +464,8 @@ export default function SaleOrdersScreen() {
   const [orderFilters, setOrderFilters] = useState<SaleOrderFilters>(
     EMPTY_SALE_ORDER_FILTERS,
   );
+  const loadGenRef = useRef(0);
+  const hasLoadedOnceRef = useRef(false);
 
   const listUiSnapshot = useMemo<SaleOrdersListUi>(
     () => ({
@@ -515,33 +517,47 @@ export default function SaleOrdersScreen() {
 
   const load = useCallback(async () => {
     if (!session?.token) return;
-    setError('');
+    const gen = ++loadGenRef.current;
+    const quiet = hasLoadedOnceRef.current;
+    if (!quiet) {
+      setError('');
+    }
     try {
       await fetchSaleOrders(session.token, {
         q: query.trim() || undefined,
         pageSize: 100,
         includeValidate: selectionMode,
         onPage: all => {
+          if (gen !== loadGenRef.current) return;
           setItems(all);
+          hasLoadedOnceRef.current = true;
           setLoading(false);
         },
       });
+      if (gen !== loadGenRef.current) return;
+      if (!quiet) {
+        setError('');
+      }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to load sale orders.',
-      );
+      if (gen !== loadGenRef.current) return;
+      if (!quiet) {
+        setError(
+          err instanceof Error ? err.message : 'Failed to load sale orders.',
+        );
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (gen === loadGenRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [session?.token, query, selectionMode]);
 
   useEffect(() => {
-    setLoading(true);
-    const timer = setTimeout(() => {
-      void load();
-    }, 250);
-    return () => clearTimeout(timer);
+    if (!hasLoadedOnceRef.current) {
+      setLoading(true);
+    }
+    void load();
   }, [load]);
 
   const openDetail = useCallback(

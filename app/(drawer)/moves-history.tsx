@@ -2,7 +2,7 @@
  * Moves History — done stock.move.line rows from Odoo (accounting audit).
  */
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   RefreshControl,
   ScrollView,
@@ -83,6 +83,7 @@ export default function MovesHistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
+  const hasLoadedOnceRef = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -114,8 +115,9 @@ export default function MovesHistoryScreen() {
         setRefreshing(false);
         return;
       }
-      if (!opts?.soft) setLoading(true);
-      setError('');
+      const soft = Boolean(opts?.soft) || hasLoadedOnceRef.current;
+      if (!soft) setLoading(true);
+      if (!soft) setError('');
       try {
         const { rows: data, meta } = await fetchStockMoves(session.token, {
           month: monthKey,
@@ -127,10 +129,13 @@ export default function MovesHistoryScreen() {
         setRows(data);
         setTotalQuantity(meta.totalQuantity);
         setPage(1);
+        hasLoadedOnceRef.current = true;
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : 'Failed to load moves history.',
-        );
+        if (!soft) {
+          setError(
+            err instanceof Error ? err.message : 'Failed to load moves history.',
+          );
+        }
       } finally {
         setLoading(false);
         setRefreshing(false);

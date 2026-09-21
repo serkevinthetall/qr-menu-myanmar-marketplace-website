@@ -12,7 +12,7 @@ import {
 
 import { PrintFormat } from '@/utils/print-quotation';
 
-const SEARCH_DEBOUNCE_MS = 300;
+const SEARCH_DEBOUNCE_MS = 350;
 
 export type HeaderAction = {
   key: string;
@@ -53,7 +53,7 @@ export type DetailHeader = {
    */
   onCreateInvoice?: () => void;
   creatingInvoice?: boolean;
-  /** Register payment on unpaid invoice — shown beside Invoice. */
+  /** Register payment on unpaid invoice — shown beside Print/Invoice. */
   onPayInvoice?: () => void;
   payingInvoice?: boolean;
   /** Cancel draft quotation — shown on the right of the detail navbar. */
@@ -61,16 +61,23 @@ export type DetailHeader = {
   cancelling?: boolean;
 };
 
-type SearchContextValue = {
-  query: string;
-  setQuery: (value: string) => void;
-  /** Immediate header input value; may lead the debounced `query` used for filtering. */
+type SearchInputContextValue = {
+  /** Immediate header input value; may lead the debounced `query`. */
   inputQuery: string;
   setInputQuery: (value: string) => void;
   placeholder: string;
   visible: boolean;
+};
+
+type SearchQueryContextValue = {
+  /** Debounced query used for filtering / server search. */
+  query: string;
+  setQuery: (value: string) => void;
   enableSearch: (placeholder: string) => void;
   disableSearch: () => void;
+};
+
+type SearchChromeContextValue = {
   detailHeader: DetailHeader | null;
   setDetailHeader: (header: DetailHeader | null) => void;
   actions: HeaderAction[];
@@ -85,12 +92,14 @@ type SearchContextValue = {
   disableFilters: () => void;
 };
 
-const SearchContext = createContext<SearchContextValue | null>(null);
+const SearchInputContext = createContext<SearchInputContextValue | null>(null);
+const SearchQueryContext = createContext<SearchQueryContextValue | null>(null);
+const SearchChromeContext = createContext<SearchChromeContextValue | null>(null);
 
 /**
- * Holds navbar state shared between the header and the focused screen: the
- * search query and any module-specific action buttons. A screen turns these
- * on while it is focused (via `useModuleSearch` / `useHeaderActions`).
+ * Holds navbar state shared between the header and the focused screen.
+ * Input keystrokes update a separate context so list screens only re-render
+ * when the debounced `query` changes (not on every character).
  */
 export function SearchProvider({ children }: { children: ReactNode }) {
   const [query, setQueryState] = useState('');
@@ -166,16 +175,28 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     setFiltersExpanded(false);
   }, [unregisterFilters]);
 
-  const value = useMemo<SearchContextValue>(
+  const inputValue = useMemo<SearchInputContextValue>(
     () => ({
-      query,
-      setQuery,
       inputQuery,
       setInputQuery,
       placeholder,
       visible,
+    }),
+    [inputQuery, setInputQuery, placeholder, visible],
+  );
+
+  const queryValue = useMemo<SearchQueryContextValue>(
+    () => ({
+      query,
+      setQuery,
       enableSearch,
       disableSearch,
+    }),
+    [query, setQuery, enableSearch, disableSearch],
+  );
+
+  const chromeValue = useMemo<SearchChromeContextValue>(
+    () => ({
       detailHeader,
       setDetailHeader,
       actions,
@@ -190,14 +211,6 @@ export function SearchProvider({ children }: { children: ReactNode }) {
       disableFilters,
     }),
     [
-      query,
-      setQuery,
-      inputQuery,
-      setInputQuery,
-      placeholder,
-      visible,
-      enableSearch,
-      disableSearch,
       detailHeader,
       actions,
       filtersEnabled,
@@ -209,28 +222,81 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     ],
   );
 
-  return <SearchContext.Provider value={value}>{children}</SearchContext.Provider>;
+  return (
+    <SearchChromeContext.Provider value={chromeValue}>
+      <SearchQueryContext.Provider value={queryValue}>
+        <SearchInputContext.Provider value={inputValue}>
+          {children}
+        </SearchInputContext.Provider>
+      </SearchQueryContext.Provider>
+    </SearchChromeContext.Provider>
+  );
 }
 
-export function useSearch() {
-  const context = useContext(SearchContext);
+function useSearchInputContext() {
+  const context = useContext(SearchInputContext);
   if (!context) {
-    throw new Error('useSearch must be used within SearchProvider');
+    throw new Error('useSearchInput must be used within SearchProvider');
   }
   return context;
 }
 
+function useSearchQueryContext() {
+  const context = useContext(SearchQueryContext);
+  if (!context) {
+    throw new Error('useSearchQuery must be used within SearchProvider');
+  }
+  return context;
+}
+
+function useSearchChromeContext() {
+  const context = useContext(SearchChromeContext);
+  if (!context) {
+    throw new Error('useSearchChrome must be used within SearchProvider');
+  }
+  return context;
+}
+
+/** Header search field — subscribes to keystrokes without re-rendering list screens. */
+export function useSearchInput() {
+  return useSearchInputContext();
+}
+
+/** Navbar chrome (actions / filters / detail) + debounced query — not keystrokes. */
+export function useSearch() {
+  const query = useSearchQueryContext();
+  const chrome = useSearchChromeContext();
+  return useMemo(
+    () => ({
+      ...query,
+      ...chrome,
+    }),
+    [query, chrome],
+  );
+}
+
 /** Safe for Portal/modals that may render outside SearchProvider. */
 export function useOptionalSearch() {
-  return useContext(SearchContext);
+  const query = useContext(SearchQueryContext);
+  const chrome = useContext(SearchChromeContext);
+  return useMemo(() => {
+    if (!query || !chrome) {
+      return null;
+    }
+    return {
+      ...query,
+      ...chrome,
+    };
+  }, [query, chrome]);
 }
 
 /**
  * Enables the navbar search bar while the calling screen is focused and
- * returns the debounced query for local filtering.
+ * returns the debounced query for local filtering / server search.
+ * Does not re-render on each keystroke — only when the debounced query updates.
  */
 export function useModuleSearch(placeholder: string, enabled = true) {
-  const { query, enableSearch, disableSearch } = useSearch();
+  const { query, enableSearch, disableSearch } = useSearchQueryContext();
   const placeholderRef = useRef(placeholder);
   placeholderRef.current = placeholder;
   const focusedRef = useRef(false);
@@ -264,7 +330,7 @@ export function useModuleSearch(placeholder: string, enabled = true) {
 
 /** Detail breadcrumb/actions while this screen is focused. */
 export function useDetailHeader(header: DetailHeader | null) {
-  const { setDetailHeader } = useSearch();
+  const { setDetailHeader } = useSearchChromeContext();
   const headerRef = useRef(header);
   headerRef.current = header;
   const focusedRef = useRef(false);
@@ -323,7 +389,7 @@ export function useDetailHeader(header: DetailHeader | null) {
  * which remounts header controls and steals search focus on web.
  */
 export function useHeaderActions(actions: HeaderAction[]) {
-  const { setActions } = useSearch();
+  const { setActions } = useSearchChromeContext();
   const actionsRef = useRef(actions);
   actionsRef.current = actions;
   const focusedRef = useRef(false);
@@ -353,7 +419,7 @@ export function useHeaderActions(actions: HeaderAction[]) {
  */
 export function useModuleFilters(panel: ReactNode, enabled = true) {
   const { enableFilters, unregisterFilters, setFilterPanel, filtersEnabled } =
-    useSearch();
+    useSearchChromeContext();
   const panelRef = useRef(panel);
   panelRef.current = panel;
   const focusedRef = useRef(false);

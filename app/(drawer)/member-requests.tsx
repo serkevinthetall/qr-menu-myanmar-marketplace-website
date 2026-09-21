@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Linking,
@@ -250,6 +250,7 @@ export default function MemberRequestsScreen() {
   const [statusTarget, setStatusTarget] = useState<MemberRequest | null>(null);
   const [snack, setSnack] = useState('');
   const [error, setError] = useState('');
+  const hasLoadedOnceRef = useRef(false);
 
   useHeaderActions(EMPTY_HEADER_ACTIONS);
 
@@ -262,8 +263,9 @@ export default function MemberRequestsScreen() {
     async (opts?: { silent?: boolean; page?: number }) => {
       if (!session?.token) return;
       const nextPage = opts?.page ?? page;
-      if (!opts?.silent) setLoading(true);
-      setError('');
+      const silent = Boolean(opts?.silent) || hasLoadedOnceRef.current;
+      if (!silent) setLoading(true);
+      if (!silent) setError('');
       try {
         const data = await fetchMemberRequests(session.token, {
           q: query || undefined,
@@ -276,11 +278,14 @@ export default function MemberRequestsScreen() {
         setRows(data);
         setLoadedCount(data.length);
         setHasMore(data.length >= PAGE_SIZE);
+        hasLoadedOnceRef.current = true;
         void refreshRequestedCount();
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : 'Failed to load member requests.',
-        );
+        if (!silent) {
+          setError(
+            err instanceof Error ? err.message : 'Failed to load member requests.',
+          );
+        }
       } finally {
         setLoading(false);
         setRefreshing(false);
