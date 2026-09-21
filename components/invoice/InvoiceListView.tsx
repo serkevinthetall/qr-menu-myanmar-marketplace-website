@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Icon, Text, useTheme } from 'react-native-paper';
+import { Icon, Text, useTheme } from 'react-native-paper';
 
+import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { InvoicePreview } from '@/types/invoice';
 import { formatMyanmarDate } from '@/utils/myanmar-datetime';
 
@@ -54,12 +55,7 @@ export function InvoiceListView({
   const muted = theme.colors.onSurfaceVariant;
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator />
-        <Text style={{ marginTop: 12, color: muted }}>Loading invoices…</Text>
-      </View>
-    );
+    return <ListSkeleton rows={6} columns={[1.2, 1.6, 1.2, 1]} />;
   }
 
   if (error) {

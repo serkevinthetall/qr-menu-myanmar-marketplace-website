@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import {
-  ActivityIndicator,
   Button,
   Card,
   Checkbox,
@@ -32,6 +31,7 @@ import { QuotationPrintPreview } from '@/components/quotation/QuotationPrintPrev
 import { PayInvoiceDialog } from '@/components/delivery/PayInvoiceDialog';
 import { OrderDateGroupHeader } from '@/components/order/OrderDateGroupHeader';
 import { SaleOrderDateTotalBar } from '@/components/sale-order/SaleOrderDateTotalBar';
+import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { ListFilterCheckbox } from '@/components/ui/ListSelectionModeToggle';
 import { useAuth } from '@/contexts/auth-context';
@@ -1496,12 +1496,7 @@ export default function QuotationScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator />
-        <Text style={{ marginTop: 12 }}>Loading quotations from Odoo...</Text>
-      </View>
-    );
+    return <ListSkeleton showCheckbox rows={10} columns={[1.2, 2.4, 1.4, 1.2, 1]} />;
   }
 
   if (error) {

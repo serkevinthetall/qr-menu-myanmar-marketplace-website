@@ -9,7 +9,6 @@ import {
   View,
 } from 'react-native';
 import {
-  ActivityIndicator,
   Badge,
   Button,
   Checkbox,
@@ -37,6 +36,7 @@ import {
 import { getSaleOrderDateRange } from '@/components/sale-order/sale-order-filter-utils';
 import { SaleOrderPrintPreview } from '@/components/sale-order/SaleOrderPrintPreview';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
+import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { ListFilterCheckbox } from '@/components/ui/ListSelectionModeToggle';
 import { Pagination } from '@/components/ui/Pagination';
 import {
@@ -1271,12 +1271,7 @@ export default function OnlineOrdersScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator />
-        <Text style={{ marginTop: 12 }}>Loading app orders...</Text>
-      </View>
-    );
+    return <ListSkeleton showCheckbox rows={10} columns={[1.2, 2.4, 1.4, 1.2, 1]} />;
   }
 
   if (error) {

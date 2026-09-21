@@ -1,11 +1,12 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Button, Checkbox, Icon, Text, useTheme } from 'react-native-paper';
+import { Button, Checkbox, Icon, Text, useTheme } from 'react-native-paper';
 
+import { CustomerNameText } from '@/components/ui/CustomerNameText';
+import { DetailSkeleton } from '@/components/ui/ListSkeleton';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
 import { QuotationDetail, QuotationLine, QuotationReorderSeed } from '@/types/quotation';
-import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import {
   formatMyanmarDate,
   formatMyanmarDateTime,
@@ -568,12 +569,7 @@ export function QuotationDetailView({
   return (
     <View style={[styles.container, { backgroundColor: detailTheme.background }]}>
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator />
-          <Text style={{ marginTop: 12, color: theme.colors.onSurfaceVariant }}>
-            Loading quotation from Odoo...
-          </Text>
-        </View>
+        <DetailSkeleton lines={8} />
       ) : error ? (
         <View style={styles.center}>
           <Text

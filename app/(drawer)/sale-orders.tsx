@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
-  ActivityIndicator,
   Button,
   Checkbox,
   Chip,
@@ -37,6 +36,7 @@ import { getSaleOrderDateRange } from '@/components/sale-order/sale-order-filter
 import { SaleOrderPrintPreview } from '@/components/sale-order/SaleOrderPrintPreview';
 import { ListFilterCheckbox } from '@/components/ui/ListSelectionModeToggle';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
+import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import {
   canCreateInvoice,
@@ -1069,12 +1069,7 @@ export default function SaleOrdersScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator />
-        <Text style={{ marginTop: 12 }}>Loading sale orders...</Text>
-      </View>
-    );
+    return <ListSkeleton showCheckbox rows={10} columns={[1.2, 2.4, 1.4, 1.2, 1]} />;
   }
 
   if (error) {

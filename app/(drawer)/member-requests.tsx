@@ -9,7 +9,6 @@ import {
   View,
 } from 'react-native';
 import {
-  ActivityIndicator,
   Button,
   Chip,
   Dialog,
@@ -20,6 +19,7 @@ import {
 } from 'react-native-paper';
 
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
+import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { ThemeMode } from '@/constants/colors';
 import { useAuth } from '@/contexts/auth-context';
@@ -437,11 +437,7 @@ export default function MemberRequestsScreen() {
   );
 
   if (loading && rows.length === 0) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator />
-      </View>
-    );
+    return <ListSkeleton rows={10} columns={[2, 1.4, 1.2, 1.2, 1]} />;
   }
 
   return (

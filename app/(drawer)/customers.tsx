@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
-  ActivityIndicator,
   Avatar,
   Button,
   Card,
@@ -21,6 +20,7 @@ import {
   useTheme,
 } from 'react-native-paper';
 
+import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { ContactDetailView } from '@/components/contact/ContactDetailView';
 import {
@@ -1135,12 +1135,7 @@ export default function CustomersScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator />
-        <Text style={{ marginTop: 12 }}>Loading contacts from Odoo...</Text>
-      </View>
-    );
+    return <ListSkeleton rows={10} columns={[2.2, 1.6, 1.4, 1.2, 1]} />;
   }
 
   if (error) {

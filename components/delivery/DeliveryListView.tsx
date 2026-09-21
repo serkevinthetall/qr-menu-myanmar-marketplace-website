@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Icon, Text, useTheme } from 'react-native-paper';
+import { Icon, Text, useTheme } from 'react-native-paper';
 
+import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { DeliveryPreview } from '@/types/delivery';
 import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
 
@@ -49,12 +50,7 @@ export function DeliveryListView({
   const muted = theme.colors.onSurfaceVariant;
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator />
-        <Text style={{ marginTop: 12, color: muted }}>Loading deliveries…</Text>
-      </View>
-    );
+    return <ListSkeleton rows={6} columns={[1.2, 1.6, 1.2, 1]} />;
   }
 
   if (error) {

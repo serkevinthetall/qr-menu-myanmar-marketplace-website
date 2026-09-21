@@ -9,7 +9,6 @@ import {
   View,
 } from 'react-native';
 import {
-  ActivityIndicator,
   Avatar,
   Button,
   Dialog,
@@ -21,6 +20,7 @@ import {
   useTheme,
 } from 'react-native-paper';
 
+import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -240,12 +240,7 @@ export default function AppPromotersScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator />
-        <Text style={{ marginTop: 12 }}>Loading App Promoters…</Text>
-      </View>
-    );
+    return <ListSkeleton rows={8} columns={[2.4, 1.6, 1.2]} />;
   }
 
   const emptyLabel = query.trim()

@@ -15,7 +15,6 @@ import {
   View,
 } from 'react-native';
 import {
-  ActivityIndicator,
   Button,
   Chip,
   Dialog,
@@ -27,6 +26,7 @@ import {
 } from 'react-native-paper';
 
 import { CalendarField } from '@/components/ui/CalendarField';
+import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { SearchableDropdownField } from '@/components/ui/SearchableDropdownField';
 import { Pagination } from '@/components/ui/Pagination';
 import { useAuth } from '@/contexts/auth-context';
@@ -1048,12 +1048,7 @@ export default function CallListScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator />
-        <Text style={{ marginTop: 12 }}>Loading App User List...</Text>
-      </View>
-    );
+    return <ListSkeleton rows={10} columns={[2, 1.4, 1.2, 1.2, 1]} />;
   }
 
   return (

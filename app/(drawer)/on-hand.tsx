@@ -9,7 +9,6 @@ import {
   View,
 } from 'react-native';
 import {
-  ActivityIndicator,
   Snackbar,
   Switch,
   Text,
@@ -17,6 +16,7 @@ import {
 } from 'react-native-paper';
 
 import { DropdownField } from '@/components/ui/DropdownField';
+import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -202,12 +202,7 @@ export default function OnHandScreen() {
   );
 
   if (loading) {
-    return (
-      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator />
-        <Text style={{ marginTop: 12 }}>Loading on-hand stock…</Text>
-      </View>
-    );
+    return <ListSkeleton rows={10} columns={[2.4, 1.2, 1, 1, 1]} />;
   }
 
   return (

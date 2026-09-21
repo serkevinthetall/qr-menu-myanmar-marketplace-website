@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import {
-  ActivityIndicator,
   Icon,
   Text,
   useTheme,
@@ -17,6 +16,7 @@ import {
 
 import { PurchaseOrderDetailView } from '@/components/purchase-order/PurchaseOrderDetailView';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
+import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { getPurchaseOrderStatusColors } from '@/constants/status-colors';
 import { useAuth } from '@/contexts/auth-context';
@@ -500,12 +500,7 @@ export default function PurchaseOrdersScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator />
-        <Text style={{ marginTop: 12 }}>Loading purchase orders...</Text>
-      </View>
-    );
+    return <ListSkeleton rows={10} columns={[1.2, 2.2, 1.4, 1.2, 1]} />;
   }
 
   if (error) {

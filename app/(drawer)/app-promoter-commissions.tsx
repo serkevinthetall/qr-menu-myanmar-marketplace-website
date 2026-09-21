@@ -10,13 +10,13 @@ import {
   View,
 } from 'react-native';
 import {
-  ActivityIndicator,
   Snackbar,
   Text,
   useTheme,
 } from 'react-native-paper';
 
 import { DropdownField } from '@/components/ui/DropdownField';
+import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -285,12 +285,7 @@ export default function AppPromoterCommissionsScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator />
-        <Text style={{ marginTop: 12 }}>Loading commissions…</Text>
-      </View>
-    );
+    return <ListSkeleton rows={10} columns={[1.4, 2, 1.4, 1.2, 1]} />;
   }
 
   const emptyLabel = query.trim()

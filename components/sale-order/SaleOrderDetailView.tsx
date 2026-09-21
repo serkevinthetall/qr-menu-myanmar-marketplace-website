@@ -1,8 +1,9 @@
 import { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Icon, Text, useTheme } from 'react-native-paper';
+import { Icon, Text, useTheme } from 'react-native-paper';
 
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
+import { DetailSkeleton } from '@/components/ui/ListSkeleton';
 import { getSaleOrderStatusColors } from '@/constants/status-colors';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
@@ -333,12 +334,7 @@ export function SaleOrderDetailView({
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: detailTheme.background }]}>
-        <View style={styles.centerOverlay}>
-          <ActivityIndicator size="large" />
-          <Text style={{ marginTop: 12, color: theme.colors.onSurfaceVariant }}>
-            Loading sale order from Odoo...
-          </Text>
-        </View>
+        <DetailSkeleton lines={8} />
       </View>
     );
   }

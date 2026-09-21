@@ -8,7 +8,6 @@ import {
   View,
 } from 'react-native';
 import {
-  ActivityIndicator,
   Card,
   Text,
   useTheme,
@@ -16,6 +15,7 @@ import {
 
 import { MembershipCouponDetailView } from '@/components/membership/MembershipCouponDetailView';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
+import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { ThemeMode } from '@/constants/colors';
 import { useAuth } from '@/contexts/auth-context';
@@ -489,12 +489,7 @@ export default function MembershipCouponsScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator />
-        <Text style={{ marginTop: 12 }}>Loading coupon tickets...</Text>
-      </View>
-    );
+    return <ListSkeleton rows={10} columns={[2.2, 1.4, 1.2, 1]} />;
   }
 
   if (error) {

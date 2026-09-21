@@ -8,7 +8,6 @@ import {
   View,
 } from 'react-native';
 import {
-  ActivityIndicator,
   Card,
   Checkbox,
   Text,
@@ -17,6 +16,7 @@ import {
 
 import { ProductDetailView } from '@/components/product/ProductDetailView';
 import { FavoriteStar } from '@/components/ui/FavoriteStar';
+import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { Pagination } from '@/components/ui/Pagination';
 import { ProductThumb } from '@/components/ui/ProductThumb';
 import { useAuth } from '@/contexts/auth-context';
@@ -814,12 +814,7 @@ export default function ProductsScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator />
-        <Text style={{ marginTop: 12 }}>Loading products from Odoo...</Text>
-      </View>
-    );
+    return <ListSkeleton rows={10} columns={[0.6, 2.4, 1.2, 1, 1, 1]} />;
   }
 
   if (error) {
