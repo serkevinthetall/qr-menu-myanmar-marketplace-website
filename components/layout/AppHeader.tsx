@@ -72,7 +72,8 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
   const { unreadCount } = useAppOrderUnread();
   const { requestedCount } = useMemberRequestBadge();
   const { newCount } = useCallListBadge();
-  const { visible, placeholder, inputQuery, setInputQuery } = useSearchInput();
+  const { visible, placeholder, inputQuery, setInputQuery, submitSearch } =
+    useSearchInput();
   const {
     setQuery,
     actions,
@@ -169,6 +170,12 @@ export function AppHeader({ navigation, options }: DrawerHeaderProps) {
               <TextInput
                 value={inputQuery}
                 onChangeText={setInputQuery}
+                onSubmitEditing={submitSearch}
+                onKeyPress={event => {
+                  if (event.nativeEvent.key === 'Enter') {
+                    submitSearch();
+                  }
+                }}
                 placeholder={placeholder}
                 placeholderTextColor={colors.searchPlaceholder}
                 style={[styles.searchInput, { color: colors.searchText }]}

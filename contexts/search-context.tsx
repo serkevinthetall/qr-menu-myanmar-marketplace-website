@@ -12,7 +12,8 @@ import {
 
 import { PrintFormat } from '@/utils/print-quotation';
 
-const SEARCH_DEBOUNCE_MS = 350;
+/** If the user stops typing, search runs after this delay. Enter searches immediately. */
+const SEARCH_IDLE_MS = 2000;
 
 export type HeaderAction = {
   key: string;
@@ -62,15 +63,17 @@ export type DetailHeader = {
 };
 
 type SearchInputContextValue = {
-  /** Immediate header input value; may lead the debounced `query`. */
+  /** What the user is typing; applied as `query` only on Enter. */
   inputQuery: string;
   setInputQuery: (value: string) => void;
+  /** Apply the current input as the search query (Enter). */
+  submitSearch: () => void;
   placeholder: string;
   visible: boolean;
 };
 
 type SearchQueryContextValue = {
-  /** Debounced query used for filtering / server search. */
+  /** Query used for filtering / server search (set on Enter or clear). */
   query: string;
   setQuery: (value: string) => void;
   enableSearch: (placeholder: string) => void;
@@ -98,12 +101,14 @@ const SearchChromeContext = createContext<SearchChromeContextValue | null>(null)
 
 /**
  * Holds navbar state shared between the header and the focused screen.
- * Input keystrokes update a separate context so list screens only re-render
- * when the debounced `query` changes (not on every character).
+ * Typing stays in the header input. The list query updates when the user
+ * presses Enter, or a couple of seconds after they stop typing.
  */
 export function SearchProvider({ children }: { children: ReactNode }) {
   const [query, setQueryState] = useState('');
   const [inputQuery, setInputQueryState] = useState('');
+  const inputQueryRef = useRef('');
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [placeholder, setPlaceholder] = useState('Search');
   const [visible, setVisible] = useState(false);
   const [actions, setActions] = useState<HeaderAction[]>([]);
@@ -111,37 +116,47 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   const [filtersEnabled, setFiltersEnabled] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [filterPanel, setFilterPanel] = useState<ReactNode | null>(null);
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const clearSearchDebounce = useCallback(() => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-      debounceTimerRef.current = null;
+  const clearIdleSearch = useCallback(() => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
     }
+  }, []);
+
+  const commitSearch = useCallback((value: string) => {
+    setQueryState(value.trim());
   }, []);
 
   const setInputQuery = useCallback(
     (value: string) => {
+      inputQueryRef.current = value;
       setInputQueryState(value);
-      clearSearchDebounce();
-      debounceTimerRef.current = setTimeout(() => {
-        debounceTimerRef.current = null;
-        setQueryState(value);
-      }, SEARCH_DEBOUNCE_MS);
+      clearIdleSearch();
+      idleTimerRef.current = setTimeout(() => {
+        idleTimerRef.current = null;
+        commitSearch(inputQueryRef.current);
+      }, SEARCH_IDLE_MS);
     },
-    [clearSearchDebounce],
+    [clearIdleSearch, commitSearch],
   );
 
   const setQuery = useCallback(
     (value: string) => {
-      clearSearchDebounce();
+      clearIdleSearch();
+      inputQueryRef.current = value;
       setInputQueryState(value);
-      setQueryState(value);
+      commitSearch(value);
     },
-    [clearSearchDebounce],
+    [clearIdleSearch, commitSearch],
   );
 
-  useEffect(() => () => clearSearchDebounce(), [clearSearchDebounce]);
+  const submitSearch = useCallback(() => {
+    clearIdleSearch();
+    commitSearch(inputQueryRef.current);
+  }, [clearIdleSearch, commitSearch]);
+
+  useEffect(() => () => clearIdleSearch(), [clearIdleSearch]);
 
   const enableSearch = useCallback((nextPlaceholder: string) => {
     setPlaceholder(nextPlaceholder);
@@ -149,14 +164,15 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const disableSearch = useCallback(() => {
-    clearSearchDebounce();
+    clearIdleSearch();
+    inputQueryRef.current = '';
     setVisible(false);
     setInputQueryState('');
     setQueryState('');
     setFiltersEnabled(false);
     setFiltersExpanded(false);
     setFilterPanel(null);
-  }, [clearSearchDebounce]);
+  }, [clearIdleSearch]);
 
   const enableFilters = useCallback((panel: ReactNode) => {
     setFilterPanel(panel);
@@ -179,10 +195,11 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     () => ({
       inputQuery,
       setInputQuery,
+      submitSearch,
       placeholder,
       visible,
     }),
-    [inputQuery, setInputQuery, placeholder, visible],
+    [inputQuery, setInputQuery, submitSearch, placeholder, visible],
   );
 
   const queryValue = useMemo<SearchQueryContextValue>(
@@ -262,7 +279,7 @@ export function useSearchInput() {
   return useSearchInputContext();
 }
 
-/** Navbar chrome (actions / filters / detail) + debounced query — not keystrokes. */
+/** Navbar chrome (actions / filters / detail) + committed search query. */
 export function useSearch() {
   const query = useSearchQueryContext();
   const chrome = useSearchChromeContext();
@@ -292,8 +309,8 @@ export function useOptionalSearch() {
 
 /**
  * Enables the navbar search bar while the calling screen is focused and
- * returns the debounced query for local filtering / server search.
- * Does not re-render on each keystroke — only when the debounced query updates.
+ * returns the query for local filtering / server search.
+ * The query updates on Enter, or a couple of seconds after typing stops.
  */
 export function useModuleSearch(placeholder: string, enabled = true) {
   const { query, enableSearch, disableSearch } = useSearchQueryContext();

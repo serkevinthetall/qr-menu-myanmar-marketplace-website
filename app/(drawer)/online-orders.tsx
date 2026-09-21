@@ -620,7 +620,6 @@ export default function OnlineOrdersScreen() {
     }
     try {
       await fetchOnlineOrders(session.token, {
-        q: query.trim() || undefined,
         pageSize: 100,
         includeValidate: false,
         onPage: all => {
@@ -649,7 +648,7 @@ export default function OnlineOrdersScreen() {
         setRefreshing(false);
       }
     }
-  }, [session?.token, query]);
+  }, [session?.token]);
 
   useEffect(() => {
     if (!hasLoadedOnceRef.current) {
@@ -993,16 +992,26 @@ export default function OnlineOrdersScreen() {
     setViewMode(prev => (prev === 'list' ? 'card' : 'list'));
   }, []);
 
-  const filtered = useMemo(
-    () =>
-      items.filter(order => {
-        if (!matchesSaleOrderFilters(order, orderFilters)) return false;
-        if (readFilter === 'unread') return Boolean(order.unread);
-        if (readFilter === 'read') return !order.unread;
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return items.filter(order => {
+      if (!matchesSaleOrderFilters(order, orderFilters)) return false;
+      if (readFilter === 'unread') {
+        if (!order.unread) return false;
+      } else if (readFilter === 'read') {
+        if (order.unread) return false;
+      }
+      if (!term) {
         return true;
-      }),
-    [items, orderFilters, readFilter],
-  );
+      }
+      return (
+        order.number.toLowerCase().includes(term) ||
+        order.customer.toLowerCase().includes(term) ||
+        order.phoneNumber?.toLowerCase().includes(term) ||
+        order.salePersonName?.toLowerCase().includes(term)
+      );
+    });
+  }, [items, orderFilters, readFilter, query]);
 
   const markAllVisibleRead = useCallback(async () => {
     const unreadIds = filtered

@@ -521,7 +521,6 @@ export default function SaleOrdersScreen() {
     }
     try {
       await fetchSaleOrders(session.token, {
-        q: query.trim() || undefined,
         pageSize: 100,
         includeValidate: false,
         onPage: all => {
@@ -548,7 +547,7 @@ export default function SaleOrdersScreen() {
         setRefreshing(false);
       }
     }
-  }, [session?.token, query]);
+  }, [session?.token]);
 
   useEffect(() => {
     if (!hasLoadedOnceRef.current) {
@@ -876,10 +875,23 @@ export default function SaleOrdersScreen() {
 
   useHeaderActions(headerActions);
 
-  const filtered = useMemo(
-    () => items.filter(order => matchesSaleOrderFilters(order, orderFilters)),
-    [items, orderFilters],
-  );
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return items.filter(order => {
+      if (!matchesSaleOrderFilters(order, orderFilters)) {
+        return false;
+      }
+      if (!term) {
+        return true;
+      }
+      return (
+        order.number.toLowerCase().includes(term) ||
+        order.customer.toLowerCase().includes(term) ||
+        order.phoneNumber?.toLowerCase().includes(term) ||
+        order.salePersonName?.toLowerCase().includes(term)
+      );
+    });
+  }, [items, orderFilters, query]);
 
   const showDateGroups = viewMode === 'list' && groupByOrderDate;
   const monthGroups = useMemo(

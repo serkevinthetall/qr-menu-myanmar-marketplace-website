@@ -337,7 +337,6 @@ export default function PurchaseOrdersScreen() {
     }
     try {
       const data = await fetchPurchaseOrders(session.token, {
-        q: query.trim() || undefined,
         limit: 300,
       });
       if (gen !== loadGenRef.current) return;
@@ -356,7 +355,7 @@ export default function PurchaseOrdersScreen() {
         setRefreshing(false);
       }
     }
-  }, [session?.token, query]);
+  }, [session?.token]);
 
   useEffect(() => {
     if (!hasLoadedOnceRef.current) {
@@ -442,7 +441,17 @@ export default function PurchaseOrdersScreen() {
 
   useHeaderActions(headerActions);
 
-  const filtered = useMemo(() => items, [items]);
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) {
+      return items;
+    }
+    return items.filter(
+      order =>
+        order.number.toLowerCase().includes(term) ||
+        order.vendor.toLowerCase().includes(term),
+    );
+  }, [items, query]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
