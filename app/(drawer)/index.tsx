@@ -33,7 +33,7 @@ import { PayInvoiceDialog } from '@/components/delivery/PayInvoiceDialog';
 import { OrderDateGroupHeader } from '@/components/order/OrderDateGroupHeader';
 import { SaleOrderDateTotalBar } from '@/components/sale-order/SaleOrderDateTotalBar';
 import { Pagination } from '@/components/ui/Pagination';
-import { ListSelectionModeToggle } from '@/components/ui/ListSelectionModeToggle';
+import { ListFilterCheckbox } from '@/components/ui/ListSelectionModeToggle';
 import { useAuth } from '@/contexts/auth-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
@@ -398,11 +398,11 @@ export default function QuotationScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [groupByOrderDate, setGroupByOrderDate] = useState(true);
+  const [groupByOrderDate, setGroupByOrderDate] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [selectionMode, setSelectionMode] = useState(false);
+  const selectionMode = true;
   const [snackbar, setSnackbar] = useState('');
   const [builderOpen, setBuilderOpen] = useState(false);
   const [builderInitialCustomerId, setBuilderInitialCustomerId] = useState<string | null>(
@@ -457,8 +457,9 @@ export default function QuotationScreen() {
     if (saved.viewMode === 'list' || saved.viewMode === 'card') {
       setViewMode(saved.viewMode);
     }
-    // Month/Day grouping is always on for list view (ignore saved off).
-    setGroupByOrderDate(true);
+    if (typeof saved.groupByOrderDate === 'boolean') {
+      setGroupByOrderDate(saved.groupByOrderDate);
+    }
     if (saved.quotationFilters && typeof saved.quotationFilters === 'object') {
       setQuotationFilters({
         ...EMPTY_QUOTATION_FILTERS,
@@ -478,19 +479,15 @@ export default function QuotationScreen() {
   const filterPanel = useMemo(
     () => (
       <View>
-        <ListSelectionModeToggle
-          enabled={selectionMode}
-          onChange={next => {
-            setSelectionMode(next);
-            if (!next) {
-              setSelectedIds(new Set());
-            }
-          }}
+        <ListFilterCheckbox
+          enabled={groupByOrderDate}
+          onChange={setGroupByOrderDate}
+          label="Group by date"
         />
         <QuotationFilterBar filters={quotationFilters} onChange={setQuotationFilters} />
       </View>
     ),
-    [quotationFilters, selectionMode],
+    [quotationFilters, groupByOrderDate],
   );
 
   useModuleFilters(filterPanel, !builderOpen && !detailId);
@@ -1119,7 +1116,7 @@ export default function QuotationScreen() {
 
   useHeaderActions(headerActions);
 
-  const showDateGroups = viewMode === 'list';
+  const showDateGroups = viewMode === 'list' && groupByOrderDate;
   const monthGroups = useMemo(
     () =>
       showDateGroups

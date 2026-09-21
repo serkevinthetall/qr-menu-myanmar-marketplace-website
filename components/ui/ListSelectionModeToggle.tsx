@@ -1,18 +1,18 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Checkbox, Text, useTheme } from 'react-native-paper';
 
-type ListSelectionModeToggleProps = {
+type ListFilterCheckboxProps = {
   enabled: boolean;
   onChange: (enabled: boolean) => void;
   label?: string;
 };
 
-/** Checkbox for the search chevron filter panel — opt into row selection / bulk actions. */
-export function ListSelectionModeToggle({
+/** Checkbox for the search chevron filter panel (e.g. Group by date). */
+export function ListFilterCheckbox({
   enabled,
   onChange,
-  label = 'Select rows',
-}: ListSelectionModeToggleProps) {
+  label = 'Group by date',
+}: ListFilterCheckboxProps) {
   const theme = useTheme();
 
   return (
@@ -34,6 +34,9 @@ export function ListSelectionModeToggle({
     </Pressable>
   );
 }
+
+/** @deprecated Use ListFilterCheckbox */
+export const ListSelectionModeToggle = ListFilterCheckbox;
 
 const styles = StyleSheet.create({
   row: {

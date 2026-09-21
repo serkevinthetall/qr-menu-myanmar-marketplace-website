@@ -37,7 +37,7 @@ import {
 } from '@/components/sale-order/SaleOrderFilterBar';
 import { SaleOrderPrintPreview } from '@/components/sale-order/SaleOrderPrintPreview';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
-import { ListSelectionModeToggle } from '@/components/ui/ListSelectionModeToggle';
+import { ListFilterCheckbox } from '@/components/ui/ListSelectionModeToggle';
 import { Pagination } from '@/components/ui/Pagination';
 import {
   canCreateInvoice,
@@ -510,12 +510,12 @@ export default function OnlineOrdersScreen() {
   const [error, setError] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [readFilter, setReadFilter] = useState<ReadFilter>('all');
-  const [groupByOrderDate, setGroupByOrderDate] = useState(true);
+  const [groupByOrderDate, setGroupByOrderDate] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [selectionMode, setSelectionMode] = useState(false);
+  const selectionMode = true;
   const loadGenRef = useRef(0);
   const hasLoadedOnceRef = useRef(false);
   const [detail, setDetail] = useState<SaleOrderDetail | null>(null);
@@ -561,8 +561,9 @@ export default function OnlineOrdersScreen() {
     ) {
       setReadFilter(saved.readFilter);
     }
-    // Month/Day grouping is always on for list view (ignore saved off).
-    setGroupByOrderDate(true);
+    if (typeof saved.groupByOrderDate === 'boolean') {
+      setGroupByOrderDate(saved.groupByOrderDate);
+    }
     if (saved.orderFilters && typeof saved.orderFilters === 'object') {
       setOrderFilters({
         ...EMPTY_SALE_ORDER_FILTERS,
@@ -578,12 +579,10 @@ export default function OnlineOrdersScreen() {
   const filterPanel = useMemo(
     () => (
       <View style={styles.readFilterPanel}>
-        <ListSelectionModeToggle
-          enabled={selectionMode}
-          onChange={next => {
-            setSelectionMode(next);
-            if (!next) setSelectedIds(new Set());
-          }}
+        <ListFilterCheckbox
+          enabled={groupByOrderDate}
+          onChange={setGroupByOrderDate}
+          label="Group by date"
         />
         <View style={styles.readFilterRow}>
           {(
@@ -607,7 +606,7 @@ export default function OnlineOrdersScreen() {
         <SaleOrderFilterBar filters={orderFilters} onChange={setOrderFilters} />
       </View>
     ),
-    [orderFilters, readFilter, groupByOrderDate, selectionMode],
+    [orderFilters, readFilter, groupByOrderDate],
   );
 
   useModuleFilters(filterPanel, !selectedId);
@@ -623,7 +622,7 @@ export default function OnlineOrdersScreen() {
       await fetchOnlineOrders(session.token, {
         q: query.trim() || undefined,
         pageSize: 100,
-        includeValidate: selectionMode,
+        includeValidate: false,
         onPage: all => {
           if (gen !== loadGenRef.current) return;
           setItems(all);
@@ -650,7 +649,7 @@ export default function OnlineOrdersScreen() {
         setRefreshing(false);
       }
     }
-  }, [session?.token, query, selectionMode]);
+  }, [session?.token, query]);
 
   useEffect(() => {
     if (!hasLoadedOnceRef.current) {
@@ -1085,7 +1084,7 @@ export default function OnlineOrdersScreen() {
 
   useHeaderActions(headerActions);
 
-  const showDateGroups = viewMode === 'list';
+  const showDateGroups = viewMode === 'list' && groupByOrderDate;
   const monthGroups = useMemo(
     () => (showDateGroups ? groupOrdersByMonthDay(filtered) : []),
     [showDateGroups, filtered],
