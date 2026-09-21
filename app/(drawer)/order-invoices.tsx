@@ -10,6 +10,7 @@ import { fetchOrderInvoices } from '@/services/order-invoices';
 import { InvoicePreview } from '@/types/invoice';
 import {
   firstParam,
+  navigateBackToOrderDetail,
   parseInvoiceOrderSource,
   pushOrderInvoiceDetail,
 } from '@/utils/order-invoice-nav';
@@ -61,8 +62,8 @@ export default function OrderInvoicesScreen() {
   }, [load]);
 
   const onBack = useCallback(() => {
-    routerRef.current.back();
-  }, []);
+    navigateBackToOrderDetail(routerRef.current, { source, orderId });
+  }, [source, orderId]);
 
   const header = useMemo(
     () => ({

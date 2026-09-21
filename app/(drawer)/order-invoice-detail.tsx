@@ -4,14 +4,18 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from 'react-native-paper';
 
 import { InvoiceDetailView } from '@/components/invoice/InvoiceDetailView';
+import { DocumentPrintPreview } from '@/components/print/DocumentPrintPreview';
 import { useAuth } from '@/contexts/auth-context';
 import { useDetailHeader, useModuleSearch } from '@/contexts/search-context';
 import { fetchOrderInvoices } from '@/services/order-invoices';
 import { InvoicePreview } from '@/types/invoice';
 import {
   firstParam,
+  navigateBackToOrderInvoices,
   parseInvoiceOrderSource,
 } from '@/utils/order-invoice-nav';
+import { buildInvoicePrintHtml } from '@/utils/print-invoice';
+import { PrintFormat } from '@/utils/print-quotation';
 
 export default function OrderInvoiceDetailScreen() {
   const theme = useTheme();
@@ -34,6 +38,10 @@ export default function OrderInvoiceDetailScreen() {
   const [invoice, setInvoice] = useState<InvoicePreview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [printPreview, setPrintPreview] = useState<{
+    format: PrintFormat;
+    detail: InvoicePreview;
+  } | null>(null);
 
   useModuleSearch('', false);
 
@@ -65,13 +73,29 @@ export default function OrderInvoiceDetailScreen() {
     void load();
   }, [load]);
 
+  const printHtml = useMemo(
+    () =>
+      printPreview
+        ? buildInvoicePrintHtml(printPreview.detail, printPreview.format)
+        : '',
+    [printPreview],
+  );
+
   const header = useMemo(
     () => ({
       title: invoice?.name || 'Invoice',
-      onBack: () => routerRef.current.back(),
+      onBack: () =>
+        navigateBackToOrderInvoices(routerRef.current, {
+          source,
+          orderId,
+          orderNumber,
+        }),
       breadcrumbParent: orderNumber || 'Invoices',
+      onPrint: invoice
+        ? (format: PrintFormat) => setPrintPreview({ format, detail: invoice })
+        : undefined,
     }),
-    [invoice?.name, orderNumber],
+    [invoice, orderNumber, source, orderId],
   );
 
   useDetailHeader(header);
@@ -79,6 +103,15 @@ export default function OrderInvoiceDetailScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <InvoiceDetailView invoice={invoice} loading={loading} error={error} />
+
+      {printPreview ? (
+        <DocumentPrintPreview
+          title={printPreview.detail.name}
+          html={printHtml}
+          format={printPreview.format}
+          onClose={() => setPrintPreview(null)}
+        />
+      ) : null}
     </View>
   );
 }

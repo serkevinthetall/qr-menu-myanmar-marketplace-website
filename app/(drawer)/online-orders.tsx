@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   FlatList,
   Pressable,
@@ -484,6 +484,9 @@ export default function OnlineOrdersScreen() {
   const { width } = useResponsive();
   const { refreshUnreadCount, markOrderReadState, markAllOrdersRead } =
     useAppOrderUnread();
+  const { detailId: routeDetailId } = useLocalSearchParams<{
+    detailId?: string;
+  }>();
   const [items, setItems] = useState<SaleOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -697,6 +700,16 @@ export default function OnlineOrdersScreen() {
     },
     [session?.token, refreshUnreadCount],
   );
+
+  useEffect(() => {
+    const id = Array.isArray(routeDetailId)
+      ? routeDetailId[0]
+      : routeDetailId;
+    if (!id || !session?.token) {
+      return;
+    }
+    void openDetail(id);
+  }, [openDetail, routeDetailId, session?.token]);
 
   const toggleRead = useCallback(
     async (id: string, nextRead: boolean) => {

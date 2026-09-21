@@ -10,6 +10,7 @@ import { fetchOrderDeliveries } from '@/services/order-deliveries';
 import { DeliveryPreview } from '@/types/delivery';
 import {
   firstParam,
+  navigateBackToOrderDetail,
   parseDeliveryOrderSource,
   pushOrderDeliveryDetail,
 } from '@/utils/order-delivery-nav';
@@ -61,8 +62,8 @@ export default function OrderDeliveriesScreen() {
   }, [load]);
 
   const onBack = useCallback(() => {
-    routerRef.current.back();
-  }, []);
+    navigateBackToOrderDetail(routerRef.current, { source, orderId });
+  }, [source, orderId]);
 
   const header = useMemo(
     () => ({

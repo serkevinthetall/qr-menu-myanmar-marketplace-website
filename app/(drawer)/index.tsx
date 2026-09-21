@@ -462,8 +462,9 @@ export default function QuotationScreen() {
   const router = useRouter();
   const routerRef = useRef(router);
   routerRef.current = router;
-  const { createForCustomerId } = useLocalSearchParams<{
+  const { createForCustomerId, detailId: routeDetailId } = useLocalSearchParams<{
     createForCustomerId?: string;
+    detailId?: string;
   }>();
   const handledCreateParam = useRef<string | null>(null);
   const resumeDraftCheckedRef = useRef(false);
@@ -722,6 +723,16 @@ export default function QuotationScreen() {
     },
     [session?.token],
   );
+
+  useEffect(() => {
+    const id = Array.isArray(routeDetailId)
+      ? routeDetailId[0]
+      : routeDetailId;
+    if (!id || !session?.token) {
+      return;
+    }
+    void openDetail(id);
+  }, [openDetail, routeDetailId, session?.token]);
 
   const closeDetail = useCallback(() => {
     setDetailId(null);

@@ -11,6 +11,7 @@ import {
 } from 'react-native-paper';
 
 import { DeliveryDetailView } from '@/components/delivery/DeliveryDetailView';
+import { DocumentPrintPreview } from '@/components/print/DocumentPrintPreview';
 import { useAuth } from '@/contexts/auth-context';
 import { useDetailHeader, useModuleSearch } from '@/contexts/search-context';
 import {
@@ -20,8 +21,11 @@ import {
 import { DeliveryPreview } from '@/types/delivery';
 import {
   firstParam,
+  navigateBackToOrderDeliveries,
   parseDeliveryOrderSource,
 } from '@/utils/order-delivery-nav';
+import { buildDeliveryPrintHtml } from '@/utils/print-delivery';
+import { PrintFormat } from '@/utils/print-quotation';
 
 export default function OrderDeliveryDetailScreen() {
   const theme = useTheme();
@@ -47,6 +51,10 @@ export default function OrderDeliveryDetailScreen() {
   const [validating, setValidating] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [snackbar, setSnackbar] = useState('');
+  const [printPreview, setPrintPreview] = useState<{
+    format: PrintFormat;
+    detail: DeliveryPreview;
+  } | null>(null);
 
   useModuleSearch('', false);
 
@@ -98,18 +106,33 @@ export default function OrderDeliveryDetailScreen() {
   }, [session?.token, source, orderId, pickingId, load]);
 
   const canValidate = Boolean(delivery?.canValidate);
+  const printHtml = useMemo(
+    () =>
+      printPreview
+        ? buildDeliveryPrintHtml(printPreview.detail, printPreview.format)
+        : '',
+    [printPreview],
+  );
 
   const header = useMemo(
     () => ({
       title: delivery?.name || 'Delivery',
-      onBack: () => routerRef.current.back(),
+      onBack: () =>
+        navigateBackToOrderDeliveries(routerRef.current, {
+          source,
+          orderId,
+          orderNumber,
+        }),
       breadcrumbParent: orderNumber || 'Deliveries',
+      onPrint: delivery
+        ? (format: PrintFormat) => setPrintPreview({ format, detail: delivery })
+        : undefined,
       onValidateDelivery: canValidate
         ? () => setConfirmVisible(true)
         : undefined,
       validatingDelivery: validating,
     }),
-    [delivery?.name, orderNumber, canValidate, validating],
+    [delivery, orderNumber, source, orderId, canValidate, validating],
   );
 
   useDetailHeader(header);
@@ -154,6 +177,15 @@ export default function OrderDeliveryDetailScreen() {
         duration={3000}>
         {snackbar}
       </Snackbar>
+
+      {printPreview ? (
+        <DocumentPrintPreview
+          title={printPreview.detail.name}
+          html={printHtml}
+          format={printPreview.format}
+          onClose={() => setPrintPreview(null)}
+        />
+      ) : null}
     </View>
   );
 }
