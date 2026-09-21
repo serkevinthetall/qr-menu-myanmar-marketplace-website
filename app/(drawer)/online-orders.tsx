@@ -35,6 +35,7 @@ import {
   SaleOrderFilterBar,
   SaleOrderFilters,
 } from '@/components/sale-order/SaleOrderFilterBar';
+import { getSaleOrderDateRange } from '@/components/sale-order/sale-order-filter-utils';
 import { SaleOrderPrintPreview } from '@/components/sale-order/SaleOrderPrintPreview';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { ListFilterCheckbox } from '@/components/ui/ListSelectionModeToggle';
@@ -611,6 +612,11 @@ export default function OnlineOrdersScreen() {
 
   useModuleFilters(filterPanel, !selectedId);
 
+  const orderDateRange = useMemo(
+    () => getSaleOrderDateRange(orderFilters),
+    [orderFilters],
+  );
+
   const load = useCallback(async (opts?: { quiet?: boolean }) => {
     if (!session?.token) return;
     const gen = ++loadGenRef.current;
@@ -621,6 +627,8 @@ export default function OnlineOrdersScreen() {
     try {
       await fetchOnlineOrders(session.token, {
         pageSize: 100,
+        from: orderDateRange?.from,
+        to: orderDateRange?.to,
         includeValidate: false,
         onPage: all => {
           if (gen !== loadGenRef.current) return;
@@ -648,7 +656,7 @@ export default function OnlineOrdersScreen() {
         setRefreshing(false);
       }
     }
-  }, [session?.token]);
+  }, [session?.token, orderDateRange?.from, orderDateRange?.to]);
 
   useEffect(() => {
     if (!hasLoadedOnceRef.current) {

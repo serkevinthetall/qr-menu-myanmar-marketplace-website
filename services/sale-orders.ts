@@ -29,12 +29,16 @@ export async function fetchSaleOrdersPage(
     q?: string;
     limit?: number;
     offset?: number;
+    from?: string;
+    to?: string;
     /** When true, enrich list with canValidateDelivery (extra Odoo call). */
     includeValidate?: boolean;
   },
 ): Promise<SaleOrdersPage> {
   const params = new URLSearchParams();
   if (options?.q) params.set('q', options.q);
+  if (options?.from) params.set('from', options.from);
+  if (options?.to) params.set('to', options.to);
   if (options?.limit !== undefined) params.set('limit', String(options.limit));
   if (options?.offset !== undefined) params.set('offset', String(options.offset));
   if (options?.includeValidate) params.set('includeValidate', '1');
@@ -58,6 +62,8 @@ export async function fetchSaleOrders(
   options?: {
     q?: string;
     pageSize?: number;
+    from?: string;
+    to?: string;
     includeValidate?: boolean;
     onPage?: (all: SaleOrder[]) => void;
   },
@@ -70,6 +76,8 @@ export async function fetchSaleOrders(
   while (hasMore) {
     const page = await fetchSaleOrdersPage(token, {
       q: options?.q,
+      from: options?.from,
+      to: options?.to,
       limit: pageSize,
       offset,
       includeValidate: options?.includeValidate,

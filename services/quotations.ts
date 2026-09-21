@@ -35,7 +35,13 @@ export type QuotationsPage = {
 
 export async function fetchQuotationsPage(
   token: string,
-  options?: { limit?: number; offset?: number },
+  options?: {
+    limit?: number;
+    offset?: number;
+    from?: string;
+    to?: string;
+    statuses?: string[];
+  },
 ): Promise<QuotationsPage> {
   const params = new URLSearchParams();
   if (options?.limit !== undefined) {
@@ -43,6 +49,11 @@ export async function fetchQuotationsPage(
   }
   if (options?.offset !== undefined) {
     params.set('offset', String(options.offset));
+  }
+  if (options?.from) params.set('from', options.from);
+  if (options?.to) params.set('to', options.to);
+  if (options?.statuses && options.statuses.length > 0) {
+    params.set('status', options.statuses.join(','));
   }
   const query = params.toString() ? `?${params.toString()}` : '';
   const response = await webApiRequest<QuotationsResponse>(`/quotations${query}`, {

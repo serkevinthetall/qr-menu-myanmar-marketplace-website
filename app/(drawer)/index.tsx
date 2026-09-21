@@ -28,6 +28,7 @@ import {
   QuotationFilterBar,
   QuotationFilters,
 } from '@/components/quotation/QuotationFilterBar';
+import { getQuotationDateRange } from '@/components/quotation/quotation-filter-utils';
 import { QuotationPrintPreview } from '@/components/quotation/QuotationPrintPreview';
 import { PayInvoiceDialog } from '@/components/delivery/PayInvoiceDialog';
 import { OrderDateGroupHeader } from '@/components/order/OrderDateGroupHeader';
@@ -1218,6 +1219,8 @@ export default function QuotationScreen() {
       return;
     }
 
+    const range = getQuotationDateRange(quotationFilters);
+
     try {
       setError('');
       const pageSize = 200;
@@ -1229,6 +1232,9 @@ export default function QuotationScreen() {
         const page = await fetchQuotationsPage(session.token, {
           limit: pageSize,
           offset,
+          from: range?.from,
+          to: range?.to,
+          statuses: quotationFilters.statuses,
         });
         all = mergeById(all, page.data);
         setQuotations(all);
@@ -1240,7 +1246,13 @@ export default function QuotationScreen() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load quotations.');
     }
-  }, [session?.token]);
+  }, [
+    session?.token,
+    quotationFilters.period,
+    quotationFilters.startDate,
+    quotationFilters.endDate,
+    quotationFilters.statuses,
+  ]);
 
   useEffect(() => {
     return subscribeWebProductCatalog(catalog => {
