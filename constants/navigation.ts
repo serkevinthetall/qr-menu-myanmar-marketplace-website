@@ -129,6 +129,14 @@ const VENDORS: NavItem = {
   description: 'Purchase vendors (Odoo suppliers).',
 };
 
+const BILLS_OF_MATERIALS: NavItem = {
+  name: 'bills-of-materials',
+  label: 'Bills of Materials',
+  icon: 'file-tree-outline',
+  title: 'Bills of Materials',
+  description: 'Odoo 19.2 manufacturing bills of materials (mrp.bom).',
+};
+
 const MEMBERSHIPS: NavItem = {
   name: 'memberships',
   label: 'Membership',
@@ -172,20 +180,19 @@ export const NAV_ENTRIES: NavEntry[] = [
     children: [QUOTATION, SALE_ORDERS, ONLINE_ORDERS],
   },
   { type: 'item', item: CUSTOMERS },
-  { type: 'item', item: PRODUCTS },
   {
     type: 'group',
     id: 'inventory',
-    label: 'Inventory',
+    label: 'Product System',
     icon: 'warehouse',
-    children: [ON_HAND, MOVES_HISTORY],
+    children: [PRODUCTS, ON_HAND, MOVES_HISTORY],
   },
   {
     type: 'group',
     id: 'purchase',
     label: 'Purchase',
     icon: 'cart-arrow-down',
-    children: [PURCHASE_ORDERS, VENDORS],
+    children: [PURCHASE_ORDERS, VENDORS, BILLS_OF_MATERIALS],
   },
   // @temp-feature app-install-call-list — App User List + App Promoter under App List
   ...(ENABLE_APP_INSTALL_CALL_LIST

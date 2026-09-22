@@ -21,6 +21,8 @@ type SearchableDropdownFieldProps = {
   compact?: boolean;
   variant?: 'default' | 'header';
   sortOptions?: boolean;
+  clearLabel?: string;
+  emptyLabel?: string;
 };
 
 export function SearchableDropdownField({
@@ -32,6 +34,8 @@ export function SearchableDropdownField({
   compact = false,
   variant = 'default',
   sortOptions = true,
+  clearLabel = 'All',
+  emptyLabel = 'No matches',
 }: SearchableDropdownFieldProps) {
   const theme = useTheme();
   const colors = useAppColors();
@@ -181,12 +185,13 @@ export function SearchableDropdownField({
               styles.option,
               pressed && { backgroundColor: theme.colors.surfaceVariant },
             ]}>
-            <Text style={{ color: theme.colors.onSurfaceVariant }}>All townships</Text>
+            <Text style={{ color: theme.colors.onSurfaceVariant }}>{clearLabel}</Text>
           </Pressable>
 
           {filteredOptions.length === 0 ? (
             <Text style={{ color: theme.colors.onSurfaceVariant, padding: 12 }}>
-              No townships match &quot;{query.trim()}&quot;
+              {emptyLabel}
+              {query.trim() ? ` for "${query.trim()}"` : ''}
             </Text>
           ) : (
             filteredOptions.map(option => (

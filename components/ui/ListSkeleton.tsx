@@ -11,6 +11,7 @@ export type ListSkeletonVariant =
   | 'products'
   | 'purchaseOrders'
   | 'vendors'
+  | 'billsOfMaterials'
   | 'memberships'
   | 'membershipCoupons'
   | 'memberRequests'
@@ -117,6 +118,15 @@ const VARIANTS: Record<ListSkeletonVariant, VariantConfig> = {
       { flex: 1.3, boneWidth: '65%' },
       { flex: 1.0, boneWidth: '50%' },
       { flex: 1.5 },
+    ],
+  },
+  billsOfMaterials: {
+    columns: [
+      { flex: 2.4, boneWidth: '75%' },
+      { flex: 1.4 },
+      { flex: 1.8, shape: 'badge', boneWidth: '80%' },
+      { flex: 1.2, boneWidth: '50%' },
+      { flex: 1.6 },
     ],
   },
   memberships: {
