@@ -14,6 +14,11 @@ type PaginationProps = {
   itemLabel?: string;
 };
 
+/** Below this width, range + controls stack so they never overlap. */
+const STACK_BREAKPOINT = 1100;
+/** Odoo chip only when there is real room beside both sides. */
+const CENTER_CHIP_BREAKPOINT = 1280;
+
 export function Pagination({
   page,
   pageCount,
@@ -24,14 +29,15 @@ export function Pagination({
   itemLabel,
 }: PaginationProps) {
   const theme = useTheme();
-  const { isMobile, width } = useResponsive();
+  const { width } = useResponsive();
 
   const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, total);
   const atStart = page <= 1 || total === 0;
   const atEnd = page >= pageCount || total === 0;
-  // Avoid crowding the footer on mid-width layouts (absolute chip used to overlap).
-  const showCenter = Boolean(centerLabel) && !isMobile && width >= 1100;
+  const stacked = width < STACK_BREAKPOINT;
+  const showCenter =
+    Boolean(centerLabel) && !stacked && width >= CENTER_CHIP_BREAKPOINT;
   const rangeLabel = total === 0 ? '0 of 0' : `${start}–${end} of ${total}`;
   const itemWord =
     itemLabel && total > 0
@@ -39,32 +45,27 @@ export function Pagination({
         ? itemLabel
         : `${itemLabel}s`
       : null;
+  const pageLabel = total === 0 ? '0 / 0' : `${page} / ${pageCount}`;
 
   return (
     <View
       style={[
         styles.container,
-        isMobile && styles.containerMobile,
+        stacked && styles.containerStacked,
         {
           backgroundColor: theme.colors.surface,
           borderTopColor: theme.colors.outlineVariant ?? theme.colors.outline,
         },
       ]}>
-      <View style={[styles.side, isMobile && styles.sideMobile]}>
+      <View style={[styles.rangeSide, stacked && styles.rangeSideStacked]}>
         <Text
-          variant={isMobile ? 'labelLarge' : 'bodySmall'}
+          variant={stacked ? 'labelLarge' : 'bodySmall'}
           style={[styles.rangeText, { color: theme.colors.onSurface }]}
-          numberOfLines={1}>
+          numberOfLines={1}
+          ellipsizeMode="tail">
           {rangeLabel}
+          {itemWord ? ` ${itemWord}` : ''}
         </Text>
-        {itemWord ? (
-          <Text
-            variant="bodySmall"
-            numberOfLines={1}
-            style={{ color: theme.colors.onSurfaceVariant }}>
-            {itemWord}
-          </Text>
-        ) : null}
       </View>
 
       {showCenter ? (
@@ -72,10 +73,7 @@ export function Pagination({
           <Chip
             icon="cloud-sync"
             compact
-            style={[
-              styles.odooChip,
-              { backgroundColor: theme.colors.secondaryContainer },
-            ]}
+            style={{ backgroundColor: theme.colors.secondaryContainer }}
             textStyle={[
               styles.odooChipText,
               { color: theme.colors.onSecondaryContainer },
@@ -85,7 +83,7 @@ export function Pagination({
         </View>
       ) : null}
 
-      <View style={[styles.side, styles.sideRight, isMobile && styles.sideMobile]}>
+      <View style={[styles.controls, stacked && styles.controlsStacked]}>
         <IconButton
           icon="chevron-double-left"
           size={20}
@@ -104,7 +102,7 @@ export function Pagination({
           variant="labelLarge"
           style={[styles.pageText, { color: theme.colors.onSurface }]}
           numberOfLines={1}>
-          {total === 0 ? '0 / 0' : `${page} / ${pageCount}`}
+          {pageLabel}
         </Text>
         <IconButton
           icon="chevron-right"
@@ -133,45 +131,48 @@ const styles = StyleSheet.create({
     paddingRight: 4,
     borderTopWidth: StyleSheet.hairlineWidth,
     minHeight: 52,
-    gap: 8,
+    gap: 12,
+    overflow: 'hidden',
   },
-  containerMobile: {
+  containerStacked: {
     flexDirection: 'column',
     alignItems: 'stretch',
     paddingTop: 10,
     paddingBottom: 4,
     paddingLeft: 12,
     paddingRight: 4,
-    gap: 2,
+    gap: 0,
   },
-  side: {
-    flexShrink: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  rangeSide: {
+    flex: 1,
     minWidth: 0,
+    justifyContent: 'center',
   },
-  sideMobile: {
+  rangeSideStacked: {
     flex: 0,
     width: '100%',
-    justifyContent: 'center',
-  },
-  sideRight: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    flexShrink: 0,
-  },
-  center: {
-    flexShrink: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 0,
+    paddingBottom: 2,
   },
   rangeText: {
     fontWeight: '700',
-    flexShrink: 0,
   },
-  odooChip: {},
+  center: {
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  controls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexGrow: 0,
+    flexShrink: 0,
+    justifyContent: 'flex-end',
+  },
+  controlsStacked: {
+    width: '100%',
+    justifyContent: 'center',
+  },
   odooChipText: {
     fontWeight: '600',
     fontSize: 12,
