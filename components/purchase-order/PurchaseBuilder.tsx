@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import {
   ActivityIndicator,
   Button,
@@ -101,6 +101,8 @@ export function PurchaseBuilder({ onCancel, onCreated }: PurchaseBuilderProps) {
       const page = await fetchCustomersPage(session.token, {
         limit: 200,
         offset: 0,
+        lite: true,
+        vendors: true,
       });
       setVendors(page.data);
     } catch {
@@ -468,31 +470,45 @@ export function PurchaseBuilder({ onCancel, onCreated }: PurchaseBuilderProps) {
                 No matching products.
               </Text>
             ) : (
-              filteredProducts.map(product => (
-                <Pressable
-                  key={product.id}
-                  onPress={() => addProduct(product)}
-                  style={[
-                    styles.productResultRow,
-                    {
-                      borderBottomColor:
-                        theme.colors.outlineVariant ?? theme.colors.outline,
-                    },
-                  ]}>
-                  <ProductThumb productId={product.id} size={28} />
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text numberOfLines={1} style={{ fontWeight: '600' }}>
-                      {product.name}
-                    </Text>
-                    <Text
-                      variant="bodySmall"
-                      style={{ color: theme.colors.onSurfaceVariant }}>
-                      {formatMoney(Number(product.price) || 0)}
-                    </Text>
-                  </View>
-                  <Icon source="plus" size={18} color={theme.colors.primary} />
-                </Pressable>
-              ))
+              <ScrollView
+                style={styles.productResultsScroll}
+                nestedScrollEnabled
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator
+                // Keep wheel/trackpad scroll on the results list (not the page) on web.
+                {...(Platform.OS === 'web'
+                  ? ({
+                      onWheel: (e: { stopPropagation?: () => void }) => {
+                        e.stopPropagation?.();
+                      },
+                    } as object)
+                  : null)}>
+                {filteredProducts.map(product => (
+                  <Pressable
+                    key={product.id}
+                    onPress={() => addProduct(product)}
+                    style={[
+                      styles.productResultRow,
+                      {
+                        borderBottomColor:
+                          theme.colors.outlineVariant ?? theme.colors.outline,
+                      },
+                    ]}>
+                    <ProductThumb productId={product.id} size={28} />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text numberOfLines={1} style={{ fontWeight: '600' }}>
+                        {product.name}
+                      </Text>
+                      <Text
+                        variant="bodySmall"
+                        style={{ color: theme.colors.onSurfaceVariant }}>
+                        {formatMoney(Number(product.price) || 0)}
+                      </Text>
+                    </View>
+                    <Icon source="plus" size={18} color={theme.colors.primary} />
+                  </Pressable>
+                ))}
+              </ScrollView>
             )}
           </View>
         ) : null}
@@ -593,8 +609,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 8,
-    maxHeight: 240,
+    maxHeight: 280,
     overflow: 'hidden',
+  },
+  productResultsScroll: {
+    maxHeight: 280,
   },
   productResultRow: {
     flexDirection: 'row',

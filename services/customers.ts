@@ -66,7 +66,14 @@ export type CustomersPage = {
 
 export async function fetchCustomers(
   token: string,
-  options?: { lite?: boolean; limit?: number; offset?: number; q?: string },
+  options?: {
+    lite?: boolean;
+    limit?: number;
+    offset?: number;
+    q?: string;
+    /** Odoo suppliers (supplier_rank > 0). */
+    vendors?: boolean;
+  },
 ): Promise<Customer[]> {
   const page = await fetchCustomersPage(token, options);
   return page.data;
@@ -74,11 +81,21 @@ export async function fetchCustomers(
 
 export async function fetchCustomersPage(
   token: string,
-  options?: { lite?: boolean; limit?: number; offset?: number; q?: string },
+  options?: {
+    lite?: boolean;
+    limit?: number;
+    offset?: number;
+    q?: string;
+    /** Odoo suppliers (supplier_rank > 0). */
+    vendors?: boolean;
+  },
 ): Promise<CustomersPage> {
   const params = new URLSearchParams();
   if (options?.lite) {
     params.set('lite', '1');
+  }
+  if (options?.vendors) {
+    params.set('vendors', '1');
   }
   if (options?.limit !== undefined) {
     params.set('limit', String(options.limit));

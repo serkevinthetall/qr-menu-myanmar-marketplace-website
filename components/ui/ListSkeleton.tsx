@@ -10,6 +10,7 @@ export type ListSkeletonVariant =
   | 'contacts'
   | 'products'
   | 'purchaseOrders'
+  | 'vendors'
   | 'memberships'
   | 'membershipCoupons'
   | 'memberRequests'
@@ -102,6 +103,20 @@ const VARIANTS: Record<ListSkeletonVariant, VariantConfig> = {
       { flex: 2.2 },
       { flex: 1.5, boneWidth: '70%' },
       { flex: 1.4, shape: 'badge', boneWidth: '80%' },
+    ],
+  },
+  vendors: {
+    showCheckbox: true,
+    columns: [
+      { flex: 2.2, shape: 'avatarText', boneWidth: '72%' },
+      { flex: 1.4 },
+      { flex: 1.2 },
+      { flex: 1.9 },
+      { flex: 1.4, shape: 'badge', boneWidth: '75%' },
+      { flex: 1.3, boneWidth: '65%' },
+      { flex: 1.3, boneWidth: '65%' },
+      { flex: 1.0, boneWidth: '50%' },
+      { flex: 1.5 },
     ],
   },
   memberships: {

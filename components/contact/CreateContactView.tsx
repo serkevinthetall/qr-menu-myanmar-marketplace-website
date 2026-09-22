@@ -321,9 +321,9 @@ export function CreateContactView({
       }
 
       router.replace({
-        pathname: '/customers',
+        pathname: isVendor ? '/vendors' : '/customers',
         params: { detailId: created.id, created: '1' },
-      });
+      } as unknown as Parameters<typeof router.replace>[0]);
     } catch (error) {
       setFormError(
         error instanceof Error ? error.message : 'Failed to create contact in Odoo.',

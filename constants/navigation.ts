@@ -121,6 +121,14 @@ const PURCHASE_ORDERS: NavItem = {
   description: 'Browse purchase orders from Odoo.',
 };
 
+const VENDORS: NavItem = {
+  name: 'vendors',
+  label: 'Vendor',
+  icon: 'truck-outline',
+  title: 'Vendors',
+  description: 'Purchase vendors (Odoo suppliers).',
+};
+
 const MEMBERSHIPS: NavItem = {
   name: 'memberships',
   label: 'Membership',
@@ -172,7 +180,13 @@ export const NAV_ENTRIES: NavEntry[] = [
     icon: 'warehouse',
     children: [ON_HAND, MOVES_HISTORY],
   },
-  { type: 'item', item: PURCHASE_ORDERS },
+  {
+    type: 'group',
+    id: 'purchase',
+    label: 'Purchase',
+    icon: 'cart-arrow-down',
+    children: [PURCHASE_ORDERS, VENDORS],
+  },
   // @temp-feature app-install-call-list — App User List + App Promoter under App List
   ...(ENABLE_APP_INSTALL_CALL_LIST
     ? [
