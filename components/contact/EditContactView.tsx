@@ -112,6 +112,11 @@ export function EditContactView({
           township: detail.township ?? '',
           townshipId: detail.townshipId ?? '',
           tagIds: detail.tagIds ?? [],
+          isCompany: Boolean(detail.relatedCompany),
+          vat: '',
+          website: '',
+          jobPosition: '',
+          expoPushToken: '',
         });
       })
       .catch(() => {

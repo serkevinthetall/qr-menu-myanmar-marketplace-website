@@ -13,6 +13,22 @@ type ListResponse = {
 
 type DetailResponse = { data: PurchaseOrderDetail };
 
+export type CreatePurchaseOrderLinePayload = {
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+};
+
+export type CreatePurchaseOrderPayload = {
+  partnerId: string;
+  dateOrder?: string;
+  datePlanned?: string;
+  partnerRef?: string;
+  /** Confirm RFQ to Purchase Order after create. */
+  confirm?: boolean;
+  lines: CreatePurchaseOrderLinePayload[];
+};
+
 export async function fetchPurchaseOrders(
   token: string,
   options?: { q?: string; limit?: number; offset?: number },
@@ -35,5 +51,31 @@ export async function fetchPurchaseOrderDetail(
   const response = await webApiRequest<DetailResponse>(`/purchase-orders/${id}`, {
     token,
   });
+  return response.data;
+}
+
+export async function createPurchaseOrder(
+  token: string,
+  payload: CreatePurchaseOrderPayload,
+): Promise<PurchaseOrder> {
+  const response = await webApiRequest<{ data: PurchaseOrder }>(
+    '/purchase-orders',
+    {
+      token,
+      method: 'POST',
+      body: {
+        partnerId: Number(payload.partnerId),
+        dateOrder: payload.dateOrder,
+        datePlanned: payload.datePlanned,
+        partnerRef: payload.partnerRef,
+        confirm: Boolean(payload.confirm),
+        lines: payload.lines.map(line => ({
+          productId: Number(line.productId),
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+        })),
+      },
+    },
+  );
   return response.data;
 }

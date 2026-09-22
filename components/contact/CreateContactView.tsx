@@ -7,6 +7,7 @@ import {
   Card,
   Chip,
   HelperText,
+  SegmentedButtons,
   Snackbar,
   Text,
   TextInput,
@@ -36,6 +37,8 @@ import {
 type CreateContactViewProps = {
   initialPhone?: string;
   embedded?: boolean;
+  /** contact = Contacts module; vendor = Purchase Vendors / New */
+  mode?: 'contact' | 'vendor';
   onCreated?: (customer: Customer) => void;
   onCancel?: () => void;
 };
@@ -43,6 +46,7 @@ type CreateContactViewProps = {
 export function CreateContactView({
   initialPhone = '',
   embedded = false,
+  mode = 'contact',
   onCreated,
   onCancel,
 }: CreateContactViewProps = {}) {
@@ -52,10 +56,12 @@ export function CreateContactView({
   const { isMobile } = useResponsive();
   const search = useOptionalSearch();
   const setDetailHeader = search?.setDetailHeader;
+  const isVendor = mode === 'vendor';
 
   const [form, setForm] = useState<ContactForm>({
     ...EMPTY_CONTACT_FORM,
     phone: initialPhone,
+    isCompany: isVendor,
   });
   const [townshipOptions, setTownshipOptions] = useState<Township[]>([]);
   const [tagOptions, setTagOptions] = useState<ContactTag[]>([]);
@@ -89,13 +95,13 @@ export function CreateContactView({
     }
 
     setDetailHeader({
-      title: 'New Contact',
-      breadcrumbParent: 'Contacts',
+      title: isVendor ? 'New' : 'New Contact',
+      breadcrumbParent: isVendor ? 'Vendors' : 'Contacts',
       onBack: goBack,
     });
 
     return () => setDetailHeader(null);
-  }, [embedded, goBack, setDetailHeader]);
+  }, [embedded, goBack, setDetailHeader, isVendor]);
 
   useEffect(() => {
     if (!initialPhone) {
@@ -247,7 +253,11 @@ export function CreateContactView({
 
     const name = form.name.trim();
     if (!name) {
-      setFormError('Customer / shop name is required.');
+      setFormError(
+        isVendor
+          ? 'Vendor / company name is required.'
+          : 'Customer / shop name is required.',
+      );
       return;
     }
 
@@ -297,6 +307,12 @@ export function CreateContactView({
         street2: form.street2.trim() || undefined,
         townshipId: matchedTownship.id,
         tagIds: form.tagIds.length > 0 ? form.tagIds : undefined,
+        asVendor: isVendor,
+        isCompany: form.isCompany,
+        vat: form.vat.trim() || undefined,
+        website: form.website.trim() || undefined,
+        jobPosition: form.jobPosition.trim() || undefined,
+        expoPushToken: form.expoPushToken.trim() || undefined,
       });
 
       if (onCreated) {
@@ -336,11 +352,25 @@ export function CreateContactView({
         ]}
         keyboardShouldPersistTaps="handled">
         <Text variant="headlineSmall" style={styles.title}>
-          Create New Contact
+          {isVendor ? 'New Vendor' : 'Create New Contact'}
         </Text>
         <Text style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
-          Fill in customer details. Phone, name, and township are required.
+          {isVendor
+            ? 'Create a Purchase vendor in Odoo. Phone, name, and township are required.'
+            : 'Fill in customer details. Phone, name, and township are required.'}
         </Text>
+
+        <SegmentedButtons
+          value={form.isCompany ? 'company' : 'person'}
+          onValueChange={value =>
+            setForm(prev => ({ ...prev, isCompany: value === 'company' }))
+          }
+          buttons={[
+            { value: 'person', label: 'Individual', icon: 'account' },
+            { value: 'company', label: 'Company', icon: 'domain' },
+          ]}
+          style={styles.segment}
+        />
 
         <TextInput
           mode="outlined"
@@ -355,7 +385,7 @@ export function CreateContactView({
         {phoneDuplicate ? (
           <HelperText type="error">
             This phone number already exists. Open the contact below or use a different
-            number. New customers cannot be created with a duplicate phone.
+            number. New records cannot be created with a duplicate phone.
           </HelperText>
         ) : null}
         {checkingPhoneOnBlur ? (
@@ -415,7 +445,7 @@ export function CreateContactView({
 
         <TextInput
           mode="outlined"
-          label="Customer / Shop Name *"
+          label={isVendor ? 'Name *' : 'Customer / Shop Name *'}
           value={form.name}
           onChangeText={value => setForm(prev => ({ ...prev, name: value }))}
         />
@@ -431,8 +461,39 @@ export function CreateContactView({
 
         <TextInput
           mode="outlined"
+          label="Job Position"
+          value={form.jobPosition}
+          onChangeText={value => setForm(prev => ({ ...prev, jobPosition: value }))}
+        />
+
+        <TextInput
+          mode="outlined"
+          label="Website"
+          autoCapitalize="none"
+          keyboardType="url"
+          value={form.website}
+          onChangeText={value => setForm(prev => ({ ...prev, website: value }))}
+        />
+
+        <TextInput
+          mode="outlined"
+          label="Tax ID"
+          value={form.vat}
+          onChangeText={value => setForm(prev => ({ ...prev, vat: value }))}
+        />
+
+        <TextInput
+          mode="outlined"
+          label="Expo Push Token"
+          autoCapitalize="none"
+          value={form.expoPushToken}
+          onChangeText={value => setForm(prev => ({ ...prev, expoPushToken: value }))}
+        />
+
+        <TextInput
+          mode="outlined"
           label="Address 1"
-          placeholder="Building / shop address..."
+          placeholder="Street..."
           value={form.street}
           onChangeText={value => setForm(prev => ({ ...prev, street: value }))}
         />
@@ -440,7 +501,7 @@ export function CreateContactView({
         <TextInput
           mode="outlined"
           label="Address 2"
-          placeholder="Additional address / landmark..."
+          placeholder="Street 2..."
           value={form.street2}
           onChangeText={value => setForm(prev => ({ ...prev, street2: value }))}
         />
@@ -455,7 +516,7 @@ export function CreateContactView({
 
         <View style={styles.tagSuggestions}>
           <Text variant="labelLarge" style={styles.tagSuggestionsLabel}>
-            Contact Tags
+            Tags
           </Text>
           {tagOptions.length > 0 ? (
             <View style={styles.tagChips}>
@@ -504,7 +565,7 @@ export function CreateContactView({
           loading={saving}
           disabled={saving || phoneDuplicate || !!phoneError}
           onPress={handleSave}>
-          Create Contact
+          {isVendor ? 'Create Vendor' : 'Create Contact'}
         </Button>
       </View>
 
@@ -547,6 +608,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   subtitle: {
+    marginBottom: 8,
+  },
+  segment: {
     marginBottom: 8,
   },
   checkButton: {

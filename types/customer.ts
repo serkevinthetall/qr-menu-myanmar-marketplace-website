@@ -11,6 +11,13 @@ export type CreateCustomerInput = {
   street2?: string;
   townshipId?: string;
   tagIds?: string[];
+  /** Create as Purchase vendor (Odoo supplier_rank). */
+  asVendor?: boolean;
+  isCompany?: boolean;
+  vat?: string;
+  website?: string;
+  jobPosition?: string;
+  expoPushToken?: string;
 };
 
 export type UpdateCustomerInput = CreateCustomerInput;

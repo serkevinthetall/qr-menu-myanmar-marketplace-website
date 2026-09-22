@@ -14,6 +14,7 @@ import {
   useTheme,
 } from 'react-native-paper';
 
+import { PurchaseBuilder } from '@/components/purchase-order/PurchaseBuilder';
 import { PurchaseOrderDetailView } from '@/components/purchase-order/PurchaseOrderDetailView';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { ListSkeleton } from '@/components/ui/ListSkeleton';
@@ -311,6 +312,7 @@ export default function PurchaseOrdersScreen() {
   const [detail, setDetail] = useState<PurchaseOrderDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
+  const [creating, setCreating] = useState(false);
   const loadGenRef = useRef(0);
   const hasLoadedOnceRef = useRef(false);
 
@@ -325,7 +327,10 @@ export default function PurchaseOrdersScreen() {
     }
   });
 
-  const query = useModuleSearch('Search by number or vendor', !selectedId);
+  const query = useModuleSearch(
+    'Search by number or vendor',
+    !selectedId && !creating,
+  );
   const { setDetailHeader } = useSearch();
 
   const load = useCallback(async () => {
@@ -403,7 +408,42 @@ export default function PurchaseOrdersScreen() {
     setDetailError('');
   }, []);
 
+  const closeCreate = useCallback(() => {
+    setCreating(false);
+  }, []);
+
+  const openCreate = useCallback(() => {
+    setSelectedId(null);
+    setDetail(null);
+    setDetailError('');
+    setCreating(true);
+  }, []);
+
+  const onPurchaseCreated = useCallback(
+    (order: PurchaseOrder) => {
+      setItems(prev => {
+        if (prev.some(item => item.id === order.id)) {
+          return prev;
+        }
+        return [order, ...prev];
+      });
+      setCreating(false);
+      void openDetail(order.id);
+      void load();
+    },
+    [load, openDetail],
+  );
+
   useEffect(() => {
+    if (creating) {
+      setDetailHeader({
+        title: 'New',
+        onBack: closeCreate,
+        breadcrumbParent: 'Requests for Quotation',
+      });
+      return () => setDetailHeader(null);
+    }
+
     if (!selectedId) {
       setDetailHeader(null);
       return;
@@ -419,14 +459,22 @@ export default function PurchaseOrdersScreen() {
     });
 
     return () => setDetailHeader(null);
-  }, [selectedId, detail, closeDetail, setDetailHeader, mode]);
+  }, [
+    creating,
+    selectedId,
+    detail,
+    closeDetail,
+    closeCreate,
+    setDetailHeader,
+    mode,
+  ]);
 
   const toggleView = useCallback(() => {
     setViewMode(prev => (prev === 'list' ? 'card' : 'list'));
   }, []);
 
   const headerActions = useMemo<HeaderAction[]>(() => {
-    if (selectedId) {
+    if (selectedId || creating) {
       return [];
     }
     return [
@@ -436,8 +484,14 @@ export default function PurchaseOrdersScreen() {
         onPress: toggleView,
         accessibilityLabel: 'Toggle list or card view',
       },
+      {
+        key: 'create',
+        icon: 'plus',
+        onPress: openCreate,
+        accessibilityLabel: 'New purchase',
+      },
     ];
-  }, [selectedId, viewMode, toggleView]);
+  }, [selectedId, creating, viewMode, toggleView, openCreate]);
 
   useHeaderActions(headerActions);
 
@@ -486,6 +540,12 @@ export default function PurchaseOrdersScreen() {
     setRefreshing(true);
     void load();
   };
+
+  if (creating) {
+    return (
+      <PurchaseBuilder onCancel={closeCreate} onCreated={onPurchaseCreated} />
+    );
+  }
 
   if (selectedId) {
     return (

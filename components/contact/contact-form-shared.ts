@@ -9,6 +9,11 @@ export type ContactForm = {
   township: string;
   townshipId: string;
   tagIds: string[];
+  isCompany: boolean;
+  vat: string;
+  website: string;
+  jobPosition: string;
+  expoPushToken: string;
 };
 
 export const EMPTY_CONTACT_FORM: ContactForm = {
@@ -20,6 +25,11 @@ export const EMPTY_CONTACT_FORM: ContactForm = {
   township: '',
   townshipId: '',
   tagIds: [],
+  isCompany: false,
+  vat: '',
+  website: '',
+  jobPosition: '',
+  expoPushToken: '',
 };
 
 export function cleanLabel(value: string): string {
