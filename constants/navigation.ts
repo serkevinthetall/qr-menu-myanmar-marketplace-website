@@ -134,7 +134,8 @@ const BILLS_OF_MATERIALS: NavItem = {
   label: 'Bills of Materials',
   icon: 'file-tree-outline',
   title: 'Bills of Materials',
-  description: 'Odoo 19.2 manufacturing bills of materials (mrp.bom).',
+  description:
+    'Odoo 19.2 Manufacturing → Products → Bills of Materials (mrp.bom).',
 };
 
 const MEMBERSHIPS: NavItem = {
@@ -185,14 +186,14 @@ export const NAV_ENTRIES: NavEntry[] = [
     id: 'inventory',
     label: 'Product System',
     icon: 'warehouse',
-    children: [PRODUCTS, ON_HAND, MOVES_HISTORY],
+    children: [PRODUCTS, BILLS_OF_MATERIALS, ON_HAND, MOVES_HISTORY],
   },
   {
     type: 'group',
     id: 'purchase',
     label: 'Purchase',
     icon: 'cart-arrow-down',
-    children: [PURCHASE_ORDERS, VENDORS, BILLS_OF_MATERIALS],
+    children: [PURCHASE_ORDERS, VENDORS],
   },
   // @temp-feature app-install-call-list — App User List + App Promoter under App List
   ...(ENABLE_APP_INSTALL_CALL_LIST
