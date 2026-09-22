@@ -24,13 +24,14 @@ export function Pagination({
   itemLabel,
 }: PaginationProps) {
   const theme = useTheme();
-  const { isMobile } = useResponsive();
+  const { isMobile, width } = useResponsive();
 
   const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, total);
   const atStart = page <= 1 || total === 0;
   const atEnd = page >= pageCount || total === 0;
-  const showCenter = !!centerLabel && !isMobile;
+  // Avoid crowding the footer on mid-width layouts (absolute chip used to overlap).
+  const showCenter = Boolean(centerLabel) && !isMobile && width >= 1100;
   const rangeLabel = total === 0 ? '0 of 0' : `${start}–${end} of ${total}`;
   const itemWord =
     itemLabel && total > 0
@@ -52,15 +53,14 @@ export function Pagination({
       <View style={[styles.side, isMobile && styles.sideMobile]}>
         <Text
           variant={isMobile ? 'labelLarge' : 'bodySmall'}
-          style={[
-            styles.rangeText,
-            { color: theme.colors.onSurface },
-          ]}>
+          style={[styles.rangeText, { color: theme.colors.onSurface }]}
+          numberOfLines={1}>
           {rangeLabel}
         </Text>
         {itemWord ? (
           <Text
             variant="bodySmall"
+            numberOfLines={1}
             style={{ color: theme.colors.onSurfaceVariant }}>
             {itemWord}
           </Text>
@@ -68,7 +68,7 @@ export function Pagination({
       </View>
 
       {showCenter ? (
-        <View style={styles.centerOverlay} pointerEvents="box-none">
+        <View style={styles.center}>
           <Chip
             icon="cloud-sync"
             compact
@@ -100,7 +100,10 @@ export function Pagination({
           onPress={() => onChange(page - 1)}
           accessibilityLabel="Previous page"
         />
-        <Text variant="labelLarge" style={[styles.pageText, { color: theme.colors.onSurface }]}>
+        <Text
+          variant="labelLarge"
+          style={[styles.pageText, { color: theme.colors.onSurface }]}
+          numberOfLines={1}>
           {total === 0 ? '0 / 0' : `${page} / ${pageCount}`}
         </Text>
         <IconButton
@@ -124,13 +127,13 @@ export function Pagination({
 
 const styles = StyleSheet.create({
   container: {
-    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
     paddingLeft: 16,
     paddingRight: 4,
     borderTopWidth: StyleSheet.hairlineWidth,
     minHeight: 52,
+    gap: 8,
   },
   containerMobile: {
     flexDirection: 'column',
@@ -142,11 +145,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   side: {
-    flex: 1,
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    zIndex: 1,
+    minWidth: 0,
   },
   sideMobile: {
     flex: 0,
@@ -154,16 +157,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sideRight: {
+    flex: 1,
     justifyContent: 'flex-end',
+    flexShrink: 0,
+  },
+  center: {
+    flexShrink: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 0,
   },
   rangeText: {
     fontWeight: '700',
-  },
-  centerOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 0,
+    flexShrink: 0,
   },
   odooChip: {},
   odooChipText: {

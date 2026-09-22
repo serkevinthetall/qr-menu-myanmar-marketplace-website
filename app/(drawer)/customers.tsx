@@ -79,24 +79,66 @@ type Column = {
   key: string;
   label: string;
   flex: number;
+  minWidth: number;
+  /** 0 = always, 1 = medium+ widths, 2 = wide screens only */
+  priority: 0 | 1 | 2;
   align?: 'left' | 'right';
 };
 
+const CHECK_COL_WIDTH = 38;
+
 const COLUMNS: Column[] = [
-  { key: 'name', label: 'Name', flex: 2.2 },
-  { key: 'phone', label: 'Phone', flex: 1.4 },
-  { key: 'activity', label: 'Activity', flex: 1.2 },
-  { key: 'township', label: 'Township', flex: 1.9 },
-  { key: 'status', label: 'Status', flex: 2 },
-  { key: 'lastMonthSales', label: 'Last Month', flex: 1.6, align: 'right' },
-  { key: 'thisMonthSales', label: 'This Month', flex: 1.6, align: 'right' },
-  { key: 'thisMonthPercent', label: 'Percentage', flex: 1.1, align: 'right' },
-  { key: 'lastInvoiceDate', label: 'Last Invoice', flex: 1.1 },
-  { key: 'expoPushToken', label: 'Expo Push', flex: 1.6 },
+  { key: 'name', label: 'Name', flex: 2.2, minWidth: 168, priority: 0 },
+  { key: 'phone', label: 'Phone', flex: 1.4, minWidth: 118, priority: 0 },
+  { key: 'activity', label: 'Activity', flex: 1.2, minWidth: 96, priority: 2 },
+  { key: 'township', label: 'Township', flex: 1.9, minWidth: 132, priority: 0 },
+  { key: 'status', label: 'Status', flex: 1.6, minWidth: 108, priority: 0 },
+  {
+    key: 'lastMonthSales',
+    label: 'Last Mo.',
+    flex: 1.3,
+    minWidth: 88,
+    priority: 1,
+    align: 'right',
+  },
+  {
+    key: 'thisMonthSales',
+    label: 'This Mo.',
+    flex: 1.3,
+    minWidth: 88,
+    priority: 0,
+    align: 'right',
+  },
+  {
+    key: 'thisMonthPercent',
+    label: '%',
+    flex: 0.8,
+    minWidth: 56,
+    priority: 2,
+    align: 'right',
+  },
+  {
+    key: 'lastInvoiceDate',
+    label: 'Last Inv.',
+    flex: 1,
+    minWidth: 80,
+    priority: 1,
+  },
+  { key: 'expoPushToken', label: 'Expo Push', flex: 1.4, minWidth: 96, priority: 2 },
   /** @temp-feature app-install-call-list — Call List module (not App Order) */
-  { key: 'appInstall', label: 'Install Call', flex: 2.4 },
-  { key: 'createQuotation', label: 'Create Quotation', flex: 2.6 },
+  { key: 'appInstall', label: 'Install', flex: 1.8, minWidth: 112, priority: 0 },
+  { key: 'createQuotation', label: 'Quotation', flex: 1.6, minWidth: 104, priority: 0 },
 ];
+
+function columnLayout(col: Column) {
+  return { flex: col.flex, minWidth: col.minWidth };
+}
+
+function maxColumnPriority(width: number): 0 | 1 | 2 {
+  if (width < 1100) return 0;
+  if (width < 1400) return 1;
+  return 2;
+}
 
 const MONTHS = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -151,6 +193,13 @@ function formatMoney(value: unknown) {
   })} MMK`;
 }
 
+/** Compact amount for dense table cells (no currency suffix). */
+function formatMoneyShort(value: unknown) {
+  return toSafeNumber(value).toLocaleString('en-US', {
+    maximumFractionDigits: 0,
+  });
+}
+
 function formatPercent(value: unknown) {
   return `${toSafeNumber(value).toFixed(2)}%`;
 }
@@ -201,9 +250,9 @@ function cellText(item: Customer, key: string): string {
     case 'township':
       return item.township;
     case 'lastMonthSales':
-      return formatMoney(item.lastMonthSales);
+      return formatMoneyShort(item.lastMonthSales);
     case 'thisMonthSales':
-      return formatMoney(item.thisMonthSales);
+      return formatMoneyShort(item.thisMonthSales);
     case 'thisMonthPercent':
       return formatPercent(item.thisMonthPercent);
     case 'lastInvoiceDate':
@@ -300,7 +349,7 @@ function ContactRow({
           return (
             <Pressable
               key={col.key}
-              style={[styles.cell, { flex: col.flex }]}
+              style={[styles.cell, columnLayout(col)]}
               onPress={() => onOpen(item.id)}>
               <View style={styles.nameCell}>
                 <Avatar.Text
@@ -324,7 +373,7 @@ function ContactRow({
           return (
             <Pressable
               key={col.key}
-              style={[styles.cell, { flex: col.flex }]}
+              style={[styles.cell, columnLayout(col)]}
               onPress={() => onOpen(item.id)}>
               <StatusBadge status={item.status} />
             </Pressable>
@@ -333,7 +382,7 @@ function ContactRow({
 
         if (col.key === 'appInstall') {
           return (
-            <View key={col.key} style={[styles.cell, styles.actionCell, { flex: col.flex }]}>
+            <View key={col.key} style={[styles.cell, styles.actionCell, columnLayout(col)]}>
               {install ? (
                 <Menu
                   visible={menuOpen}
@@ -436,7 +485,7 @@ function ContactRow({
 
         if (col.key === 'createQuotation') {
           return (
-            <View key={col.key} style={[styles.cell, styles.actionCell, { flex: col.flex }]}>
+            <View key={col.key} style={[styles.cell, styles.actionCell, columnLayout(col)]}>
               <Button
                 compact
                 mode="outlined"
@@ -453,7 +502,7 @@ function ContactRow({
                 textColor={theme.colors.primary}
                 labelStyle={styles.rowActionLabel}
                 contentStyle={styles.rowActionContent}>
-                Create Quotation
+                Create
               </Button>
             </View>
           );
@@ -463,7 +512,7 @@ function ContactRow({
         return (
           <Pressable
             key={col.key}
-            style={[styles.cell, { flex: col.flex }]}
+            style={[styles.cell, columnLayout(col)]}
             onPress={() => onOpen(item.id)}>
             <Text
               numberOfLines={1}
@@ -509,7 +558,7 @@ function TableHeader({
         />
       </View>
       {columns.map(col => (
-        <View key={col.key} style={[styles.cell, { flex: col.flex }]}>
+        <View key={col.key} style={[styles.cell, columnLayout(col)]}>
           <Text
             variant="labelMedium"
             numberOfLines={1}
@@ -645,12 +694,21 @@ export default function CustomersScreen() {
   // @temp-feature app-install-call-list — remove this hook when dropping the campaign
   const appInstall = useContactAppInstall(session?.token);
 
-  const tableColumns = useMemo(
+  const tableColumns = useMemo(() => {
+    const priority = maxColumnPriority(width);
+    return COLUMNS.filter(col => {
+      if (!appInstall.enabled && col.key === 'appInstall') {
+        return false;
+      }
+      return col.priority <= priority;
+    });
+  }, [appInstall.enabled, width]);
+
+  const tableMinWidth = useMemo(
     () =>
-      appInstall.enabled
-        ? COLUMNS
-        : COLUMNS.filter(col => col.key !== 'appInstall'),
-    [appInstall.enabled],
+      CHECK_COL_WIDTH +
+      tableColumns.reduce((sum, col) => sum + col.minWidth, 0),
+    [tableColumns],
   );
 
   const listUiSnapshot = useMemo<CustomersListUi>(
@@ -1171,73 +1229,82 @@ export default function CustomersScreen() {
             </Text>
           </ScrollView>
         ) : (
-          <View style={styles.tableScroll}>
-            <TableHeader
-              status={headerStatus}
-              columns={tableColumns}
-              onToggleAll={toggleAllOnPage}
-            />
-            <ScrollView
-              style={styles.listBody}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-              }>
-              {pagedCustomers.map((item, index) => (
-                <ContactRow
-                  key={item.id}
-                  item={item}
-                  index={index}
-                  selected={selectedIds.has(item.id)}
-                  columns={tableColumns}
-                  install={
-                    appInstall.enabled
-                      ? appInstall.installMap[item.id]
-                      : undefined
-                  }
-                  busy={appInstall.installBusyId === item.id}
-                  onToggle={toggleOne}
-                  onOpen={openDetail}
-                  onCreateQuotation={navigateToCreateQuotation}
-                  onRequestInstall={
-                    appInstall.enabled
-                      ? appInstall.handleRequestInstall
-                      : undefined
-                  }
-                  onMarkInstalled={
-                    appInstall.enabled
-                      ? appInstall.handleMarkInstalled
-                      : undefined
-                  }
-                  onMarkNotInstalled={
-                    appInstall.enabled
-                      ? appInstall.handleMarkNotInstalled
-                      : undefined
-                  }
-                  onMarkWaiting={
-                    appInstall.enabled ? appInstall.handleMarkWaiting : undefined
-                  }
-                  onMarkNotPickUp={
-                    appInstall.enabled ? appInstall.handleMarkNotPickUp : undefined
-                  }
-                  onMarkPleaseComeAndInstall={
-                    appInstall.enabled
-                      ? appInstall.handleMarkPleaseComeAndInstall
-                      : undefined
-                  }
-                  onMarkNew={
-                    appInstall.enabled ? appInstall.handleMarkNew : undefined
-                  }
-                  onRemoveFromCallList={
-                    appInstall.enabled
-                      ? appInstall.handleRemoveFromCallList
-                      : undefined
-                  }
-                />
-              ))}
-            </ScrollView>
-          </View>
+          <ScrollView
+            horizontal
+            style={styles.tableScroll}
+            contentContainerStyle={styles.tableHScrollContent}
+            showsHorizontalScrollIndicator
+            keyboardShouldPersistTaps="handled">
+            <View style={[styles.tablePane, { minWidth: Math.max(width, tableMinWidth) }]}>
+              <TableHeader
+                status={headerStatus}
+                columns={tableColumns}
+                onToggleAll={toggleAllOnPage}
+              />
+              <ScrollView
+                style={styles.listBody}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                refreshControl={
+                  <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                }>
+                {pagedCustomers.map((item, index) => (
+                  <ContactRow
+                    key={item.id}
+                    item={item}
+                    index={index}
+                    selected={selectedIds.has(item.id)}
+                    columns={tableColumns}
+                    install={
+                      appInstall.enabled
+                        ? appInstall.installMap[item.id]
+                        : undefined
+                    }
+                    busy={appInstall.installBusyId === item.id}
+                    onToggle={toggleOne}
+                    onOpen={openDetail}
+                    onCreateQuotation={navigateToCreateQuotation}
+                    onRequestInstall={
+                      appInstall.enabled
+                        ? appInstall.handleRequestInstall
+                        : undefined
+                    }
+                    onMarkInstalled={
+                      appInstall.enabled
+                        ? appInstall.handleMarkInstalled
+                        : undefined
+                    }
+                    onMarkNotInstalled={
+                      appInstall.enabled
+                        ? appInstall.handleMarkNotInstalled
+                        : undefined
+                    }
+                    onMarkWaiting={
+                      appInstall.enabled ? appInstall.handleMarkWaiting : undefined
+                    }
+                    onMarkNotPickUp={
+                      appInstall.enabled
+                        ? appInstall.handleMarkNotPickUp
+                        : undefined
+                    }
+                    onMarkPleaseComeAndInstall={
+                      appInstall.enabled
+                        ? appInstall.handleMarkPleaseComeAndInstall
+                        : undefined
+                    }
+                    onMarkNew={
+                      appInstall.enabled ? appInstall.handleMarkNew : undefined
+                    }
+                    onRemoveFromCallList={
+                      appInstall.enabled
+                        ? appInstall.handleRemoveFromCallList
+                        : undefined
+                    }
+                  />
+                ))}
+              </ScrollView>
+            </View>
+          </ScrollView>
         )
       ) : (
         <FlatList
@@ -1371,6 +1438,12 @@ const styles = StyleSheet.create({
   tableScroll: {
     flex: 1,
   },
+  tableHScrollContent: {
+    flexGrow: 1,
+  },
+  tablePane: {
+    flex: 1,
+  },
   listBody: {
     flex: 1,
   },
@@ -1391,13 +1464,13 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   cell: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 8,
     justifyContent: 'center',
     minWidth: 0,
   },
   checkCell: {
-    width: 38,
+    width: CHECK_COL_WIDTH,
     alignItems: 'center',
     justifyContent: 'center',
     transform: [{ scale: 0.8 }],
