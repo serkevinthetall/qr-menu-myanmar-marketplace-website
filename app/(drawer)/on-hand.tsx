@@ -202,7 +202,7 @@ export default function OnHandScreen() {
   );
 
   if (loading) {
-    return <ListSkeleton rows={10} columns={[2.4, 1.2, 1, 1, 1]} />;
+    return <ListSkeleton variant="onHand" />;
   }
 
   return (

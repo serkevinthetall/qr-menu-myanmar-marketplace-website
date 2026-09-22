@@ -437,7 +437,7 @@ export default function MemberRequestsScreen() {
   );
 
   if (loading && rows.length === 0) {
-    return <ListSkeleton rows={10} columns={[2, 1.4, 1.2, 1.2, 1]} />;
+    return <ListSkeleton variant="memberRequests" />;
   }
 
   return (

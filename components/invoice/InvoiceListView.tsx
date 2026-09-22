@@ -55,7 +55,7 @@ export function InvoiceListView({
   const muted = theme.colors.onSurfaceVariant;
 
   if (loading) {
-    return <ListSkeleton rows={6} columns={[1.2, 1.6, 1.2, 1]} />;
+    return <ListSkeleton variant="invoices" />;
   }
 
   if (error) {

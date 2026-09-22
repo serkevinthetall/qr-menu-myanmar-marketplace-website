@@ -240,7 +240,7 @@ export default function AppPromotersScreen() {
   }
 
   if (loading) {
-    return <ListSkeleton rows={8} columns={[2.4, 1.6, 1.2]} />;
+    return <ListSkeleton variant="appPromoters" />;
   }
 
   const emptyLabel = query.trim()

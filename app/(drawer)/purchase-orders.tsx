@@ -500,7 +500,7 @@ export default function PurchaseOrdersScreen() {
   }
 
   if (loading) {
-    return <ListSkeleton rows={10} columns={[1.2, 2.2, 1.4, 1.2, 1]} />;
+    return <ListSkeleton variant="purchaseOrders" />;
   }
 
   if (error) {

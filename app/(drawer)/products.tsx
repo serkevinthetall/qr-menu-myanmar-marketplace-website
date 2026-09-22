@@ -814,7 +814,7 @@ export default function ProductsScreen() {
   }
 
   if (loading) {
-    return <ListSkeleton rows={10} columns={[0.6, 2.4, 1.2, 1, 1, 1]} />;
+    return <ListSkeleton variant="products" />;
   }
 
   if (error) {

@@ -1069,7 +1069,7 @@ export default function SaleOrdersScreen() {
   }
 
   if (loading) {
-    return <ListSkeleton showCheckbox rows={10} columns={[1.2, 2.4, 1.4, 1.2, 1]} />;
+    return <ListSkeleton variant="saleOrders" />;
   }
 
   if (error) {

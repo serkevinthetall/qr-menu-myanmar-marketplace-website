@@ -459,7 +459,7 @@ export default function MembershipsScreen() {
   }
 
   if (loading) {
-    return <ListSkeleton rows={10} columns={[2.2, 1.4, 1.2, 1]} />;
+    return <ListSkeleton variant="memberships" />;
   }
 
   if (error) {

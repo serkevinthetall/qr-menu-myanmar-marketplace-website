@@ -257,7 +257,7 @@ export default function MovesHistoryScreen() {
   );
 
   if (loading) {
-    return <ListSkeleton rows={10} columns={[1.4, 2.2, 1, 1, 1.2]} />;
+    return <ListSkeleton variant="movesHistory" />;
   }
 
   return (

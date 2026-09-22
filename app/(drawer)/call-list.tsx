@@ -1048,7 +1048,7 @@ export default function CallListScreen() {
   }
 
   if (loading) {
-    return <ListSkeleton rows={10} columns={[2, 1.4, 1.2, 1.2, 1]} />;
+    return <ListSkeleton variant="callList" />;
   }
 
   return (
