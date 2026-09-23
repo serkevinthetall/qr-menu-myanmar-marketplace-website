@@ -5,7 +5,9 @@ import {
   Button,
   Checkbox,
   Chip,
+  Dialog,
   HelperText,
+  Portal,
   Switch,
   Text,
   TextInput,
@@ -18,6 +20,9 @@ import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
 import {
   createProduct,
+  createProductTag,
+  createPublicCategory,
+  fetchNextWebsiteSequence,
   fetchProductCategories,
   fetchProductTags,
   fetchPublicCategories,
@@ -36,6 +41,13 @@ type CreateProductViewProps = {
   onCreated: (product: ProductDetail) => void;
 };
 
+type SuggestKind = 'category' | 'tag';
+
+type PendingCreate = {
+  kind: SuggestKind;
+  name: string;
+};
+
 const PRODUCT_TYPES = [
   { value: 'consu', label: 'Goods' },
   { value: 'service', label: 'Service' },
@@ -52,6 +64,175 @@ function parseMoney(raw: string): number | undefined {
   if (!cleaned) return undefined;
   const n = Number(cleaned);
   return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
+
+function SuggestCreateField({
+  label,
+  placeholder,
+  options,
+  selected,
+  onChangeSelected,
+  onRequestCreate,
+  creating,
+}: {
+  label: string;
+  placeholder: string;
+  options: ProductNamedOption[];
+  selected: ProductNamedOption[];
+  onChangeSelected: (next: ProductNamedOption[]) => void;
+  onRequestCreate: (name: string) => void;
+  creating?: boolean;
+}) {
+  const theme = useTheme();
+  const detail = useDetailTheme();
+  const [query, setQuery] = useState('');
+  const [focused, setFocused] = useState(false);
+
+  const selectedIds = useMemo(
+    () => new Set(selected.map(item => item.id)),
+    [selected],
+  );
+
+  const trimmed = query.trim();
+  const suggestions = useMemo(() => {
+    if (!trimmed) return [];
+    const q = trimmed.toLowerCase();
+    return options
+      .filter(
+        opt =>
+          !selectedIds.has(opt.id) && opt.name.toLowerCase().includes(q),
+      )
+      .slice(0, 8);
+  }, [options, selectedIds, trimmed]);
+
+  const exactMatch = useMemo(() => {
+    if (!trimmed) return null;
+    const q = trimmed.toLowerCase();
+    return (
+      options.find(opt => opt.name.toLowerCase() === q) ??
+      selected.find(opt => opt.name.toLowerCase() === q) ??
+      null
+    );
+  }, [options, selected, trimmed]);
+
+  const showCreateHint = Boolean(trimmed) && !exactMatch;
+
+  const addOption = useCallback(
+    (opt: ProductNamedOption) => {
+      if (selectedIds.has(opt.id)) {
+        setQuery('');
+        return;
+      }
+      onChangeSelected([...selected, opt]);
+      setQuery('');
+    },
+    [onChangeSelected, selected, selectedIds],
+  );
+
+  const removeOption = useCallback(
+    (id: string) => {
+      onChangeSelected(selected.filter(item => item.id !== id));
+    },
+    [onChangeSelected, selected],
+  );
+
+  const submitQuery = useCallback(() => {
+    if (!trimmed || creating) return;
+    if (exactMatch) {
+      if (!selectedIds.has(exactMatch.id)) {
+        addOption(exactMatch);
+      } else {
+        setQuery('');
+      }
+      return;
+    }
+    onRequestCreate(trimmed);
+  }, [
+    trimmed,
+    creating,
+    exactMatch,
+    selectedIds,
+    addOption,
+    onRequestCreate,
+  ]);
+
+  return (
+    <View style={styles.suggestBlock}>
+      <Text style={[styles.sectionLabel, { color: detail.label }]}>{label}</Text>
+      {selected.length > 0 ? (
+        <View style={styles.chipWrap}>
+          {selected.map(item => (
+            <Chip
+              key={item.id}
+              onClose={() => removeOption(item.id)}
+              style={styles.chip}>
+              {item.name}
+            </Chip>
+          ))}
+        </View>
+      ) : null}
+      <TextInput
+        mode="outlined"
+        label={placeholder}
+        value={query}
+        onChangeText={setQuery}
+        onFocus={() => setFocused(true)}
+        onBlur={() => {
+          // Keep suggestions briefly so a press can register.
+          setTimeout(() => setFocused(false), 150);
+        }}
+        onSubmitEditing={submitQuery}
+        dense
+        disabled={creating}
+        right={
+          trimmed ? (
+            <TextInput.Icon
+              icon="plus"
+              disabled={creating}
+              onPress={submitQuery}
+            />
+          ) : undefined
+        }
+      />
+      {focused && trimmed ? (
+        <View
+          style={[
+            styles.suggestList,
+            {
+              backgroundColor: detail.surface,
+              borderColor: detail.border,
+            },
+          ]}>
+          {suggestions.map(opt => (
+            <Pressable
+              key={opt.id}
+              onPress={() => addOption(opt)}
+              style={styles.suggestRow}>
+              <Text style={{ color: theme.colors.onSurface }}>{opt.name}</Text>
+            </Pressable>
+          ))}
+          {showCreateHint ? (
+            <Pressable
+              onPress={submitQuery}
+              style={[styles.suggestRow, styles.suggestCreateRow]}>
+              <Text style={{ color: theme.colors.primary, fontWeight: '700' }}>
+                Create “{trimmed}”
+              </Text>
+            </Pressable>
+          ) : null}
+          {!showCreateHint && suggestions.length === 0 ? (
+            <Text
+              style={[
+                styles.suggestEmpty,
+                { color: theme.colors.onSurfaceVariant },
+              ]}>
+              Already selected
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
 }
 
 export function CreateProductView({
@@ -81,8 +262,10 @@ export function CreateProductView({
 
   const [websitePublished, setWebsitePublished] = useState(false);
   const [websiteSequence, setWebsiteSequence] = useState('');
-  const [selectedPublicCatIds, setSelectedPublicCatIds] = useState<string[]>([]);
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedPublicCats, setSelectedPublicCats] = useState<
+    ProductNamedOption[]
+  >([]);
+  const [selectedTags, setSelectedTags] = useState<ProductNamedOption[]>([]);
   const [sellWhenOutOfStock, setSellWhenOutOfStock] = useState(true);
   const [showAvailableQty, setShowAvailableQty] = useState(false);
   const [outOfStockMessage, setOutOfStockMessage] = useState('');
@@ -96,6 +279,8 @@ export function CreateProductView({
   const [metaLoading, setMetaLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [pendingCreate, setPendingCreate] = useState<PendingCreate | null>(null);
+  const [creatingMeta, setCreatingMeta] = useState(false);
 
   useEffect(() => {
     if (!session?.token) return;
@@ -105,12 +290,18 @@ export function CreateProductView({
       fetchProductCategories(session.token),
       fetchPublicCategories(session.token),
       fetchProductTags(session.token),
+      fetchNextWebsiteSequence(session.token).catch(() => 1),
     ])
-      .then(([cats, pubCats, productTags]) => {
+      .then(([cats, pubCats, productTags, nextSequence]) => {
         if (cancelled) return;
         setCategories(cats);
         setPublicCategories(pubCats);
         setTags(productTags);
+        setWebsiteSequence(
+          Number(nextSequence).toLocaleString('en-US', {
+            maximumFractionDigits: 0,
+          }),
+        );
       })
       .catch(err => {
         if (cancelled) return;
@@ -138,9 +329,47 @@ export function CreateProductView({
     return match?.id;
   }, [categories, categoryName]);
 
-  const toggleId = useCallback((id: string, list: string[], setList: (next: string[]) => void) => {
-    setList(list.includes(id) ? list.filter(x => x !== id) : [...list, id]);
-  }, []);
+  const confirmCreateMeta = useCallback(async () => {
+    if (!session?.token || !pendingCreate) return;
+    setCreatingMeta(true);
+    setError('');
+    try {
+      if (pendingCreate.kind === 'tag') {
+        const created = await createProductTag(
+          session.token,
+          pendingCreate.name,
+        );
+        setTags(prev =>
+          prev.some(t => t.id === created.id) ? prev : [...prev, created],
+        );
+        setSelectedTags(prev =>
+          prev.some(t => t.id === created.id) ? prev : [...prev, created],
+        );
+      } else {
+        const created = await createPublicCategory(
+          session.token,
+          pendingCreate.name,
+        );
+        setPublicCategories(prev =>
+          prev.some(c => c.id === created.id) ? prev : [...prev, created],
+        );
+        setSelectedPublicCats(prev =>
+          prev.some(c => c.id === created.id) ? prev : [...prev, created],
+        );
+      }
+      setPendingCreate(null);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : pendingCreate.kind === 'tag'
+            ? 'Failed to create tag.'
+            : 'Failed to create category.',
+      );
+    } finally {
+      setCreatingMeta(false);
+    }
+  }, [session?.token, pendingCreate]);
 
   const save = useCallback(async () => {
     if (!session?.token) {
@@ -197,8 +426,8 @@ export function CreateProductView({
       internalNotes: internalNotes.trim() || undefined,
       websitePublished,
       websiteSequence: websiteSequenceNum,
-      publicCategoryIds: selectedPublicCatIds,
-      tagIds: selectedTagIds,
+      publicCategoryIds: selectedPublicCats.map(c => c.id),
+      tagIds: selectedTags.map(t => t.id),
       sellWhenOutOfStock,
       showAvailableQty,
       outOfStockMessage: outOfStockMessage.trim() || undefined,
@@ -233,8 +462,8 @@ export function CreateProductView({
     barcode,
     internalNotes,
     websitePublished,
-    selectedPublicCatIds,
-    selectedTagIds,
+    selectedPublicCats,
+    selectedTags,
     sellWhenOutOfStock,
     showAvailableQty,
     outOfStockMessage,
@@ -436,71 +665,32 @@ export function CreateProductView({
                 onChangeText={setWebsiteSequence}
                 keyboardType="number-pad"
                 dense
+                disabled
               />
 
-              <Text
-                style={[
-                  styles.sectionLabel,
-                  { color: detail.label, marginTop: 8 },
-                ]}>
-                Categories
-              </Text>
-              <View style={styles.chipWrap}>
-                {publicCategories.length === 0 ? (
-                  <Text style={{ color: theme.colors.onSurfaceVariant }}>
-                    No eCommerce categories in Odoo.
-                  </Text>
-                ) : (
-                  publicCategories.map(cat => {
-                    const selected = selectedPublicCatIds.includes(cat.id);
-                    return (
-                      <Chip
-                        key={cat.id}
-                        selected={selected}
-                        onPress={() =>
-                          toggleId(
-                            cat.id,
-                            selectedPublicCatIds,
-                            setSelectedPublicCatIds,
-                          )
-                        }
-                        style={styles.chip}>
-                        {cat.name}
-                      </Chip>
-                    );
-                  })
-                )}
-              </View>
+              <SuggestCreateField
+                label="Categories"
+                placeholder="Type eCommerce category"
+                options={publicCategories}
+                selected={selectedPublicCats}
+                onChangeSelected={setSelectedPublicCats}
+                creating={creatingMeta}
+                onRequestCreate={nameToCreate =>
+                  setPendingCreate({ kind: 'category', name: nameToCreate })
+                }
+              />
 
-              <Text
-                style={[
-                  styles.sectionLabel,
-                  { color: detail.label, marginTop: 8 },
-                ]}>
-                Tags
-              </Text>
-              <View style={styles.chipWrap}>
-                {tags.length === 0 ? (
-                  <Text style={{ color: theme.colors.onSurfaceVariant }}>
-                    No product tags in Odoo.
-                  </Text>
-                ) : (
-                  tags.map(tag => {
-                    const selected = selectedTagIds.includes(tag.id);
-                    return (
-                      <Chip
-                        key={tag.id}
-                        selected={selected}
-                        onPress={() =>
-                          toggleId(tag.id, selectedTagIds, setSelectedTagIds)
-                        }
-                        style={styles.chip}>
-                        {tag.name}
-                      </Chip>
-                    );
-                  })
-                )}
-              </View>
+              <SuggestCreateField
+                label="Tags"
+                placeholder="Type product tag"
+                options={tags}
+                selected={selectedTags}
+                onChangeSelected={setSelectedTags}
+                creating={creatingMeta}
+                onRequestCreate={nameToCreate =>
+                  setPendingCreate({ kind: 'tag', name: nameToCreate })
+                }
+              />
 
               <Text
                 style={[
@@ -566,12 +756,46 @@ export function CreateProductView({
               mode="contained"
               onPress={() => void save()}
               loading={saving}
-              disabled={saving}>
+              disabled={saving || creatingMeta}>
               Save
             </Button>
           </View>
         </View>
       </ScrollView>
+
+      <Portal>
+        <Dialog
+          visible={Boolean(pendingCreate)}
+          onDismiss={() => {
+            if (!creatingMeta) setPendingCreate(null);
+          }}>
+          <Dialog.Title>
+            {pendingCreate?.kind === 'tag'
+              ? 'Create new tag?'
+              : 'Create new category?'}
+          </Dialog.Title>
+          <Dialog.Content>
+            <Text>
+              “{pendingCreate?.name}” was not found. Create it in Odoo and add it
+              to this product?
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button
+              onPress={() => setPendingCreate(null)}
+              disabled={creatingMeta}>
+              Cancel
+            </Button>
+            <Button
+              mode="contained"
+              loading={creatingMeta}
+              disabled={creatingMeta}
+              onPress={() => void confirmCreateMeta()}>
+              Create
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
@@ -681,6 +905,29 @@ const styles = StyleSheet.create({
   },
   chip: {
     marginBottom: 2,
+  },
+  suggestBlock: {
+    gap: 8,
+    marginTop: 4,
+    zIndex: 2,
+  },
+  suggestList: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  suggestRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  suggestCreateRow: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.08)',
+  },
+  suggestEmpty: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
   },
   actions: {
     flexDirection: 'row',

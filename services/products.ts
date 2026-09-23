@@ -133,6 +133,44 @@ export async function fetchPublicCategories(
   return response.data ?? [];
 }
 
+export async function createProductTag(
+  token: string,
+  name: string,
+): Promise<ProductTag> {
+  const response = await webApiRequest<{ data: ProductTag }>('/products/tags', {
+    method: 'POST',
+    token,
+    body: { name },
+  });
+  return response.data;
+}
+
+export async function createPublicCategory(
+  token: string,
+  name: string,
+): Promise<ProductNamedOption> {
+  const response = await webApiRequest<{ data: ProductNamedOption }>(
+    '/products/public-categories',
+    {
+      method: 'POST',
+      token,
+      body: { name },
+    },
+  );
+  return response.data;
+}
+
+export async function fetchNextWebsiteSequence(
+  token: string,
+): Promise<number> {
+  const response = await webApiRequest<{ data: { websiteSequence: number } }>(
+    '/products/next-website-sequence',
+    { token },
+  );
+  const value = Number(response.data?.websiteSequence);
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 1;
+}
+
 export async function createProduct(
   token: string,
   payload: CreateProductPayload,
