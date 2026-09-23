@@ -184,7 +184,7 @@ export const NAV_ENTRIES: NavEntry[] = [
   {
     type: 'group',
     id: 'inventory',
-    label: 'Product System',
+    label: 'Product List',
     icon: 'warehouse',
     children: [PRODUCTS, BILLS_OF_MATERIALS, ON_HAND, MOVES_HISTORY],
   },

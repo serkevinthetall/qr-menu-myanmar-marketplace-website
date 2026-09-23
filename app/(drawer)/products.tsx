@@ -15,6 +15,7 @@ import {
 } from 'react-native-paper';
 
 import { ProductDetailView } from '@/components/product/ProductDetailView';
+import { CreateProductView } from '@/components/product/CreateProductView';
 import { FavoriteStar } from '@/components/ui/FavoriteStar';
 import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { Pagination } from '@/components/ui/Pagination';
@@ -38,6 +39,7 @@ import { useResponsive } from '@/hooks/use-responsive';
 import { queryClient } from '@/lib/query-client';
 import { fetchProductsPage } from '@/services/products';
 import {
+  clearWebProductCatalog,
   ensureWebProductCatalog,
   filterWebProducts,
   getWebProductCatalog,
@@ -374,6 +376,7 @@ export default function ProductsScreen() {
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [appError, setAppError] = useState('');
   const [pricesError, setPricesError] = useState('');
   const [qrAppFilter, setQrAppFilter] = useState(false);
@@ -420,7 +423,10 @@ export default function ProductsScreen() {
     }
   });
 
-  const query = useModuleSearch('Search products by name or SKU', !detailId);
+  const query = useModuleSearch(
+    'Search products by name or SKU',
+    !detailId && !creating,
+  );
   const { setDetailHeader } = useSearch();
 
   const toggleOne = useCallback((id: string) => {
@@ -437,6 +443,7 @@ export default function ProductsScreen() {
 
   const openDetail = useCallback((id: string) => {
     if (!session?.token) return;
+    setCreating(false);
     setAppError('');
     setPricesError('');
     setDetailId(id);
@@ -446,6 +453,15 @@ export default function ProductsScreen() {
     setDetailId(null);
     setPricesError('');
     setAppError('');
+  }, []);
+
+  const openCreate = useCallback(() => {
+    setDetailId(null);
+    setCreating(true);
+  }, []);
+
+  const closeCreate = useCallback(() => {
+    setCreating(false);
   }, []);
 
   const setVisibleToApp = useCallback(
@@ -602,6 +618,15 @@ export default function ProductsScreen() {
   );
 
   useEffect(() => {
+    if (creating) {
+      setDetailHeader({
+        title: 'New',
+        breadcrumbParent: 'Product',
+        onBack: closeCreate,
+      });
+      return () => setDetailHeader(null);
+    }
+
     if (!detailId) {
       setDetailHeader(null);
       return;
@@ -619,7 +644,7 @@ export default function ProductsScreen() {
     });
 
     return () => setDetailHeader(null);
-  }, [detailId, detail, closeDetail, setDetailHeader]);
+  }, [creating, detailId, detail, closeCreate, closeDetail, setDetailHeader]);
 
   const toggleView = useCallback(() => {
     setViewMode(prev => (prev === 'list' ? 'card' : 'list'));
@@ -630,7 +655,7 @@ export default function ProductsScreen() {
   }, []);
 
   const headerActions = useMemo<HeaderAction[]>(() => {
-    if (detailId) {
+    if (detailId || creating) {
       return [];
     }
     return [
@@ -649,8 +674,22 @@ export default function ProductsScreen() {
         onPress: toggleView,
         accessibilityLabel: 'Toggle list or card view',
       },
+      {
+        key: 'create',
+        icon: 'plus',
+        onPress: openCreate,
+        accessibilityLabel: 'Create new product',
+      },
     ];
-  }, [detailId, viewMode, toggleView, qrAppFilter, toggleQrAppFilter]);
+  }, [
+    detailId,
+    creating,
+    viewMode,
+    toggleView,
+    qrAppFilter,
+    toggleQrAppFilter,
+    openCreate,
+  ]);
 
   useHeaderActions(headerActions);
 
@@ -750,6 +789,16 @@ export default function ProductsScreen() {
     [session?.token, qrAppFilter],
   );
 
+  const onProductCreated = useCallback(
+    (product: ProductDetail) => {
+      setCreating(false);
+      clearWebProductCatalog();
+      void loadProducts(true);
+      openDetail(product.id);
+    },
+    [loadProducts, openDetail],
+  );
+
   useEffect(() => {
     return subscribeWebProductCatalog((catalog: WebProductCatalog) => {
       setCatalogProducts(catalog.products);
@@ -787,6 +836,12 @@ export default function ProductsScreen() {
     await loadProducts(true);
     setRefreshing(false);
   };
+
+  if (creating) {
+    return (
+      <CreateProductView onCancel={closeCreate} onCreated={onProductCreated} />
+    );
+  }
 
   if (detailId) {
     return (

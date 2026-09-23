@@ -60,3 +60,31 @@ export type ProductAppUpdate = {
   /** Contact tag ids — links matching existing product.tag names onto the product. */
   forYouTagIds?: string[];
 };
+
+export type ProductNamedOption = {
+  id: string;
+  name: string;
+};
+
+export type CreateProductPayload = {
+  name: string;
+  type?: 'consu' | 'service' | 'combo';
+  saleOk?: boolean;
+  purchaseOk?: boolean;
+  trackInventory?: boolean;
+  invoicePolicy?: 'order' | 'delivery';
+  listPrice?: number;
+  cost?: number;
+  categoryId?: string;
+  sku?: string;
+  barcode?: string;
+  internalNotes?: string;
+  websitePublished?: boolean;
+  websiteSequence?: number;
+  publicCategoryIds?: string[];
+  tagIds?: string[];
+  sellWhenOutOfStock?: boolean;
+  showAvailableQty?: boolean;
+  outOfStockMessage?: string;
+  longDescription?: string;
+};

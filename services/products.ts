@@ -1,9 +1,11 @@
 import { webApiRequest } from '@/services/web/client';
 import {
+  CreateProductPayload,
   Product,
   ProductAppAccess,
   ProductAppUpdate,
   ProductDetail,
+  ProductNamedOption,
   ProductPricesUpdate,
   ProductTag,
 } from '@/types/product';
@@ -109,6 +111,46 @@ export async function fetchProductTags(token: string): Promise<ProductTag[]> {
     token,
   });
   return response.data ?? [];
+}
+
+export async function fetchProductCategories(
+  token: string,
+): Promise<ProductNamedOption[]> {
+  const response = await webApiRequest<{ data: ProductNamedOption[] }>(
+    '/products/categories',
+    { token },
+  );
+  return response.data ?? [];
+}
+
+export async function fetchPublicCategories(
+  token: string,
+): Promise<ProductNamedOption[]> {
+  const response = await webApiRequest<{ data: ProductNamedOption[] }>(
+    '/products/public-categories',
+    { token },
+  );
+  return response.data ?? [];
+}
+
+export async function createProduct(
+  token: string,
+  payload: CreateProductPayload,
+): Promise<ProductDetail> {
+  const response = await webApiRequest<{ data: ProductDetail }>(
+    '/products',
+    {
+      method: 'POST',
+      token,
+      body: {
+        ...payload,
+        categoryId: payload.categoryId ? Number(payload.categoryId) : undefined,
+        publicCategoryIds: payload.publicCategoryIds?.map(Number),
+        tagIds: payload.tagIds?.map(Number),
+      },
+    },
+  );
+  return response.data;
 }
 
 export async function updateProductAppAccess(
