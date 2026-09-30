@@ -73,6 +73,8 @@ export async function fetchCustomers(
     q?: string;
     /** Odoo suppliers (supplier_rank > 0). */
     vendors?: boolean;
+    /** Only contacts with write_date >= this Odoo datetime. */
+    since?: string;
   },
 ): Promise<Customer[]> {
   const page = await fetchCustomersPage(token, options);
@@ -88,6 +90,8 @@ export async function fetchCustomersPage(
     q?: string;
     /** Odoo suppliers (supplier_rank > 0). */
     vendors?: boolean;
+    /** Only contacts with write_date >= this Odoo datetime. */
+    since?: string;
   },
 ): Promise<CustomersPage> {
   const params = new URLSearchParams();
@@ -106,15 +110,22 @@ export async function fetchCustomersPage(
   if (options?.q?.trim()) {
     params.set('q', options.q.trim());
   }
+  if (options?.since?.trim()) {
+    params.set('since', options.since.trim());
+  }
   const query = params.toString() ? `?${params.toString()}` : '';
   const response = await webApiRequest<CustomersResponse>(`/customers${query}`, {
     token,
   });
   const limit = options?.limit ?? response.meta?.limit ?? response.data.length;
   const offset = options?.offset ?? response.meta?.offset ?? 0;
+  const paged =
+    Boolean(options?.lite) ||
+    options?.limit !== undefined ||
+    Boolean(options?.since?.trim());
   return {
     data: response.data,
-    hasMore: Boolean(options?.lite) ? (response.meta?.hasMore ?? false) : false,
+    hasMore: paged ? (response.meta?.hasMore ?? false) : false,
     offset,
     limit,
   };

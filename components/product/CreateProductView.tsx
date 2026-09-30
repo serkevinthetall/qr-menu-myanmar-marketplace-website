@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import {
   ActivityIndicator,
   Button,
@@ -7,6 +7,7 @@ import {
   Chip,
   Dialog,
   HelperText,
+  Icon,
   Portal,
   Switch,
   Text,
@@ -33,6 +34,7 @@ import {
   ProductNamedOption,
   ProductTag,
 } from '@/types/product';
+import { pickProductImageFile } from '@/utils/pick-product-image';
 
 type CreateTab = 'general' | 'ecommerce';
 
@@ -270,6 +272,9 @@ export function CreateProductView({
   const [showAvailableQty, setShowAvailableQty] = useState(false);
   const [outOfStockMessage, setOutOfStockMessage] = useState('');
   const [longDescription, setLongDescription] = useState('');
+  const [imagePreviewUri, setImagePreviewUri] = useState('');
+  const [imageBase64, setImageBase64] = useState('');
+  const [imageBusy, setImageBusy] = useState(false);
 
   const [categories, setCategories] = useState<ProductNamedOption[]>([]);
   const [publicCategories, setPublicCategories] = useState<ProductNamedOption[]>(
@@ -328,6 +333,28 @@ export function CreateProductView({
     const match = categories.find(c => c.name === categoryName);
     return match?.id;
   }, [categories, categoryName]);
+
+  const pickImage = useCallback(async () => {
+    setImageBusy(true);
+    setError('');
+    try {
+      const picked = await pickProductImageFile();
+      if (!picked) return;
+      setImagePreviewUri(picked.previewUri);
+      setImageBase64(picked.base64);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Could not load the image.',
+      );
+    } finally {
+      setImageBusy(false);
+    }
+  }, []);
+
+  const clearImage = useCallback(() => {
+    setImagePreviewUri('');
+    setImageBase64('');
+  }, []);
 
   const confirmCreateMeta = useCallback(async () => {
     if (!session?.token || !pendingCreate) return;
@@ -432,6 +459,7 @@ export function CreateProductView({
       showAvailableQty,
       outOfStockMessage: outOfStockMessage.trim() || undefined,
       longDescription: longDescription.trim() || undefined,
+      imageBase64: imageBase64 || undefined,
     };
 
     setSaving(true);
@@ -468,6 +496,7 @@ export function CreateProductView({
     showAvailableQty,
     outOfStockMessage,
     longDescription,
+    imageBase64,
     onCreated,
   ]);
 
@@ -496,28 +525,80 @@ export function CreateProductView({
               shadowColor: detail.shadow,
             },
           ]}>
-          <TextInput
-            mode="flat"
-            label="Product Name"
-            value={name}
-            onChangeText={setName}
-            style={styles.nameInput}
-            dense
-          />
+          <View style={styles.headerRow}>
+            <View style={styles.headerMain}>
+              <TextInput
+                mode="flat"
+                label="Product Name"
+                value={name}
+                onChangeText={setName}
+                style={styles.nameInput}
+                dense
+              />
 
-          <View style={styles.checkRow}>
-            <Pressable
-              style={styles.checkItem}
-              onPress={() => setSaleOk(v => !v)}>
-              <Checkbox status={saleOk ? 'checked' : 'unchecked'} />
-              <Text>Sales</Text>
-            </Pressable>
-            <Pressable
-              style={styles.checkItem}
-              onPress={() => setPurchaseOk(v => !v)}>
-              <Checkbox status={purchaseOk ? 'checked' : 'unchecked'} />
-              <Text>Purchase</Text>
-            </Pressable>
+              <View style={styles.checkRow}>
+                <Pressable
+                  style={styles.checkItem}
+                  onPress={() => setSaleOk(v => !v)}>
+                  <Checkbox status={saleOk ? 'checked' : 'unchecked'} />
+                  <Text>Sales</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.checkItem}
+                  onPress={() => setPurchaseOk(v => !v)}>
+                  <Checkbox status={purchaseOk ? 'checked' : 'unchecked'} />
+                  <Text>Purchase</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <View style={styles.imageCol}>
+              <Pressable
+                onPress={() => void pickImage()}
+                disabled={imageBusy || saving}
+                style={[
+                  styles.imageBox,
+                  {
+                    borderColor: detail.border,
+                    backgroundColor: detail.panelBg,
+                  },
+                ]}>
+                {imageBusy ? (
+                  <ActivityIndicator />
+                ) : imagePreviewUri ? (
+                  <Image
+                    source={{ uri: imagePreviewUri }}
+                    style={styles.imagePreview}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.imagePlaceholder}>
+                    <Icon
+                      source="camera-plus-outline"
+                      size={28}
+                      color={theme.colors.onSurfaceVariant}
+                    />
+                    <Text
+                      style={{
+                        color: theme.colors.onSurfaceVariant,
+                        fontSize: 11,
+                        textAlign: 'center',
+                      }}>
+                      Upload photo
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+              {imagePreviewUri ? (
+                <Button
+                  compact
+                  mode="text"
+                  onPress={clearImage}
+                  disabled={saving || imageBusy}>
+                  Remove
+                </Button>
+              ) : null}
+            </View>
           </View>
 
           <View style={[styles.tabBarRow, { borderBottomColor: detail.border }]}>
@@ -826,6 +907,39 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     backgroundColor: 'transparent',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 16,
+  },
+  headerMain: {
+    flex: 1,
+    minWidth: 0,
+    gap: 8,
+  },
+  imageCol: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  imageBox: {
+    width: 96,
+    height: 96,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+  },
+  imagePlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
   },
   checkRow: {
     flexDirection: 'row',

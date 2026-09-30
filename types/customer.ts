@@ -88,6 +88,10 @@ export type Customer = {
   thisMonthPercent: number;
   lastInvoiceDate: string;
   expoPushToken: string;
+  /** Odoo write_date — used for incremental contact sync. */
+  writeDate?: string;
+  /** false when archived/inactive in Odoo. */
+  active?: boolean;
   extra: Record<string, string>;
 };
 

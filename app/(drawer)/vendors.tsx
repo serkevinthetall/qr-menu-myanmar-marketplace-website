@@ -364,10 +364,41 @@ export default function VendorsScreen() {
   const openDetail = useCallback(
     async (id: string) => {
       if (!session?.token) return;
+      const listRow = vendors.find(v => v.id === id);
+      const optimistic: CustomerDetail | null = listRow
+        ? {
+            id: listRow.id,
+            name: listRow.name,
+            relatedCompany: listRow.company,
+            relatedCompanyId: null,
+            email: listRow.email,
+            phone: listRow.phone,
+            street: '',
+            street2: '',
+            township: listRow.township,
+            townshipId: null,
+            city: listRow.city,
+            state: '',
+            stateId: null,
+            zip: '',
+            country: '',
+            countryId: null,
+            tags: '',
+            tagIds: [],
+            memberCode: '',
+            appPromoter: listRow.extra?.x_studio_app_promoter || '',
+            portalAccess: {
+              hasEmail: Boolean(listRow.email?.trim()),
+              email: listRow.email || '',
+              granted: false,
+              login: '',
+            },
+          }
+        : null;
       setDetailId(id);
       setDetailLoading(true);
       setDetailError('');
-      setDetail(null);
+      setDetail(optimistic);
       try {
         const data = await fetchCustomerDetail(session.token, id);
         setDetail(data);
@@ -375,11 +406,14 @@ export default function VendorsScreen() {
         setDetailError(
           err instanceof Error ? err.message : 'Failed to load vendor detail.',
         );
+        if (!optimistic) {
+          setDetail(null);
+        }
       } finally {
         setDetailLoading(false);
       }
     },
-    [session?.token],
+    [session?.token, vendors],
   );
 
   useEffect(() => {

@@ -301,7 +301,7 @@ export function ContactDetailView({
     }
   }, [onGrantPortalAccess, onAfterPortalGranted, password, detail]);
 
-  if (loading) {
+  if (loading && !detail) {
     return (
       <View style={[styles.container, { backgroundColor: detailTheme.background }]}>
         <View style={styles.centerOverlay}>
@@ -365,6 +365,14 @@ export function ContactDetailView({
         ]}
         showsVerticalScrollIndicator={false}>
         <View style={styles.page}>
+          {loading ? (
+            <View style={styles.refreshRow}>
+              <ActivityIndicator size="small" />
+              <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 13 }}>
+                Refreshing from Odoo…
+              </Text>
+            </View>
+          ) : null}
           {error ? (
             <Text style={{ color: theme.colors.error, paddingHorizontal: 4 }}>
               {error}
@@ -703,6 +711,12 @@ const styles = StyleSheet.create({
     maxWidth: 960,
     alignSelf: 'center',
     gap: 14,
+  },
+  refreshRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 4,
   },
   surfaceCard: {
     borderRadius: 12,

@@ -13,7 +13,7 @@ import {
 import { PrintFormat } from '@/utils/print-quotation';
 
 /** If the user stops typing, search runs after this delay. Enter searches immediately. */
-const SEARCH_IDLE_MS = 2000;
+const SEARCH_IDLE_MS = 300;
 
 export type HeaderAction = {
   key: string;
@@ -101,8 +101,8 @@ const SearchChromeContext = createContext<SearchChromeContextValue | null>(null)
 
 /**
  * Holds navbar state shared between the header and the focused screen.
- * Typing stays in the header input. The list query updates when the user
- * presses Enter, or a couple of seconds after they stop typing.
+ * Typing stays in the header input. The list query auto-updates shortly
+ * after typing pauses, or immediately when the user presses Enter.
  */
 export function SearchProvider({ children }: { children: ReactNode }) {
   const [query, setQueryState] = useState('');
@@ -310,7 +310,7 @@ export function useOptionalSearch() {
 /**
  * Enables the navbar search bar while the calling screen is focused and
  * returns the query for local filtering / server search.
- * The query updates on Enter, or a couple of seconds after typing stops.
+ * The query auto-updates shortly after typing pauses, or immediately on Enter.
  */
 export function useModuleSearch(placeholder: string, enabled = true) {
   const { query, enableSearch, disableSearch } = useSearchQueryContext();

@@ -87,4 +87,6 @@ export type CreateProductPayload = {
   showAvailableQty?: boolean;
   outOfStockMessage?: string;
   longDescription?: string;
+  /** Raw or data-URL base64 for Odoo image_1920. */
+  imageBase64?: string;
 };

@@ -55,10 +55,15 @@ import {
 import { AppPromoterInstallDialog } from '@/features/app-promoters';
 import {
   fetchCustomerDetail,
-  fetchCustomers,
   fetchTownships,
   grantCustomerPortalAccess,
 } from '@/services/customers';
+import {
+  ensureWebContactCatalog,
+  getWebContactCatalog,
+  subscribeWebContactCatalog,
+  WebContactCatalog,
+} from '@/services/web/contact-catalog-cache';
 import { Customer, CustomerDetail, Township } from '@/types/customer';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
 import { normalizeMyanmarPhone } from '@/utils/myanmar-phone';
@@ -828,10 +833,42 @@ export default function CustomersScreen() {
         return;
       }
 
+      const listRow = customers.find(c => c.id === id);
+      const optimistic: CustomerDetail | null = listRow
+        ? {
+            id: listRow.id,
+            name: listRow.name,
+            relatedCompany: listRow.company,
+            relatedCompanyId: null,
+            email: listRow.email,
+            phone: listRow.phone,
+            street: '',
+            street2: '',
+            township: listRow.township,
+            townshipId: null,
+            city: listRow.city,
+            state: '',
+            stateId: null,
+            zip: '',
+            country: '',
+            countryId: null,
+            tags: '',
+            tagIds: [],
+            memberCode: '',
+            appPromoter: listRow.extra?.x_studio_app_promoter || '',
+            portalAccess: {
+              hasEmail: Boolean(listRow.email?.trim()),
+              email: listRow.email || '',
+              granted: false,
+              login: '',
+            },
+          }
+        : null;
+
       setDetailId(id);
       setDetailLoading(true);
       setDetailError('');
-      setDetail(null);
+      setDetail(optimistic);
 
       try {
         const data = await fetchCustomerDetail(session.token, id);
@@ -840,11 +877,14 @@ export default function CustomersScreen() {
         setDetailError(
           err instanceof Error ? err.message : 'Failed to load contact detail.',
         );
+        if (!optimistic) {
+          setDetail(null);
+        }
       } finally {
         setDetailLoading(false);
       }
     },
-    [session?.token],
+    [session?.token, customers],
   );
 
   const grantPortalAccess = useCallback(
@@ -1080,20 +1120,39 @@ export default function CustomersScreen() {
     }
   }, [session?.token]);
 
-  const loadCustomers = useCallback(async () => {
-    if (!session?.token) {
-      return;
-    }
+  const loadCustomers = useCallback(
+    async (force = false) => {
+      if (!session?.token) {
+        return;
+      }
 
-    try {
-      setError('');
-      const data = await fetchCustomers(session.token);
-      setCustomers(data);
-      await appInstall.loadInstallMap();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load contacts.');
+      try {
+        setError('');
+        await ensureWebContactCatalog(session.token, { force });
+        await appInstall.loadInstallMap();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load contacts.');
+      }
+    },
+    [session?.token, appInstall.loadInstallMap],
+  );
+
+  useEffect(() => {
+    return subscribeWebContactCatalog((catalog: WebContactCatalog) => {
+      setCustomers(catalog.customers);
+      if (catalog.customers.length > 0 || catalog.complete) {
+        setLoading(false);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    const cached = getWebContactCatalog();
+    if (cached?.customers.length) {
+      setCustomers(cached.customers);
+      setLoading(false);
     }
-  }, [session?.token, appInstall.loadInstallMap]);
+  }, []);
 
   useEffect(() => {
     if (appInstall.message) {
@@ -1103,8 +1162,16 @@ export default function CustomersScreen() {
   }, [appInstall.message, appInstall.setMessage]);
 
   useEffect(() => {
-    setLoading(true);
-    Promise.all([loadCustomers(), loadTownships()]).finally(() => setLoading(false));
+    const hasCached =
+      customers.length > 0 || (getWebContactCatalog()?.customers.length ?? 0) > 0;
+    if (!hasCached) {
+      setLoading(true);
+    }
+    Promise.all([loadCustomers(false), loadTownships()]).finally(() =>
+      setLoading(false),
+    );
+    // Intentionally only re-run when the loader identity changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- customers.length is a paint hint
   }, [loadCustomers, loadTownships]);
 
   useEffect(() => {
@@ -1113,11 +1180,12 @@ export default function CustomersScreen() {
     }
 
     if (created === '1') {
-      loadCustomers();
+      void loadCustomers(false);
       setSnackbar('Contact created in Odoo.');
     }
 
     if (updated === '1') {
+      void loadCustomers(false);
       setSnackbar('Contact updated.');
     }
 
@@ -1126,7 +1194,8 @@ export default function CustomersScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([loadCustomers(), loadTownships()]);
+    // Pull-to-refresh: delta sync (new/updated only). Hold force for rare full rebuild.
+    await Promise.all([loadCustomers(false), loadTownships()]);
     setRefreshing(false);
   };
 
