@@ -70,6 +70,7 @@ import { fetchPaymentMethods } from '@/services/quotations';
 import { PaymentMethod } from '@/types/quotation';
 import { SaleOrder, SaleOrderDetail } from '@/types/sale-order';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
+import { exportAppOrdersMonthlyExcel } from '@/utils/export-app-orders-excel';
 import { formatMyanmarDateTime } from '@/utils/myanmar-datetime';
 import { ONLINE_ORDERS_REFRESH_EVENT } from '@/utils/online-order-alerts-preference';
 import { groupOrdersByMonthDay } from '@/utils/order-date-groups';
@@ -1047,12 +1048,43 @@ export default function OnlineOrdersScreen() {
     [items, selectedIds],
   );
 
+  const exportMonthlyExcel = useCallback(() => {
+    const search = query.trim();
+    const dateActive = hasActiveSaleOrderFilters(orderFilters);
+    if (filtered.length === 0) {
+      setSnackbar(
+        search ? 'No app orders match your search.' : 'No app orders to export.',
+      );
+      return;
+    }
+    const ok = exportAppOrdersMonthlyExcel(filtered, {
+      search,
+      dateLabel: dateActive
+        ? getSaleOrderFilterDateLabel(orderFilters)
+        : '',
+      readFilter,
+    });
+    if (!ok) {
+      setSnackbar('Excel export is only available on web.');
+      return;
+    }
+    const searchNote = search ? ` matching “${search}”` : '';
+    setSnackbar(
+      `Exported ${filtered.length} app order(s)${searchNote} by month.`,
+    );
+  }, [filtered, query, orderFilters, readFilter]);
 
   const headerActions = useMemo<HeaderAction[]>(() => {
     if (selectedId) {
       return [];
     }
     const actions: HeaderAction[] = [
+      {
+        key: 'excel',
+        icon: 'microsoft-excel',
+        onPress: exportMonthlyExcel,
+        accessibilityLabel: 'Export app orders monthly cost to Excel',
+      },
       {
         key: 'mark-all-read',
         icon: 'email-check-outline',
@@ -1096,6 +1128,7 @@ export default function OnlineOrdersScreen() {
     selectionMode,
     selectedValidatable,
     openDeliveriesPage,
+    exportMonthlyExcel,
   ]);
 
   useHeaderActions(headerActions);

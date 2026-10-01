@@ -3,12 +3,34 @@ import * as XLSX from 'xlsx';
 
 type Cell = string | number | null | undefined;
 
+export type XlsxSheet = {
+  name: string;
+  rows: Cell[][];
+};
+
 function escapeCell(cell: Cell): string {
   const text = cell === null || cell === undefined ? '' : String(cell);
   if (/[",\n]/.test(text)) {
     return `"${text.replace(/"/g, '""')}"`;
   }
   return text;
+}
+
+function sanitizeSheetName(name: string, used: Set<string>): string {
+  const cleaned =
+    String(name || 'Sheet')
+      .replace(/[\\/?*[\]:]/g, '-')
+      .trim()
+      .slice(0, 31) || 'Sheet';
+  let candidate = cleaned;
+  let n = 2;
+  while (used.has(candidate.toLowerCase())) {
+    const suffix = ` (${n})`;
+    candidate = `${cleaned.slice(0, Math.max(1, 31 - suffix.length))}${suffix}`;
+    n += 1;
+  }
+  used.add(candidate.toLowerCase());
+  return candidate;
 }
 
 /**
@@ -38,24 +60,46 @@ export function exportToCsv(filename: string, rows: Cell[][]): boolean {
   return true;
 }
 
+/** Exports one or more sheets to a real .xlsx workbook. */
+export function exportToXlsxSheets(
+  filename: string,
+  sheets: XlsxSheet[],
+): boolean {
+  if (Platform.OS !== 'web' || typeof document === 'undefined') {
+    return false;
+  }
+  if (!sheets.length) {
+    return false;
+  }
+
+  const workbook = XLSX.utils.book_new();
+  const usedNames = new Set<string>();
+
+  for (const sheet of sheets) {
+    const worksheet = XLSX.utils.aoa_to_sheet(
+      sheet.rows.map(row =>
+        row.map(cell => (cell === null || cell === undefined ? '' : cell)),
+      ),
+    );
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      sanitizeSheetName(sheet.name, usedNames),
+    );
+  }
+
+  XLSX.writeFile(
+    workbook,
+    filename.endsWith('.xlsx') ? filename : `${filename}.xlsx`,
+  );
+  return true;
+}
+
 /** Exports tabular data to a real .xlsx workbook. */
 export function exportToXlsx(
   filename: string,
   rows: Cell[][],
   sheetName = 'Quotations',
 ): boolean {
-  if (Platform.OS !== 'web' || typeof document === 'undefined') {
-    return false;
-  }
-
-  const worksheet = XLSX.utils.aoa_to_sheet(
-    rows.map(row => row.map(cell => (cell === null || cell === undefined ? '' : cell))),
-  );
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-  XLSX.writeFile(
-    workbook,
-    filename.endsWith('.xlsx') ? filename : `${filename}.xlsx`,
-  );
-  return true;
+  return exportToXlsxSheets(filename, [{ name: sheetName, rows }]);
 }

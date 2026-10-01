@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
+  LayoutChangeEvent,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -671,7 +672,7 @@ function CustomerCard({
 export default function CustomersScreen() {
   const theme = useTheme();
   const { session } = useAuth();
-  const { width } = useResponsive();
+  const { width, isDesktop, sidebarWidth } = useResponsive();
   const router = useRouter();
   const { detailId: routeDetailId, created, updated } = useLocalSearchParams<{
     detailId?: string;
@@ -687,6 +688,8 @@ export default function CustomersScreen() {
   const [snackbar, setSnackbar] = useState('');
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  /** Actual list pane width (window minus drawer) — used so maximized layout fills correctly. */
+  const [contentWidth, setContentWidth] = useState(0);
   const [contactFilters, setContactFilters] = useState<ContactFilters>(
     EMPTY_CONTACT_FILTERS,
   );
@@ -699,15 +702,27 @@ export default function CustomersScreen() {
   // @temp-feature app-install-call-list — remove this hook when dropping the campaign
   const appInstall = useContactAppInstall(session?.token);
 
+  // Window width includes the drawer; the table lives in the remaining pane.
+  const layoutWidth =
+    contentWidth > 0
+      ? contentWidth
+      : Math.max(0, width - (isDesktop ? sidebarWidth : 0));
+
+  const onContentLayout = useCallback((event: LayoutChangeEvent) => {
+    const next = event.nativeEvent.layout.width;
+    if (!(next > 0)) return;
+    setContentWidth(prev => (Math.abs(prev - next) > 1 ? next : prev));
+  }, []);
+
   const tableColumns = useMemo(() => {
-    const priority = maxColumnPriority(width);
+    const priority = maxColumnPriority(layoutWidth);
     return COLUMNS.filter(col => {
       if (!appInstall.enabled && col.key === 'appInstall') {
         return false;
       }
       return col.priority <= priority;
     });
-  }, [appInstall.enabled, width]);
+  }, [appInstall.enabled, layoutWidth]);
 
   const tableMinWidth = useMemo(
     () =>
@@ -1091,21 +1106,21 @@ export default function CustomersScreen() {
   }, [pagedCustomers]);
 
   const numColumns = useMemo(() => {
-    if (width >= 1200) {
+    if (layoutWidth >= 1200) {
       return 3;
     }
-    if (width >= 768) {
+    if (layoutWidth >= 768) {
       return 2;
     }
     return 1;
-  }, [width]);
+  }, [layoutWidth]);
 
   const cardWidth = useMemo(() => {
     const horizontalPadding = 32;
     const gap = 12;
-    const available = width - horizontalPadding - gap * (numColumns - 1);
+    const available = layoutWidth - horizontalPadding - gap * (numColumns - 1);
     return available / numColumns;
-  }, [width, numColumns]);
+  }, [layoutWidth, numColumns]);
 
   const loadTownships = useCallback(async () => {
     if (!session?.token) {
@@ -1201,7 +1216,9 @@ export default function CustomersScreen() {
 
   if (detailId) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+        onLayout={onContentLayout}>
         <ContactDetailView
           detail={detail}
           loading={detailLoading}
@@ -1279,7 +1296,9 @@ export default function CustomersScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      onLayout={onContentLayout}>
       {viewMode === 'list' ? (
         filteredCustomers.length === 0 ? (
           <ScrollView
@@ -1304,7 +1323,11 @@ export default function CustomersScreen() {
             contentContainerStyle={styles.tableHScrollContent}
             showsHorizontalScrollIndicator
             keyboardShouldPersistTaps="handled">
-            <View style={[styles.tablePane, { minWidth: Math.max(width, tableMinWidth) }]}>
+            <View
+              style={[
+                styles.tablePane,
+                { minWidth: Math.max(layoutWidth, tableMinWidth) },
+              ]}>
               <TableHeader
                 status={headerStatus}
                 columns={tableColumns}
