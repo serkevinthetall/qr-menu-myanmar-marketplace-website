@@ -39,9 +39,6 @@ function buildMonthRows(orders: SaleOrder[], monthTotal: number): Cell[][] {
     'Order Number',
     'Customer',
     'Phone',
-    'Status',
-    'Salesperson',
-    'Sale Person Name',
     'Amount (MMK)',
   ];
 
@@ -50,9 +47,6 @@ function buildMonthRows(orders: SaleOrder[], monthTotal: number): Cell[][] {
     order.number || '',
     order.customer || '',
     order.phoneNumber || '',
-    order.status || '',
-    order.salesperson || '',
-    order.salePersonName || '',
     Number.isFinite(order.total) ? order.total : 0,
   ]);
 
@@ -60,7 +54,7 @@ function buildMonthRows(orders: SaleOrder[], monthTotal: number): Cell[][] {
     header,
     ...dataRows,
     [],
-    ['', '', '', '', '', '', 'Monthly Total', monthTotal],
+    ['', '', '', 'Monthly Total', monthTotal],
   ];
 }
 
