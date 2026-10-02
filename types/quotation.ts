@@ -14,6 +14,10 @@ export type Quotation = {
   phoneNumber: string;
   /** Studio "Sale Person Name" (`x_studio_sale_person_name`). */
   salePersonName: string;
+  /** Odoo next activity summary (`activity_summary`). */
+  activityNote?: string;
+  activityState?: string;
+  activityDeadline?: string;
 };
 
 export type QuotationLine = {

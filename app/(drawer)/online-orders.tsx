@@ -1241,6 +1241,8 @@ export default function OnlineOrdersScreen() {
           detail={detail}
           loading={detailLoading}
           error={detailError}
+          token={session?.token}
+          chatterBasePath="/online-orders"
         />
         <Portal>
           <Dialog

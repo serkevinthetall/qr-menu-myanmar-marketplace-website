@@ -1,13 +1,15 @@
-import { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ReactNode, useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Icon, Text, useTheme } from 'react-native-paper';
 
+import { ChatterPanel } from '@/components/chatter/ChatterPanel';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { DetailSkeleton } from '@/components/ui/ListSkeleton';
 import { getSaleOrderStatusColors } from '@/constants/status-colors';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
+import { ChatterBasePath } from '@/types/chatter';
 import {
   SaleOrderDetail,
   SaleOrderLine,
@@ -16,6 +18,8 @@ import {
   formatMyanmarDate,
   formatMyanmarDateTime,
 } from '@/utils/myanmar-datetime';
+
+type DetailTab = 'lines' | 'chatter';
 
 function formatMoney(value: number): string {
   const safe = Number.isFinite(value) ? value : 0;
@@ -314,17 +318,27 @@ type SaleOrderDetailViewProps = {
   detail: SaleOrderDetail | null;
   loading: boolean;
   error: string;
+  /** Required to load/post chatter (Odoo mail). */
+  token?: string;
+  chatterBasePath?: ChatterBasePath;
 };
 
 export function SaleOrderDetailView({
   detail,
   loading,
   error,
+  token,
+  chatterBasePath = '/sale-orders',
 }: SaleOrderDetailViewProps) {
   const theme = useTheme();
   const detailTheme = useDetailTheme();
   const { width } = useResponsive();
   const isMobile = width < 768;
+  const [tab, setTab] = useState<DetailTab>('lines');
+
+  useEffect(() => {
+    setTab('lines');
+  }, [detail?.id]);
 
   const untaxed =
     detail && detail.untaxedAmount > 0
@@ -459,35 +473,97 @@ export function SaleOrderDetailView({
           <SurfaceCard noPadding>
             <View
               style={[
-                styles.sectionBar,
+                styles.tabBarRow,
                 { borderBottomColor: detailTheme.border },
               ]}>
-              <View style={styles.sectionBarLeft}>
-                <Icon source="format-list-bulleted" size={18} color={theme.colors.primary} />
-                <Text style={[styles.sectionTitle, { color: detailTheme.onSurface }]}>
-                  Order lines
-                </Text>
+              <View style={styles.tabBar}>
+                {(
+                  [
+                    { key: 'lines' as const, label: 'Order Lines' },
+                    { key: 'chatter' as const, label: 'Chatter' },
+                  ] as const
+                ).map(item => {
+                  const active = tab === item.key;
+                  return (
+                    <Pressable
+                      key={item.key}
+                      onPress={() => setTab(item.key)}
+                      style={[
+                        styles.tab,
+                        active && { borderBottomColor: theme.colors.primary },
+                      ]}>
+                      <Text
+                        style={[
+                          styles.tabText,
+                          {
+                            color: active
+                              ? theme.colors.primary
+                              : detailTheme.label,
+                            fontWeight: active ? '700' : '600',
+                          },
+                        ]}>
+                        {item.label.toUpperCase()}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
-              <View
-                style={[
-                  styles.countChip,
-                  { backgroundColor: detailTheme.panelBg, borderColor: detailTheme.border },
-                ]}>
-                <Text style={{ color: theme.colors.primary, fontWeight: '700', fontSize: 12 }}>
-                  {detail.lines.length}
-                </Text>
-              </View>
+              {tab === 'lines' ? (
+                <View
+                  style={[
+                    styles.countChip,
+                    {
+                      backgroundColor: detailTheme.panelBg,
+                      borderColor: detailTheme.border,
+                    },
+                  ]}>
+                  <Text
+                    style={{
+                      color: theme.colors.primary,
+                      fontWeight: '700',
+                      fontSize: 12,
+                    }}>
+                    {detail.lines.length}
+                  </Text>
+                </View>
+              ) : null}
             </View>
 
-            <View style={styles.sectionBody}>
-              {detail.lines.length === 0 ? (
-                <Text style={{ textAlign: 'center', color: detailTheme.label, paddingVertical: 24 }}>
-                  No order lines.
-                </Text>
-              ) : (
-                <LinesTable lines={detail.lines} compact={isMobile} />
-              )}
-            </View>
+            {tab === 'lines' ? (
+              <View style={styles.sectionBody}>
+                {detail.lines.length === 0 ? (
+                  <Text
+                    style={{
+                      textAlign: 'center',
+                      color: detailTheme.label,
+                      paddingVertical: 24,
+                    }}>
+                    No order lines.
+                  </Text>
+                ) : (
+                  <LinesTable lines={detail.lines} compact={isMobile} />
+                )}
+              </View>
+            ) : (
+              <View style={styles.sectionBody}>
+                {token ? (
+                  <ChatterPanel
+                    token={token}
+                    basePath={chatterBasePath}
+                    recordId={detail.id}
+                  />
+                ) : (
+                  <Text
+                    style={{
+                      textAlign: 'center',
+                      color: detailTheme.label,
+                      paddingVertical: 24,
+                    }}>
+                    Sign in required to load chatter.
+                  </Text>
+                )}
+              </View>
+            )}
           </SurfaceCard>
 
           <View style={[styles.totalsWrap, isMobile && { alignSelf: 'stretch' }]}>
@@ -658,6 +734,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
+  },
+  tabBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    flex: 1,
+  },
+  tab: {
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabText: {
+    fontSize: 12,
+    letterSpacing: 0.4,
   },
   sectionBarLeft: {
     flexDirection: 'row',

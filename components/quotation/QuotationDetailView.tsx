@@ -2,17 +2,19 @@ import { ReactNode, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Checkbox, Icon, Text, useTheme } from 'react-native-paper';
 
+import { ChatterPanel } from '@/components/chatter/ChatterPanel';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { DetailSkeleton } from '@/components/ui/ListSkeleton';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
+import { ChatterBasePath } from '@/types/chatter';
 import { QuotationDetail, QuotationLine, QuotationReorderSeed } from '@/types/quotation';
 import {
   formatMyanmarDate,
   formatMyanmarDateTime,
 } from '@/utils/myanmar-datetime';
 
-type DetailTab = 'lines' | 'other';
+type DetailTab = 'lines' | 'other' | 'chatter';
 
 function formatMoney(value: number): string {
   const safe = Number.isFinite(value) ? value : 0;
@@ -134,6 +136,7 @@ function DetailTabs({
           [
             { key: 'lines' as const, label: 'Order Lines' },
             { key: 'other' as const, label: 'Other Info' },
+            { key: 'chatter' as const, label: 'Chatter' },
           ] as const
         ).map(item => {
           const active = tab === item.key;
@@ -436,13 +439,19 @@ function LinesTable({
   );
 }
 
-function DeliveryNotesCard({ notes }: { notes: string }) {
+function DeliveryNotesCard({
+  notes,
+  title = 'DELIVERY NOTES',
+}: {
+  notes: string;
+  title?: string;
+}) {
   const detail = useDetailTheme();
 
   return (
     <SurfaceCard>
       <View style={styles.noteCardBody}>
-        <Text style={[styles.metaLabel, { color: detail.label }]}>DELIVERY NOTES</Text>
+        <Text style={[styles.metaLabel, { color: detail.label }]}>{title}</Text>
         <Text style={[styles.deliveryNoteText, { color: detail.cellText }]}>
           {notes.trim() || '—'}
         </Text>
@@ -488,6 +497,9 @@ type QuotationDetailViewProps = {
   onReorder?: (seed: QuotationReorderSeed) => void;
   /** Extra scroll padding (e.g. floating Print FAB on phone app). */
   contentBottomInset?: number;
+  /** Required to load/post chatter (Odoo mail). */
+  token?: string;
+  chatterBasePath?: ChatterBasePath;
 };
 
 export function QuotationDetailView({
@@ -496,6 +508,8 @@ export function QuotationDetailView({
   error,
   onReorder,
   contentBottomInset = 0,
+  token,
+  chatterBasePath = '/quotations',
 }: QuotationDetailViewProps) {
   const theme = useTheme();
   const detailTheme = useDetailTheme();
@@ -680,7 +694,7 @@ export function QuotationDetailView({
                     />
                   )}
                 </View>
-              ) : (
+              ) : tab === 'other' ? (
                 <View style={styles.tabPanel}>
                   <View style={[styles.otherGrid, isMobile && styles.otherGridStack]}>
                     <MetaField
@@ -698,6 +712,20 @@ export function QuotationDetailView({
                     <MetaField label="PAYMENT TERMS" value={detail.paymentTerms} />
                     <MetaField label="INVOICE ADDRESS" value={detail.invoiceAddress} />
                   </View>
+                </View>
+              ) : (
+                <View style={styles.tabPanel}>
+                  {token ? (
+                    <ChatterPanel
+                      token={token}
+                      basePath={chatterBasePath}
+                      recordId={detail.id}
+                    />
+                  ) : (
+                    <Text style={[styles.emptyLines, { color: detailTheme.label }]}>
+                      Sign in required to load chatter.
+                    </Text>
+                  )}
                 </View>
               )}
             </SurfaceCard>

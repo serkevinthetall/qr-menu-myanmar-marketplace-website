@@ -113,6 +113,7 @@ const COLUMNS: Column[] = [
   { key: 'customer', label: 'Customer', flex: 2.0 },
   { key: 'phoneNumber', label: 'Phonenumber', flex: 1.4 },
   { key: 'salePersonName', label: 'Sale Person', flex: 1.4 },
+  { key: 'activityNote', label: 'Activity Note', flex: 1.6 },
   { key: 'total', label: 'Total', flex: 1.4, align: 'right' },
   { key: 'status', label: 'Status', flex: 1.3 },
   { key: 'paymentMethod', label: 'Payment Method', flex: 1.5 },
@@ -163,6 +164,8 @@ function cellText(item: Quotation, key: string): string {
       return item.phoneNumber?.trim() || '';
     case 'salePersonName':
       return item.salePersonName?.trim() || '';
+    case 'activityNote':
+      return item.activityNote?.trim() || '';
     case 'total':
       return formatMoney(item.total);
     case 'paymentMethod':
@@ -369,6 +372,12 @@ function QuotationCard({
           </Text>
         ) : null}
 
+        {item.activityNote?.trim() ? (
+          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={2}>
+            {item.activityNote}
+          </Text>
+        ) : null}
+
         {item.paymentMethod ? (
           <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>
             {item.paymentMethod}
@@ -512,7 +521,8 @@ export default function QuotationScreen() {
         quotation.number.toLowerCase().includes(term) ||
         quotation.customer.toLowerCase().includes(term) ||
         quotation.phoneNumber?.toLowerCase().includes(term) ||
-        quotation.salePersonName?.toLowerCase().includes(term)
+        quotation.salePersonName?.toLowerCase().includes(term) ||
+        quotation.activityNote?.toLowerCase().includes(term)
       );
     });
   }, [quotations, query]);
@@ -1346,6 +1356,8 @@ export default function QuotationScreen() {
           error={detailError}
           onBack={closeDetail}
           onReorder={handleReorderFromDetail}
+          token={session?.token}
+          chatterBasePath="/quotations"
         />
         <Portal>
           <Dialog

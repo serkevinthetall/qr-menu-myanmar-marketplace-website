@@ -24,6 +24,10 @@ export type SaleOrder = {
   phoneNumber: string;
   /** Studio "Sale Person Name" (`x_studio_sale_person_name`). */
   salePersonName: string;
+  /** Odoo next activity summary (`activity_summary`). */
+  activityNote?: string;
+  activityState?: string;
+  activityDeadline?: string;
   /** Shared team read state for App Orders (false = read). */
   unread?: boolean;
   /** True when an outgoing Odoo delivery can be validated (list + detail). */

@@ -330,6 +330,8 @@ export default function AppQuotationDetailScreen() {
         error={error}
         onBack={() => router.back()}
         contentBottomInset={88}
+        token={session?.token}
+        chatterBasePath="/app/quotations"
       />
 
       <Portal>

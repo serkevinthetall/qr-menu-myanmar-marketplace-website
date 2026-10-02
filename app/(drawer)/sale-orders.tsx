@@ -96,6 +96,7 @@ const COLUMNS: Column[] = [
   { key: 'orderDate', label: 'Order Date', flex: 1.4 },
   { key: 'customer', label: 'Customer', flex: 1.8 },
   { key: 'salePersonName', label: 'Sale Person', flex: 1.4 },
+  { key: 'activityNote', label: 'Activity Note', flex: 1.6 },
   { key: 'total', label: 'Total', flex: 1.4, align: 'right' },
   { key: 'status', label: 'Status', flex: 1.3 },
 ];
@@ -137,6 +138,8 @@ function cellText(item: SaleOrder, key: string): string {
       return item.customer;
     case 'salePersonName':
       return item.salePersonName?.trim() || '';
+    case 'activityNote':
+      return item.activityNote?.trim() || '';
     case 'total':
       return formatMoney(item.total);
     default:
@@ -391,6 +394,22 @@ function SaleOrderCard({
                 style={{ fontWeight: '400', fontSize: 13, flex: 1, paddingTop: 0, paddingBottom: 0 }}
                 numberOfLines={1}>
                 {item.salePersonName}
+              </CustomerNameText>
+            </View>
+          ) : null}
+
+          {item.activityNote?.trim() ? (
+            <View style={styles.cardMetaRow}>
+              <Icon
+                source="note-text-outline"
+                size={14}
+                color={theme.colors.onSurfaceVariant}
+              />
+              <CustomerNameText
+                muted
+                style={{ fontWeight: '400', fontSize: 13, flex: 1, paddingTop: 0, paddingBottom: 0 }}
+                numberOfLines={2}>
+                {item.activityNote}
               </CustomerNameText>
             </View>
           ) : null}
@@ -893,7 +912,8 @@ export default function SaleOrdersScreen() {
         order.number.toLowerCase().includes(term) ||
         order.customer.toLowerCase().includes(term) ||
         order.phoneNumber?.toLowerCase().includes(term) ||
-        order.salePersonName?.toLowerCase().includes(term)
+        order.salePersonName?.toLowerCase().includes(term) ||
+        order.activityNote?.toLowerCase().includes(term)
       );
     });
   }, [items, query]);
@@ -1006,6 +1026,8 @@ export default function SaleOrdersScreen() {
           detail={detail}
           loading={detailLoading}
           error={detailError}
+          token={session?.token}
+          chatterBasePath="/sale-orders"
         />
         <Portal>
           <Dialog
