@@ -1,6 +1,14 @@
 const ENABLED_KEY = '@qr_shop_web_online_order_alerts_enabled';
 export const ONLINE_ORDER_ALERTS_EVENT = 'qr-shop-online-order-alerts-changed';
 export const ONLINE_ORDERS_REFRESH_EVENT = 'qr-shop-online-orders-refresh';
+/** Fired when Redis notify-wait receives a new App Order (all logged-in tabs). */
+export const APP_ORDER_NOTIFY_EVENT = 'qr-shop-app-order-notify';
+
+export type AppOrderNotifyEventDetail = {
+  unreadCount: number;
+  revision: number;
+  label: string;
+};
 
 export function readOnlineOrderAlertsEnabled(): boolean {
   if (typeof window === 'undefined') {
@@ -33,4 +41,20 @@ export function notifyOnlineOrdersRefresh(): void {
     return;
   }
   window.dispatchEvent(new Event(ONLINE_ORDERS_REFRESH_EVENT));
+}
+
+/** Badge (+ optional snackbar) bus for webhook-driven App Orders. */
+export function notifyAppOrderNotify(
+  detail: AppOrderNotifyEventDetail,
+  options?: { refreshList?: boolean },
+): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.dispatchEvent(
+    new CustomEvent(APP_ORDER_NOTIFY_EVENT, { detail }),
+  );
+  if (options?.refreshList && detail.label) {
+    notifyOnlineOrdersRefresh();
+  }
 }

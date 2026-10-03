@@ -15,7 +15,11 @@ import { ERP_BADGE_POLL_MS, fetchErpBadges } from '@/services/badges';
 import { CALL_LIST_BADGE_REFRESH_EVENT } from '@/features/app-install/api';
 import { MEMBER_REQUEST_BADGE_REFRESH_EVENT } from '@/services/member-requests';
 import { setOnlineOrderRead, setOnlineOrdersReadAll } from '@/services/online-orders';
-import { ONLINE_ORDERS_REFRESH_EVENT } from '@/utils/online-order-alerts-preference';
+import {
+  APP_ORDER_NOTIFY_EVENT,
+  AppOrderNotifyEventDetail,
+  ONLINE_ORDERS_REFRESH_EVENT,
+} from '@/utils/online-order-alerts-preference';
 
 type ErpBadgesContextValue = {
   memberRequestCount: number;
@@ -118,13 +122,22 @@ export function ErpBadgesProvider({ children }: { children: React.ReactNode }) {
     const onRefresh = () => {
       void refreshBadges();
     };
+    const onAppOrderNotify = (event: Event) => {
+      const detail = (event as CustomEvent<AppOrderNotifyEventDetail>).detail;
+      if (detail && Number.isFinite(detail.unreadCount)) {
+        // Instant badge from Redis long-poll — no full /badges round-trip.
+        setAppOrderUnreadCount(Math.max(0, Number(detail.unreadCount) || 0));
+      }
+    };
     window.addEventListener(ONLINE_ORDERS_REFRESH_EVENT, onRefresh);
     window.addEventListener(MEMBER_REQUEST_BADGE_REFRESH_EVENT, onRefresh);
     window.addEventListener(CALL_LIST_BADGE_REFRESH_EVENT, onRefresh);
+    window.addEventListener(APP_ORDER_NOTIFY_EVENT, onAppOrderNotify);
     return () => {
       window.removeEventListener(ONLINE_ORDERS_REFRESH_EVENT, onRefresh);
       window.removeEventListener(MEMBER_REQUEST_BADGE_REFRESH_EVENT, onRefresh);
       window.removeEventListener(CALL_LIST_BADGE_REFRESH_EVENT, onRefresh);
+      window.removeEventListener(APP_ORDER_NOTIFY_EVENT, onAppOrderNotify);
     };
   }, [enabled, refreshBadges]);
 

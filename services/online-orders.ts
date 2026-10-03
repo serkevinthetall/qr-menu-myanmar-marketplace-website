@@ -269,3 +269,27 @@ export async function fetchOnlineOrderNotifyFeed(
     unreadCount: Number(response.data?.unreadCount) || 0,
   };
 }
+
+/**
+ * Long-poll Redis until a webhook advances the revision (or timeout).
+ * One open request at a time — not a busy Odoo loop.
+ */
+export async function waitOnlineOrderNotifyFeed(
+  token: string,
+  sinceRevision = 0,
+  timeoutMs = 8_000,
+): Promise<OnlineOrderNotifyFeed> {
+  const params = new URLSearchParams();
+  params.set('since', String(Math.max(0, sinceRevision)));
+  params.set('timeout', String(timeoutMs));
+  const response = await webApiRequest<{ data: OnlineOrderNotifyFeed }>(
+    `/online-orders/notify-wait?${params.toString()}`,
+    { token },
+  );
+  return {
+    revision: Number(response.data?.revision) || 0,
+    active: Boolean(response.data?.active),
+    events: Array.isArray(response.data?.events) ? response.data.events : [],
+    unreadCount: Number(response.data?.unreadCount) || 0,
+  };
+}
