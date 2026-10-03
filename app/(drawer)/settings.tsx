@@ -258,8 +258,14 @@ export default function SettingsScreen() {
                     }) => {
                       event.preventDefault();
                       event.stopPropagation();
+                      const changed = option.id !== alertSoundId;
                       writeAlertSoundId(option.id);
                       setAlertSoundId(option.id);
+                      // Preview only when picking a different sound — not every tap.
+                      if (!changed) {
+                        setSnack(`${option.label} already selected.`);
+                        return;
+                      }
                       void startAlertSoundFromUserGesture().then(played => {
                         setSnack(
                           played

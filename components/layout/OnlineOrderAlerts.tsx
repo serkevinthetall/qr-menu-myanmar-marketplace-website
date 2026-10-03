@@ -77,10 +77,11 @@ export function OnlineOrderAlerts() {
     }
     preloadOnlineOrderAlertSound();
     const unlock = () => {
+      // Silent only — must not beep on every Settings / UI click.
       void unlockOnlineOrderAlertSound();
     };
-    window.addEventListener('pointerdown', unlock, { passive: true });
-    window.addEventListener('keydown', unlock);
+    window.addEventListener('pointerdown', unlock, { once: true, passive: true });
+    window.addEventListener('keydown', unlock, { once: true });
     return () => {
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('keydown', unlock);

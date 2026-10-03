@@ -423,15 +423,20 @@ export function startAlertSoundFromUserGesture(): Promise<boolean> {
   return playSelectedAlertSound(soundId);
 }
 
+/**
+ * Silent unlock only — never plays an audible tone.
+ * Used on global pointerdown so Settings / UI clicks stay quiet.
+ */
 export async function unlockOnlineOrderAlertSound(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
+  if (audioUnlocked) return true;
   ensureAlertAudioElement();
   try {
     await getAudioContext()?.resume();
   } catch {
     // ignore
   }
-  // Quiet unlock: play embedded wav muted then stop.
+  // Quiet unlock: play embedded wav muted then stop. No beep fallback.
   const el = ensureAlertAudioElement();
   if (el) {
     try {
@@ -444,11 +449,12 @@ export async function unlockOnlineOrderAlertSound(): Promise<boolean> {
       markUnlocked();
       return true;
     } catch {
-      // ignore
+      // ignore — AudioContext resume above is enough for synth sounds.
     }
   }
-  if (await playBeep()) return true;
-  return audioUnlocked;
+  // Still mark unlocked after a user gesture + resume so later notifies can play.
+  markUnlocked();
+  return true;
 }
 
 export async function playOnlineOrderAlertSound(): Promise<boolean> {
