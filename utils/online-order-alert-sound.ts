@@ -75,12 +75,13 @@ async function playBeep(): Promise<boolean> {
 }
 
 async function playMp3(): Promise<boolean> {
-  const base = getAlertAudio();
-  if (!base) return false;
+  if (typeof window === 'undefined' || typeof Audio === 'undefined') {
+    return false;
+  }
 
-  // Fresh element per play — more reliable when notifies fire while idle.
+  // Always new element with explicit src (cloneNode can drop src in some browsers).
   try {
-    const audio = base.cloneNode(true) as HTMLAudioElement;
+    const audio = new Audio(SOUND_URL);
     audio.volume = 1;
     audio.muted = false;
     await audio.play();
@@ -89,6 +90,8 @@ async function playMp3(): Promise<boolean> {
     // fall through to shared element
   }
 
+  const base = getAlertAudio();
+  if (!base) return false;
   try {
     base.pause();
     base.currentTime = 0;
@@ -99,6 +102,38 @@ async function playMp3(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * Start sound in the same synchronous turn as a click (Test sound / toggle).
+ * Avoids awaiting unlock first — that can lose Chrome's user-gesture token.
+ */
+export function startAlertSoundFromUserGesture(): Promise<boolean> {
+  if (typeof window === 'undefined' || typeof Audio === 'undefined') {
+    return Promise.resolve(false);
+  }
+
+  const audio = new Audio(SOUND_URL);
+  audio.volume = 1;
+  audio.muted = false;
+  // Keep a reference so GC doesn't pause playback mid-tone.
+  (window as unknown as { __qrAlertAudio?: HTMLAudioElement }).__qrAlertAudio =
+    audio;
+
+  const playPromise = audio.play();
+  return playPromise
+    .then(() => {
+      markUnlocked();
+      void getAudioContext()?.resume();
+      return true;
+    })
+    .catch(async () => {
+      const unlocked = await unlockOnlineOrderAlertSound();
+      if (unlocked) {
+        return playOnlineOrderAlertSound();
+      }
+      return playBeep();
+    });
 }
 
 /** Warm the MP3 so notify + Test sound start faster. */

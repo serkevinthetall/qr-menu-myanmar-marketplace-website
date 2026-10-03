@@ -27,7 +27,8 @@ import {
   writeOnlineOrderAlertsEnabled,
 } from '@/utils/online-order-alerts-preference';
 import {
-  playOnlineOrderAlertSound,
+  isOnlineOrderAlertSoundUnlocked,
+  startAlertSoundFromUserGesture,
   unlockOnlineOrderAlertSound,
 } from '@/utils/online-order-alert-sound';
 
@@ -93,13 +94,16 @@ export default function SettingsScreen() {
           return;
         }
 
-        const unlocked = await unlockOnlineOrderAlertSound();
-        const played = await playOnlineOrderAlertSound();
-        if (!unlocked && !played) {
+        // Play in the same click turn as the switch (keeps Chrome audio unlock).
+        const played = await startAlertSoundFromUserGesture();
+        if (!played) {
+          await unlockOnlineOrderAlertSound();
+        }
+        if (!played && !isOnlineOrderAlertSoundUnlocked()) {
           writeOnlineOrderAlertsEnabled(false);
           setAlertsEnabled(false);
           setSnack(
-            'Could not enable sound. Unmute this tab, then turn the switch on again.',
+            'Could not enable sound. Right-click the Chrome tab → Unmute site, then try again.',
           );
           return;
         }
@@ -118,20 +122,20 @@ export default function SettingsScreen() {
     [],
   );
 
-  const onTestSound = useCallback(async () => {
+  const onTestSound = useCallback(() => {
     if (Platform.OS !== 'web') {
       return;
     }
-    // Unlock + play in the same click so the browser allows audio.
-    const unlocked = await unlockOnlineOrderAlertSound();
-    const played = await playOnlineOrderAlertSound();
-    if (!unlocked && !played) {
-      setSnack(
-        'Could not play sound. Check that this tab is not muted, then click Test sound again.',
-      );
-      return;
-    }
-    setSnack(played ? 'Test sound played.' : 'Sound unlocked — click Test sound once more.');
+    // Play immediately in the click turn — do not await unlock first.
+    void startAlertSoundFromUserGesture().then(played => {
+      if (!played) {
+        setSnack(
+          'Could not play sound. Right-click the Chrome tab → Unmute site, then try again.',
+        );
+        return;
+      }
+      setSnack('Test sound played.');
+    });
   }, []);
 
   const onRevokeDevice = useCallback(
