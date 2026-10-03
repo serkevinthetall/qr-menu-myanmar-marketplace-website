@@ -189,7 +189,7 @@ export type OverviewChatResult = {
   reply: string;
   provider?: 'gemini';
   warning?: string;
-  period?: OverviewPeriod | 'last_month';
+  period?: OverviewPeriod | 'last_month' | 'last_3_months';
   periodLabel?: string;
 };
 

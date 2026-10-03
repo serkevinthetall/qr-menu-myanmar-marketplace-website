@@ -15,7 +15,7 @@ import { generateSixMonthAiSuggestions, sendOverviewChat } from '@/services/insi
 import { OverviewChatTurn, OverviewPeriod } from '@/types/overview';
 
 const WELCOME =
-  'Ask about sales, purchases, customers, areas, or products. Say “last month” or “this month” to choose the period. Analyze six month uses Gemini.';
+  'Ask about sales, purchases, customers, areas, or products. Say “this month”, “last month”, or “3 month” to choose the period. Analyze six month uses Gemini.';
 
 export function OverviewChatPanel({
   visible,
