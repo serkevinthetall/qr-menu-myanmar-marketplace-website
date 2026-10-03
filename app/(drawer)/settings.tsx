@@ -27,9 +27,13 @@ import {
   writeOnlineOrderAlertsEnabled,
 } from '@/utils/online-order-alerts-preference';
 import {
+  ALERT_SOUND_OPTIONS,
+  AlertSoundId,
   isOnlineOrderAlertSoundUnlocked,
+  readAlertSoundId,
   startAlertSoundFromUserGesture,
   unlockOnlineOrderAlertSound,
+  writeAlertSoundId,
 } from '@/utils/online-order-alert-sound';
 
 const screen = NAV_ITEMS.find(item => item.name === 'settings')!;
@@ -46,6 +50,7 @@ export default function SettingsScreen() {
   const { mode, setMode } = useAppTheme();
   const { user, session, logout } = useAuth();
   const [alertsEnabled, setAlertsEnabled] = useState(false);
+  const [alertSoundId, setAlertSoundId] = useState<AlertSoundId>('beep');
   const [busy, setBusy] = useState(false);
   const [snack, setSnack] = useState('');
   const [devices, setDevices] = useState<LoginDevice[]>([]);
@@ -56,6 +61,7 @@ export default function SettingsScreen() {
   useEffect(() => {
     if (Platform.OS === 'web') {
       setAlertsEnabled(readOnlineOrderAlertsEnabled());
+      setAlertSoundId(readAlertSoundId());
     }
   }, []);
 
@@ -229,6 +235,87 @@ export default function SettingsScreen() {
                 />
               )}
             />
+            <List.Item
+              title="Notify sound"
+              description={
+                ALERT_SOUND_OPTIONS.find(o => o.id === alertSoundId)
+                  ?.description || 'Choose the sound for new notifies'
+              }
+              left={props => <List.Icon {...props} icon="music-note" />}
+            />
+            <View style={styles.soundList}>
+              {ALERT_SOUND_OPTIONS.map(option => {
+                const selected = option.id === alertSoundId;
+                return createElement(
+                  'button',
+                  {
+                    key: option.id,
+                    type: 'button',
+                    disabled: busy || !alertsEnabled,
+                    onClick: (event: {
+                      preventDefault: () => void;
+                      stopPropagation: () => void;
+                    }) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      writeAlertSoundId(option.id);
+                      setAlertSoundId(option.id);
+                      void startAlertSoundFromUserGesture().then(played => {
+                        setSnack(
+                          played
+                            ? `${option.label} selected — preview played.`
+                            : 'Could not play sound. Right-click the Chrome tab → Unmute site.',
+                        );
+                      });
+                    },
+                    style: {
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      gap: 2,
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '10px 12px',
+                      marginBottom: 8,
+                      borderRadius: 8,
+                      border: `1px solid ${
+                        selected ? theme.colors.primary : theme.colors.outline
+                      }`,
+                      backgroundColor: selected
+                        ? theme.colors.primaryContainer
+                        : 'transparent',
+                      color: theme.colors.onSurface,
+                      cursor:
+                        busy || !alertsEnabled ? 'not-allowed' : 'pointer',
+                      opacity: busy || !alertsEnabled ? 0.45 : 1,
+                    },
+                  },
+                  createElement(
+                    'span',
+                    {
+                      style: {
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: selected
+                          ? theme.colors.primary
+                          : theme.colors.onSurface,
+                      },
+                    },
+                    selected ? `● ${option.label}` : option.label,
+                  ),
+                  createElement(
+                    'span',
+                    {
+                      style: {
+                        fontSize: 12,
+                        opacity: 0.75,
+                      },
+                    },
+                    option.description,
+                  ),
+                );
+              })}
+            </View>
             <View style={styles.notifyActions}>
               {Platform.OS === 'web'
                 ? // Native <button onClick> — RN Paper onPress is NOT a Chrome
@@ -422,6 +509,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 8,
     alignItems: 'flex-start',
+  },
+  soundList: {
+    paddingHorizontal: 16,
+    paddingBottom: 4,
   },
   devicesHint: {
     paddingHorizontal: 16,

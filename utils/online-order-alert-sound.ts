@@ -7,6 +7,61 @@ const EMBEDDED_ALERT_WAV = 'data:audio/wav;base64,UklGRgxFAABXQVZFZm10IBAAAAABAA
 const MP3_URL = '/sounds/onlinesaleorder.mp3';
 const UNLOCK_KEY = '@qr_shop_web_alert_sound_unlocked';
 const AUDIO_DOM_ID = 'qr-shop-alert-audio';
+const SOUND_PREF_KEY = '@qr_shop_web_alert_sound_id';
+
+export type AlertSoundId = 'beep' | 'chime' | 'order';
+
+export type AlertSoundOption = {
+  id: AlertSoundId;
+  label: string;
+  description: string;
+};
+
+/** Available notify sounds shown in Settings. */
+export const ALERT_SOUND_OPTIONS: readonly AlertSoundOption[] = [
+  {
+    id: 'beep',
+    label: 'Beep',
+    description: 'Short POS-style double beep',
+  },
+  {
+    id: 'chime',
+    label: 'Chime',
+    description: 'Longer embedded alert tone',
+  },
+  {
+    id: 'order',
+    label: 'Order tone',
+    description: 'Online order MP3 (if available)',
+  },
+] as const;
+
+const DEFAULT_SOUND_ID: AlertSoundId = 'beep';
+
+function isAlertSoundId(value: string): value is AlertSoundId {
+  return ALERT_SOUND_OPTIONS.some(option => option.id === value);
+}
+
+export function readAlertSoundId(): AlertSoundId {
+  if (typeof window === 'undefined') return DEFAULT_SOUND_ID;
+  try {
+    const raw = window.localStorage.getItem(SOUND_PREF_KEY);
+    if (raw && isAlertSoundId(raw)) return raw;
+  } catch {
+    // ignore
+  }
+  return DEFAULT_SOUND_ID;
+}
+
+export function writeAlertSoundId(id: AlertSoundId): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(SOUND_PREF_KEY, id);
+  } catch {
+    // ignore
+  }
+}
+
 
 let audioUnlocked = false;
 let sharedCtx: AudioContext | null = null;
@@ -81,19 +136,23 @@ async function playBeep(): Promise<boolean> {
     if (ctx.state === 'suspended') await ctx.resume();
     if (ctx.state !== 'running') return false;
     const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(880, now);
-    osc.frequency.setValueAtTime(660, now + 0.12);
-    osc.frequency.setValueAtTime(880, now + 0.24);
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(0.28, now + 0.02);
-    gain.gain.linearRampToValueAtTime(0, now + 0.4);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.42);
+    // Classic short POS double-beep.
+    for (const [offset, freq] of [
+      [0, 1000],
+      [0.14, 1000],
+    ] as const) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(freq, now + offset);
+      gain.gain.setValueAtTime(0, now + offset);
+      gain.gain.linearRampToValueAtTime(0.32, now + offset + 0.01);
+      gain.gain.linearRampToValueAtTime(0, now + offset + 0.09);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + offset);
+      osc.stop(now + offset + 0.1);
+    }
     markUnlocked();
     return true;
   } catch {
@@ -101,19 +160,44 @@ async function playBeep(): Promise<boolean> {
   }
 }
 
+async function playSelectedAlertSound(id: AlertSoundId): Promise<boolean> {
+  if (id === 'beep') {
+    if (await playBeep()) return true;
+    return playDomAudio(EMBEDDED_ALERT_WAV);
+  }
+  if (id === 'order') {
+    if (await playDomAudio(MP3_URL)) return true;
+    if (await playBeep()) return true;
+    return playDomAudio(EMBEDDED_ALERT_WAV);
+  }
+  // chime
+  if (await playDomAudio(EMBEDDED_ALERT_WAV)) return true;
+  if (await playBeep()) return true;
+  return playDomAudio(MP3_URL);
+}
+
 /** Call from native HTML onClick / pointerdown only. */
 export function startAlertSoundFromUserGesture(): Promise<boolean> {
   if (typeof window === 'undefined') return Promise.resolve(false);
 
-  const el = ensureAlertAudioElement();
+  const soundId = readAlertSoundId();
   void getAudioContext()?.resume();
 
+  if (soundId === 'beep') {
+    return playBeep().then(async ok => {
+      if (ok) return true;
+      return playDomAudio(EMBEDDED_ALERT_WAV);
+    });
+  }
+
+  const src = soundId === 'order' ? MP3_URL : EMBEDDED_ALERT_WAV;
+  const el = ensureAlertAudioElement();
   // Fire play() synchronously inside the user gesture.
   if (el) {
     try {
-      el.src = EMBEDDED_ALERT_WAV;
-      el.setAttribute('data-src', 'embedded');
-      el.setAttribute('data-playing-src', EMBEDDED_ALERT_WAV);
+      el.src = src;
+      el.setAttribute('data-src', soundId === 'chime' ? 'embedded' : soundId);
+      el.setAttribute('data-playing-src', src);
       el.muted = false;
       el.volume = 1;
       el.currentTime = 0;
@@ -122,15 +206,9 @@ export function startAlertSoundFromUserGesture(): Promise<boolean> {
         return p
           .then(() => {
             markUnlocked();
-            // Warm MP3 in background for later notifies (optional richer sound).
-            const warm = new Audio(MP3_URL);
-            warm.preload = 'auto';
             return true;
           })
-          .catch(async () => {
-            if (await playBeep()) return true;
-            return playDomAudio(EMBEDDED_ALERT_WAV);
-          });
+          .catch(async () => playSelectedAlertSound(soundId));
       }
       markUnlocked();
       return Promise.resolve(true);
@@ -139,7 +217,7 @@ export function startAlertSoundFromUserGesture(): Promise<boolean> {
     }
   }
 
-  return playBeep();
+  return playSelectedAlertSound(soundId);
 }
 
 export async function unlockOnlineOrderAlertSound(): Promise<boolean> {
@@ -172,13 +250,7 @@ export async function unlockOnlineOrderAlertSound(): Promise<boolean> {
 
 export async function playOnlineOrderAlertSound(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
-  // 1) Embedded WAV (works offline / no fetch race)
-  if (await playDomAudio(EMBEDDED_ALERT_WAV)) return true;
-  // 2) MP3 file
-  if (await playDomAudio(MP3_URL)) return true;
-  // 3) Oscillator
-  if (await playBeep()) return true;
-  return false;
+  return playSelectedAlertSound(readAlertSoundId());
 }
 
 let lastNotifySoundAt = 0;
