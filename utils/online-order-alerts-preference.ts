@@ -8,6 +8,8 @@ export type AppOrderNotifyEventDetail = {
   unreadCount: number;
   revision: number;
   label: string;
+  /** How many new notify events arrived in this batch (for optimistic badge). */
+  newEventCount?: number;
 };
 
 export function readOnlineOrderAlertsEnabled(): boolean {
@@ -15,9 +17,12 @@ export function readOnlineOrderAlertsEnabled(): boolean {
     return false;
   }
   try {
-    return window.localStorage.getItem(ENABLED_KEY) === '1';
+    const raw = window.localStorage.getItem(ENABLED_KEY);
+    // Default ON so snackbar + sound stay paired until user mutes in Settings.
+    if (raw === null) return true;
+    return raw === '1';
   } catch {
-    return false;
+    return true;
   }
 }
 

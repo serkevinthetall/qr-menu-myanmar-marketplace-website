@@ -124,10 +124,22 @@ export function ErpBadgesProvider({ children }: { children: React.ReactNode }) {
     };
     const onAppOrderNotify = (event: Event) => {
       const detail = (event as CustomEvent<AppOrderNotifyEventDetail>).detail;
-      if (detail && Number.isFinite(detail.unreadCount)) {
-        // Instant badge from Redis long-poll — no full /badges round-trip.
-        setAppOrderUnreadCount(Math.max(0, Number(detail.unreadCount) || 0));
-      }
+      if (!detail) return;
+      const fromServer = Number(detail.unreadCount);
+      const bump =
+        detail.label && Number.isFinite(detail.newEventCount)
+          ? Math.max(0, Number(detail.newEventCount) || 0)
+          : 0;
+      setAppOrderUnreadCount(prev => {
+        const server = Number.isFinite(fromServer)
+          ? Math.max(0, fromServer)
+          : prev;
+        // On a real alert, never let a lagging poll shrink the badge.
+        if (detail.label) {
+          return Math.max(server, prev + bump);
+        }
+        return server;
+      });
     };
     window.addEventListener(ONLINE_ORDERS_REFRESH_EVENT, onRefresh);
     window.addEventListener(MEMBER_REQUEST_BADGE_REFRESH_EVENT, onRefresh);

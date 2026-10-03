@@ -13,13 +13,12 @@ import {
   readOnlineOrderAlertsEnabled,
 } from '@/utils/online-order-alerts-preference';
 import {
-  isOnlineOrderAlertSoundUnlocked,
   playOnlineOrderAlertSound,
   unlockOnlineOrderAlertSound,
 } from '@/utils/online-order-alert-sound';
 
 const REVISION_KEY = '@qr_shop_web_online_order_notify_rev';
-/** Cheap Redis-only check (not Odoo). Backup when SSE is blocked on Vercel. */
+/** Cheap Redis-only check (not Odoo). */
 const REDIS_FEED_POLL_MS = 3_000;
 
 function readRevision(): number {
@@ -50,11 +49,9 @@ type StreamPayload = {
 };
 
 /**
- * App Order alerts:
- * 1) Prefer SSE push (notify-stream)
- * 2) Always also poll Redis notify-feed every 3s (works on Vercel when SSE cannot)
- *
- * Neither path hits Odoo.
+ * App Order alerts via Redis notify-feed (+ optional SSE).
+ * Sound plays with every new-order snackbar when Settings alerts are on
+ * (beep fallback — does not depend on a missing mp3 file).
  */
 export function OnlineOrderAlerts() {
   const { session, isAuthenticated } = useAuth();
@@ -62,7 +59,14 @@ export function OnlineOrderAlerts() {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const readyRef = useRef(false);
   const revisionRef = useRef(0);
+  const soundEnabledRef = useRef(false);
+  /** Order ids already used for snackbar/badge bump this session. */
+  const seenOrderIdsRef = useRef<Set<string>>(new Set());
   const token = session?.token;
+
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+  }, [soundEnabled]);
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -79,17 +83,21 @@ export function OnlineOrderAlerts() {
     return () => window.removeEventListener(ONLINE_ORDER_ALERTS_EVENT, onPref);
   }, []);
 
+  // Unlock audio on any click while logged in (needed by browsers).
   useEffect(() => {
-    if (Platform.OS !== 'web' || !soundEnabled || typeof window === 'undefined') {
+    if (Platform.OS !== 'web' || !isAuthenticated || typeof window === 'undefined') {
       return;
     }
-    if (isOnlineOrderAlertSoundUnlocked()) return;
     const unlock = () => {
       void unlockOnlineOrderAlertSound();
     };
     window.addEventListener('pointerdown', unlock, { passive: true });
-    return () => window.removeEventListener('pointerdown', unlock);
-  }, [soundEnabled]);
+    window.addEventListener('keydown', unlock);
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
@@ -106,20 +114,28 @@ export function OnlineOrderAlerts() {
     revision: number,
     label: string,
     refreshList: boolean,
+    newEventCount = 0,
   ) => {
     if (label) {
-      if (soundEnabled && isOnlineOrderAlertSoundUnlocked()) {
-        playOnlineOrderAlertSound();
+      // Sound travels with the snackbar (Settings mute still honored).
+      if (soundEnabledRef.current) {
+        void unlockOnlineOrderAlertSound().finally(() => {
+          playOnlineOrderAlertSound();
+        });
       }
       setSnack(label);
     }
     notifyAppOrderNotify(
-      { unreadCount, revision, label },
+      {
+        unreadCount,
+        revision,
+        label,
+        newEventCount,
+      },
       { refreshList: refreshList && Boolean(label) },
     );
   };
 
-  // --- Redis feed poll (reliable on Vercel) ---
   useEffect(() => {
     if (Platform.OS !== 'web' || !isAuthenticated || !token) return;
     revisionRef.current = readRevision();
@@ -138,7 +154,7 @@ export function OnlineOrderAlerts() {
           revisionRef.current = feed.revision;
           writeRevision(feed.revision);
           readyRef.current = true;
-          emitAlert(feed.unreadCount, feed.revision, '', false);
+          emitAlert(feed.unreadCount, feed.revision, '', false, 0);
           return;
         }
         if (feed.revision > revisionRef.current) {
@@ -146,17 +162,33 @@ export function OnlineOrderAlerts() {
           writeRevision(feed.revision);
         }
         if (feed.events.length === 0) {
-          emitAlert(feed.unreadCount, feed.revision, '', false);
+          emitAlert(feed.unreadCount, feed.revision, '', false, 0);
           return;
         }
-        const first = feed.events[feed.events.length - 1];
+        const fresh = feed.events.filter(event => {
+          const key = String(event.id);
+          if (seenOrderIdsRef.current.has(key)) return false;
+          seenOrderIdsRef.current.add(key);
+          return true;
+        });
+        if (fresh.length === 0) {
+          emitAlert(feed.unreadCount, feed.revision, '', false, 0);
+          return;
+        }
+        const first = fresh[fresh.length - 1];
         const label =
-          feed.events.length === 1
+          fresh.length === 1
             ? first?.number
               ? `New App Order ${first.number}`
               : 'New App Order received'
-            : `${feed.events.length} new App Orders received`;
-        emitAlert(feed.unreadCount, feed.revision, label, true);
+            : `${fresh.length} new App Orders received`;
+        emitAlert(
+          feed.unreadCount,
+          feed.revision,
+          label,
+          true,
+          fresh.length,
+        );
       } catch {
         // quiet
       }
@@ -169,7 +201,6 @@ export function OnlineOrderAlerts() {
     Platform.OS === 'web' && Boolean(isAuthenticated && token),
   );
 
-  // --- SSE push (best-effort; often blocked/buffered on Vercel) ---
   useEffect(() => {
     if (
       Platform.OS !== 'web' ||
@@ -202,7 +233,7 @@ export function OnlineOrderAlerts() {
           writeRevision(revision);
           revisionRef.current = revision;
           readyRef.current = true;
-          emitAlert(Number(data.unreadCount) || 0, revision, '', false);
+          emitAlert(Number(data.unreadCount) || 0, revision, '', false, 0);
         } catch {
           readyRef.current = true;
         }
@@ -219,10 +250,16 @@ export function OnlineOrderAlerts() {
             revisionRef.current = revision;
           }
           if (!readyRef.current) return;
+          const orderKey = data.id != null ? String(data.id) : '';
+          if (orderKey && seenOrderIdsRef.current.has(orderKey)) {
+            emitAlert(Number(data.unreadCount) || 0, revision, '', false, 0);
+            return;
+          }
+          if (orderKey) seenOrderIdsRef.current.add(orderKey);
           const label = data.number
             ? `New App Order ${data.number}`
             : 'New App Order received';
-          emitAlert(Number(data.unreadCount) || 0, revision, label, true);
+          emitAlert(Number(data.unreadCount) || 0, revision, label, true, 1);
         } catch {
           // ignore
         }
@@ -242,7 +279,6 @@ export function OnlineOrderAlerts() {
       if (retryTimer) clearTimeout(retryTimer);
       source?.close();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- sound toggle shouldn't rebuild EventSource constantly
   }, [isAuthenticated, token]);
 
   if (Platform.OS !== 'web') {
