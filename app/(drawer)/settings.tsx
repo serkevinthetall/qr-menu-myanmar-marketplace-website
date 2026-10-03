@@ -93,20 +93,24 @@ export default function SettingsScreen() {
           return;
         }
 
-        const ok = await unlockOnlineOrderAlertSound();
-        if (!ok) {
+        const unlocked = await unlockOnlineOrderAlertSound();
+        const played = await playOnlineOrderAlertSound();
+        if (!unlocked && !played) {
           writeOnlineOrderAlertsEnabled(false);
           setAlertsEnabled(false);
           setSnack(
-            'Could not enable sound. Allow sound for this site, then try again.',
+            'Could not enable sound. Unmute this tab, then turn the switch on again.',
           );
           return;
         }
 
         writeOnlineOrderAlertsEnabled(true);
         setAlertsEnabled(true);
-        playOnlineOrderAlertSound();
-        setSnack('Notifications on — test sound played.');
+        setSnack(
+          played
+            ? 'Notifications on — test sound played.'
+            : 'Notifications on — click Test sound once to confirm audio.',
+        );
       } finally {
         setBusy(false);
       }
@@ -118,13 +122,16 @@ export default function SettingsScreen() {
     if (Platform.OS !== 'web') {
       return;
     }
-    const ok = await unlockOnlineOrderAlertSound();
-    if (!ok) {
-      setSnack('Could not play sound. Click again after checking browser sound settings.');
+    // Unlock + play in the same click so the browser allows audio.
+    const unlocked = await unlockOnlineOrderAlertSound();
+    const played = await playOnlineOrderAlertSound();
+    if (!unlocked && !played) {
+      setSnack(
+        'Could not play sound. Check that this tab is not muted, then click Test sound again.',
+      );
       return;
     }
-    playOnlineOrderAlertSound();
-    setSnack('Test sound played.');
+    setSnack(played ? 'Test sound played.' : 'Sound unlocked — click Test sound once more.');
   }, []);
 
   const onRevokeDevice = useCallback(

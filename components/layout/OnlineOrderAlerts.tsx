@@ -56,10 +56,12 @@ type StreamPayload = {
 export function OnlineOrderAlerts() {
   const { session, isAuthenticated } = useAuth();
   const [snack, setSnack] = useState('');
-  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() =>
+    Platform.OS === 'web' ? readOnlineOrderAlertsEnabled() : false,
+  );
   const readyRef = useRef(false);
   const revisionRef = useRef(0);
-  const soundEnabledRef = useRef(false);
+  const soundEnabledRef = useRef(soundEnabled);
   /** Order ids already used for snackbar/badge bump this session. */
   const seenOrderIdsRef = useRef<Set<string>>(new Set());
   const token = session?.token;
@@ -117,11 +119,10 @@ export function OnlineOrderAlerts() {
     newEventCount = 0,
   ) => {
     if (label) {
-      // Sound travels with the snackbar (Settings mute still honored).
+      // Sound with snackbar. Do not await unlock here — that is not a user
+      // gesture and would leave AudioContext suspended. Unlock happens on click.
       if (soundEnabledRef.current) {
-        void unlockOnlineOrderAlertSound().finally(() => {
-          playOnlineOrderAlertSound();
-        });
+        void playOnlineOrderAlertSound();
       }
       setSnack(label);
     }

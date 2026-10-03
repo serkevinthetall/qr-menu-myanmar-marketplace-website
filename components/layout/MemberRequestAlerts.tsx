@@ -126,6 +126,7 @@ export function MemberRequestAlerts() {
           writeSeenIds(seenRef.current);
           notifyMemberRequestBadgeChanged();
           if (soundEnabled) {
+            // Play only — unlock must come from a prior click (Settings / page tap).
             void playOnlineOrderAlertSound();
           }
           const first = fresh[0];
