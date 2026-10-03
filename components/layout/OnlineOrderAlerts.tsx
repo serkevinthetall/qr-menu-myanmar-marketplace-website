@@ -139,8 +139,11 @@ export function OnlineOrderAlerts() {
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !isAuthenticated || !token) return;
+    // Always re-baseline after login/reload. Never treat sessionStorage revision
+    // as "ready" — that replays old Redis events as brand-new popups.
     revisionRef.current = readRevision();
-    readyRef.current = revisionRef.current > 0;
+    readyRef.current = false;
+    seenOrderIdsRef.current = new Set();
   }, [isAuthenticated, token]);
 
   const pollRedisFeed = () => {
@@ -152,6 +155,10 @@ export function OnlineOrderAlerts() {
           revisionRef.current,
         );
         if (!readyRef.current) {
+          // Catch up quietly: sync badge + revision, do not snackbar history.
+          for (const event of feed.events) {
+            seenOrderIdsRef.current.add(String(event.id));
+          }
           revisionRef.current = feed.revision;
           writeRevision(feed.revision);
           readyRef.current = true;
@@ -231,8 +238,9 @@ export function OnlineOrderAlerts() {
             (ev as MessageEvent).data as string,
           ) as StreamPayload;
           const revision = Number(data.revision) || 0;
+          // SSE ready = live tip of the stream. Do not alert backlog.
           writeRevision(revision);
-          revisionRef.current = revision;
+          revisionRef.current = Math.max(revisionRef.current, revision);
           readyRef.current = true;
           emitAlert(Number(data.unreadCount) || 0, revision, '', false, 0);
         } catch {
@@ -248,8 +256,9 @@ export function OnlineOrderAlerts() {
           const revision = Number(data.revision) || 0;
           if (revision > 0) {
             writeRevision(revision);
-            revisionRef.current = revision;
+            revisionRef.current = Math.max(revisionRef.current, revision);
           }
+          // Wait until baseline finished so reconnect backlog is not toasted.
           if (!readyRef.current) return;
           const orderKey = data.id != null ? String(data.id) : '';
           if (orderKey && seenOrderIdsRef.current.has(orderKey)) {
