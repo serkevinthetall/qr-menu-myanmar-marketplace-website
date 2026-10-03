@@ -9,7 +9,7 @@ const UNLOCK_KEY = '@qr_shop_web_alert_sound_unlocked';
 const AUDIO_DOM_ID = 'qr-shop-alert-audio';
 const SOUND_PREF_KEY = '@qr_shop_web_alert_sound_id';
 
-export type AlertSoundId = 'beep' | 'chime' | 'order';
+export type AlertSoundId = 'beep' | 'bell' | 'chime' | 'order';
 
 export type AlertSoundOption = {
   id: AlertSoundId;
@@ -23,6 +23,11 @@ export const ALERT_SOUND_OPTIONS: readonly AlertSoundOption[] = [
     id: 'beep',
     label: 'Beep',
     description: 'Short POS-style double beep',
+  },
+  {
+    id: 'bell',
+    label: 'Bell',
+    description: 'Clear desk-bell ring',
   },
   {
     id: 'chime',
@@ -160,18 +165,66 @@ async function playBeep(): Promise<boolean> {
   }
 }
 
+/** Soft metallic desk-bell (decaying harmonics). */
+async function playBell(): Promise<boolean> {
+  const ctx = getAudioContext();
+  if (!ctx) return false;
+  try {
+    if (ctx.state === 'suspended') await ctx.resume();
+    if (ctx.state !== 'running') return false;
+    const now = ctx.currentTime;
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0, now);
+    master.gain.linearRampToValueAtTime(0.55, now + 0.01);
+    master.gain.exponentialRampToValueAtTime(0.001, now + 1.35);
+    master.connect(ctx.destination);
+
+    // Partial ratios approximate a small hand/desk bell.
+    const partials: Array<[number, number]> = [
+      [880, 0.55],
+      [1760, 0.28],
+      [2340, 0.16],
+      [3520, 0.08],
+    ];
+    for (const [freq, amp] of partials) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(amp, now + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+      osc.connect(gain);
+      gain.connect(master);
+      osc.start(now);
+      osc.stop(now + 1.4);
+    }
+    markUnlocked();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function playSelectedAlertSound(id: AlertSoundId): Promise<boolean> {
   if (id === 'beep') {
     if (await playBeep()) return true;
     return playDomAudio(EMBEDDED_ALERT_WAV);
   }
+  if (id === 'bell') {
+    if (await playBell()) return true;
+    if (await playBeep()) return true;
+    return playDomAudio(EMBEDDED_ALERT_WAV);
+  }
   if (id === 'order') {
     if (await playDomAudio(MP3_URL)) return true;
+    if (await playBell()) return true;
     if (await playBeep()) return true;
     return playDomAudio(EMBEDDED_ALERT_WAV);
   }
   // chime
   if (await playDomAudio(EMBEDDED_ALERT_WAV)) return true;
+  if (await playBell()) return true;
   if (await playBeep()) return true;
   return playDomAudio(MP3_URL);
 }
@@ -186,6 +239,14 @@ export function startAlertSoundFromUserGesture(): Promise<boolean> {
   if (soundId === 'beep') {
     return playBeep().then(async ok => {
       if (ok) return true;
+      return playDomAudio(EMBEDDED_ALERT_WAV);
+    });
+  }
+
+  if (soundId === 'bell') {
+    return playBell().then(async ok => {
+      if (ok) return true;
+      if (await playBeep()) return true;
       return playDomAudio(EMBEDDED_ALERT_WAV);
     });
   }
