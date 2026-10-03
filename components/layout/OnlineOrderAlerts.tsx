@@ -2,11 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { Portal, Snackbar } from 'react-native-paper';
 
+import { API_BASE_URL } from '@/constants/api';
 import { useAuth } from '@/contexts/auth-context';
-import {
-  fetchOnlineOrderNotifyFeed,
-  waitOnlineOrderNotifyFeed,
-} from '@/services/online-orders';
 import {
   APP_ORDER_NOTIFY_EVENT,
   ONLINE_ORDER_ALERTS_EVENT,
@@ -20,7 +17,6 @@ import {
 } from '@/utils/online-order-alert-sound';
 
 const REVISION_KEY = '@qr_shop_web_online_order_notify_rev';
-const WAIT_MS = 8_000;
 
 function readRevision(): number {
   if (typeof window === 'undefined') return 0;
@@ -38,24 +34,30 @@ function writeRevision(revision: number) {
   try {
     window.sessionStorage.setItem(REVISION_KEY, String(revision));
   } catch {
-    // Ignore quota / private mode failures.
+    // ignore
   }
 }
 
-function isTabVisible(): boolean {
-  if (typeof document === 'undefined') return true;
-  return document.visibilityState !== 'hidden';
-}
+type StreamPayload = {
+  revision?: number;
+  id?: string;
+  number?: string;
+  customer?: string;
+  total?: number;
+  at?: string;
+  unreadCount?: number;
+  active?: boolean;
+  message?: string;
+};
 
 /**
- * Website ERP: long-poll Redis notify bus (filled by Odoo webhook).
- * Popup + badge update for every logged-in user; sound stays Settings-gated.
+ * Push listener (SSE): Odoo webhook → Redis unread + publish → popup here.
+ * No client long-poll loop.
  */
 export function OnlineOrderAlerts() {
   const { session, isAuthenticated } = useAuth();
   const [snack, setSnack] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(false);
-  const revisionRef = useRef(0);
   const readyRef = useRef(false);
   const token = session?.token;
 
@@ -86,7 +88,6 @@ export function OnlineOrderAlerts() {
     return () => window.removeEventListener('pointerdown', unlock);
   }, [soundEnabled]);
 
-  // Also show snackbar when another listener (or same tab) broadcasts.
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
     const onNotify = (event: Event) => {
@@ -102,118 +103,106 @@ export function OnlineOrderAlerts() {
       Platform.OS !== 'web' ||
       !isAuthenticated ||
       !token ||
-      typeof window === 'undefined'
+      typeof window === 'undefined' ||
+      typeof EventSource === 'undefined'
     ) {
       return;
     }
 
-    let cancelled = false;
-    revisionRef.current = readRevision();
-    readyRef.current = revisionRef.current > 0;
+    let closed = false;
+    let source: EventSource | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    readyRef.current = false;
 
-    const handleFeed = (feed: Awaited<ReturnType<typeof fetchOnlineOrderNotifyFeed>>) => {
-      if (!readyRef.current) {
-        revisionRef.current = feed.revision;
-        writeRevision(feed.revision);
-        readyRef.current = true;
-        // Sync badge once on connect without alerting historical backlog.
-        notifyAppOrderNotify({
-          unreadCount: feed.unreadCount,
-          revision: feed.revision,
-          label: '',
-        });
-        return;
-      }
+    const connect = () => {
+      if (closed) return;
+      const since = readRevision();
+      const params = new URLSearchParams();
+      params.set('access_token', token);
+      params.set('since', String(since));
+      const url = `${API_BASE_URL}/online-orders/notify-stream?${params.toString()}`;
+      source = new EventSource(url, { withCredentials: true });
 
-      if (feed.revision > revisionRef.current) {
-        revisionRef.current = feed.revision;
-        writeRevision(feed.revision);
-      }
-
-      if (feed.events.length === 0) {
-        // Timeout with no new events — badge only (no list Odoo reload).
-        notifyAppOrderNotify({
-          unreadCount: feed.unreadCount,
-          revision: feed.revision,
-          label: '',
-        });
-        return;
-      }
-
-      const first = feed.events[feed.events.length - 1];
-      const label =
-        feed.events.length === 1
-          ? first?.number
-            ? `New App Order ${first.number}`
-            : 'New App Order received'
-          : `${feed.events.length} new App Orders received`;
-
-      if (soundEnabled && isOnlineOrderAlertSoundUnlocked()) {
-        playOnlineOrderAlertSound();
-      }
-
-      setSnack(label);
-      notifyAppOrderNotify(
-        {
-          unreadCount: feed.unreadCount,
-          revision: feed.revision,
-          label,
-        },
-        { refreshList: true },
-      );
-    };
-
-    const loop = async () => {
-      // Baseline snapshot (instant).
-      try {
-        const baseline = await fetchOnlineOrderNotifyFeed(
-          token,
-          revisionRef.current,
-        );
-        if (cancelled) return;
-        handleFeed(baseline);
-      } catch {
-        // Continue into wait loop.
-      }
-
-      while (!cancelled) {
-        if (!isTabVisible()) {
-          await new Promise<void>(resolve => {
-            const onVis = () => {
-              if (isTabVisible()) {
-                document.removeEventListener('visibilitychange', onVis);
-                resolve();
-              }
-            };
-            document.addEventListener('visibilitychange', onVis);
-            // Safety: also wake after a while if event missed.
-            setTimeout(() => {
-              document.removeEventListener('visibilitychange', onVis);
-              resolve();
-            }, 30_000);
-          });
-          if (cancelled) return;
-        }
-
+      source.addEventListener('ready', ev => {
         try {
-          const feed = await waitOnlineOrderNotifyFeed(
-            token,
-            revisionRef.current,
-            WAIT_MS,
-          );
-          if (cancelled) return;
-          handleFeed(feed);
+          const data = JSON.parse(
+            (ev as MessageEvent).data as string,
+          ) as StreamPayload;
+          const revision = Number(data.revision) || 0;
+          writeRevision(revision);
+          readyRef.current = true;
+          notifyAppOrderNotify({
+            unreadCount: Number(data.unreadCount) || 0,
+            revision,
+            label: '',
+          });
         } catch {
-          // Brief backoff on errors, then retry (still not Odoo).
-          await new Promise(r => setTimeout(r, 2_000));
+          readyRef.current = true;
         }
-      }
+      });
+
+      source.addEventListener('app-order', ev => {
+        try {
+          const data = JSON.parse(
+            (ev as MessageEvent).data as string,
+          ) as StreamPayload;
+          const revision = Number(data.revision) || 0;
+          if (revision > 0) writeRevision(revision);
+
+          // Skip alerts until baseline ready event finished.
+          if (!readyRef.current) return;
+
+          const label = data.number
+            ? `New App Order ${data.number}`
+            : 'New App Order received';
+
+          if (soundEnabled && isOnlineOrderAlertSoundUnlocked()) {
+            playOnlineOrderAlertSound();
+          }
+          setSnack(label);
+          notifyAppOrderNotify(
+            {
+              unreadCount: Number(data.unreadCount) || 0,
+              revision,
+              label,
+            },
+            { refreshList: true },
+          );
+        } catch {
+          // ignore bad frames
+        }
+      });
+
+      source.addEventListener('heartbeat', ev => {
+        try {
+          const data = JSON.parse(
+            (ev as MessageEvent).data as string,
+          ) as StreamPayload;
+          notifyAppOrderNotify({
+            unreadCount: Number(data.unreadCount) || 0,
+            revision: Number(data.revision) || readRevision(),
+            label: '',
+          });
+        } catch {
+          // ignore
+        }
+      });
+
+      source.onerror = () => {
+        source?.close();
+        source = null;
+        if (closed) return;
+        // Reconnect after brief pause (SSE push resume).
+        retryTimer = setTimeout(connect, 2_000);
+      };
     };
 
-    void loop();
+    connect();
 
     return () => {
-      cancelled = true;
+      closed = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      source?.close();
     };
   }, [isAuthenticated, token, soundEnabled]);
 
