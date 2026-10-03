@@ -189,6 +189,8 @@ export type OverviewChatResult = {
   reply: string;
   provider?: 'gemini';
   warning?: string;
+  period?: OverviewPeriod | 'last_month';
+  periodLabel?: string;
 };
 
 export type CompareAiTopic = 'customers' | 'areas' | 'sales' | 'demand';

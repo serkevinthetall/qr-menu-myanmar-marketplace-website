@@ -15,7 +15,7 @@ import { generateSixMonthAiSuggestions, sendOverviewChat } from '@/services/insi
 import { OverviewChatTurn, OverviewPeriod } from '@/types/overview';
 
 const WELCOME =
-  'Ask about this period’s sales, purchases, customers, areas, or products. Chat and Analyze six month both use Gemini.';
+  'Ask about sales, purchases, customers, areas, or products. Say “last month” or “this month” to choose the period. Analyze six month uses Gemini.';
 
 export function OverviewChatPanel({
   visible,
@@ -36,9 +36,16 @@ export function OverviewChatPanel({
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [messages, setMessages] = useState<OverviewChatTurn[]>([]);
+  const [activePeriodLabel, setActivePeriodLabel] = useState(periodLabel);
   const [notice, setNotice] = useState<{ title: string; message: string } | null>(
     null,
   );
+
+  useEffect(() => {
+    if (visible) {
+      setActivePeriodLabel(periodLabel);
+    }
+  }, [visible, periodLabel]);
 
   useEffect(() => {
     if (!visible) {
@@ -71,6 +78,9 @@ export function OverviewChatPanel({
     setSending(true);
     try {
       const result = await sendOverviewChat(token, text, period, messages);
+      if (result.periodLabel) {
+        setActivePeriodLabel(result.periodLabel);
+      }
       setMessages([
         ...nextMessages,
         { role: 'assistant', content: result.reply || 'No reply.' },
@@ -148,7 +158,7 @@ export function OverviewChatPanel({
             QR Shop chat
           </Text>
           <Text style={[styles.subtitle, { color: detail.label }]}>
-            {periodLabel}
+            {activePeriodLabel}
           </Text>
         </View>
         <Pressable
