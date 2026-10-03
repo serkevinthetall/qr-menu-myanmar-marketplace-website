@@ -10,9 +10,11 @@ import {
   APP_ORDER_NOTIFY_EVENT,
   ensureOnlineOrderAlertsEnabledDefault,
   notifyAppOrderNotify,
+  readOnlineOrderAlertsEnabled,
 } from '@/utils/online-order-alerts-preference';
 import {
   ensureAlertAudioElement,
+  playSoundForNotifyPopup,
   preloadOnlineOrderAlertSound,
   unlockOnlineOrderAlertSound,
 } from '@/utils/online-order-alert-sound';
@@ -103,8 +105,11 @@ export function OnlineOrderAlerts() {
     newEventCount = 0,
   ) => {
     if (label) {
-      // Snackbar here; sound plays when the App Order badge increases.
       setSnack(label);
+      // New App Order toast → sound (debounced with badge handler).
+      if (readOnlineOrderAlertsEnabled()) {
+        void playSoundForNotifyPopup();
+      }
     }
     notifyAppOrderNotify(
       {

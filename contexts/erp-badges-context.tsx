@@ -132,24 +132,25 @@ export function ErpBadgesProvider({ children }: { children: React.ReactNode }) {
         detail.label && Number.isFinite(detail.newEventCount)
           ? Math.max(0, Number(detail.newEventCount) || 0)
           : 0;
+
+      // Sound OUTSIDE setState — React updaters must stay pure, and requiring
+      // next>prev skipped sound when the badge was already synced to unreadCount.
+      if (
+        Platform.OS === 'web' &&
+        detail.label &&
+        readOnlineOrderAlertsEnabled()
+      ) {
+        void playSoundForNotifyPopup();
+      }
+
       setAppOrderUnreadCount(prev => {
         const server = Number.isFinite(fromServer)
           ? Math.max(0, fromServer)
           : prev;
-        // On a real alert, never let a lagging poll shrink the badge.
-        const next = detail.label
-          ? Math.max(server, prev + bump)
-          : server;
-        // Badge went up because of a new App Order → play sound (same moment).
-        if (
-          Platform.OS === 'web' &&
-          detail.label &&
-          next > prev &&
-          readOnlineOrderAlertsEnabled()
-        ) {
-          void playSoundForNotifyPopup();
+        if (detail.label) {
+          return Math.max(server, prev + bump);
         }
-        return next;
+        return server;
       });
     };
     window.addEventListener(ONLINE_ORDERS_REFRESH_EVENT, onRefresh);

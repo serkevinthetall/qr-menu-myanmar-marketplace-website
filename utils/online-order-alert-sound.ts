@@ -181,7 +181,15 @@ export async function playOnlineOrderAlertSound(): Promise<boolean> {
   return false;
 }
 
+let lastNotifySoundAt = 0;
+
+/** Play for a new-order / badge notify. Debounced so badge+snackbar don't double-blast. */
 export async function playSoundForNotifyPopup(): Promise<boolean> {
+  const now = Date.now();
+  if (now - lastNotifySoundAt < 500) {
+    return true;
+  }
+  lastNotifySoundAt = now;
   return playOnlineOrderAlertSound();
 }
 
