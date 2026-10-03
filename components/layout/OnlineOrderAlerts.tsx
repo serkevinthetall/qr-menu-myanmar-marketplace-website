@@ -14,6 +14,7 @@ import {
   readOnlineOrderAlertsEnabled,
 } from '@/utils/online-order-alerts-preference';
 import {
+  ensureAlertAudioElement,
   playSoundForNotifyPopup,
   preloadOnlineOrderAlertSound,
   unlockOnlineOrderAlertSound,
@@ -76,6 +77,7 @@ export function OnlineOrderAlerts() {
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     setSoundEnabled(ensureOnlineOrderAlertsEnabledDefault());
+    ensureAlertAudioElement();
     preloadOnlineOrderAlertSound();
     const onPref = (event: Event) => {
       const detail = (event as CustomEvent<{ enabled?: boolean }>).detail;

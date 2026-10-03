@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { createElement, useCallback, useEffect, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import {
   ActivityIndicator,
@@ -230,15 +230,51 @@ export default function SettingsScreen() {
               )}
             />
             <View style={styles.notifyActions}>
-              <Button
-                mode="outlined"
-                icon="volume-high"
-                disabled={busy || !alertsEnabled}
-                onPress={() => {
-                  void onTestSound();
-                }}>
-                Test sound
-              </Button>
+              {Platform.OS === 'web'
+                ? // Native <button onClick> — RN Paper onPress is NOT a Chrome
+                  // user-gesture, so audio.play() was succeeding silently or blocked.
+                  createElement(
+                    'button',
+                    {
+                      type: 'button',
+                      disabled: busy || !alertsEnabled,
+                      onClick: (event: { preventDefault: () => void; stopPropagation: () => void }) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        void startAlertSoundFromUserGesture().then(played => {
+                          setSnack(
+                            played
+                              ? 'Test sound played.'
+                              : 'Could not play sound. Right-click the Chrome tab → Unmute site.',
+                          );
+                        });
+                      },
+                      style: {
+                        padding: '10px 18px',
+                        borderRadius: 8,
+                        border: `1px solid ${theme.colors.outline}`,
+                        backgroundColor: 'transparent',
+                        color: theme.colors.primary,
+                        cursor:
+                          busy || !alertsEnabled ? 'not-allowed' : 'pointer',
+                        fontSize: 14,
+                        fontWeight: 600,
+                        opacity: busy || !alertsEnabled ? 0.45 : 1,
+                      },
+                    },
+                    'Test sound',
+                  )
+                : (
+                  <Button
+                    mode="outlined"
+                    icon="volume-high"
+                    disabled={busy || !alertsEnabled}
+                    onPress={() => {
+                      void onTestSound();
+                    }}>
+                    Test sound
+                  </Button>
+                )}
             </View>
           </List.Section>
         ) : null}
