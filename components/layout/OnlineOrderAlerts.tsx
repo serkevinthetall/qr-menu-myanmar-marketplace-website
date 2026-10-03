@@ -8,14 +8,11 @@ import { useVisibleInterval } from '@/hooks/use-visible-interval';
 import { fetchOnlineOrderNotifyFeed } from '@/services/online-orders';
 import {
   APP_ORDER_NOTIFY_EVENT,
-  ONLINE_ORDER_ALERTS_EVENT,
   ensureOnlineOrderAlertsEnabledDefault,
   notifyAppOrderNotify,
-  readOnlineOrderAlertsEnabled,
 } from '@/utils/online-order-alerts-preference';
 import {
   ensureAlertAudioElement,
-  playSoundForNotifyPopup,
   preloadOnlineOrderAlertSound,
   unlockOnlineOrderAlertSound,
 } from '@/utils/online-order-alert-sound';
@@ -53,42 +50,22 @@ type StreamPayload = {
 
 /**
  * App Order alerts via Redis notify-feed (+ optional SSE).
- * Sound plays with every new-order snackbar when Settings alerts are on
- * (beep fallback — does not depend on a missing mp3 file).
+ * Snackbar here; sound plays when the App Order badge count increases.
  */
 export function OnlineOrderAlerts() {
   const { session, isAuthenticated } = useAuth();
   const [snack, setSnack] = useState('');
-  const [soundEnabled, setSoundEnabled] = useState(() =>
-    Platform.OS === 'web' ? readOnlineOrderAlertsEnabled() : false,
-  );
   const readyRef = useRef(false);
   const revisionRef = useRef(0);
-  const soundEnabledRef = useRef(soundEnabled);
-  const soundHintShownRef = useRef(false);
   /** Order ids already used for snackbar/badge bump this session. */
   const seenOrderIdsRef = useRef<Set<string>>(new Set());
   const token = session?.token;
 
   useEffect(() => {
-    soundEnabledRef.current = soundEnabled;
-  }, [soundEnabled]);
-
-  useEffect(() => {
     if (Platform.OS !== 'web') return;
-    setSoundEnabled(ensureOnlineOrderAlertsEnabledDefault());
+    ensureOnlineOrderAlertsEnabledDefault();
     ensureAlertAudioElement();
     preloadOnlineOrderAlertSound();
-    const onPref = (event: Event) => {
-      const detail = (event as CustomEvent<{ enabled?: boolean }>).detail;
-      if (typeof detail?.enabled === 'boolean') {
-        setSoundEnabled(detail.enabled);
-        return;
-      }
-      setSoundEnabled(readOnlineOrderAlertsEnabled());
-    };
-    window.addEventListener(ONLINE_ORDER_ALERTS_EVENT, onPref);
-    return () => window.removeEventListener(ONLINE_ORDER_ALERTS_EVENT, onPref);
   }, []);
 
   // Unlock audio on any click while logged in (needed by browsers).
@@ -126,17 +103,8 @@ export function OnlineOrderAlerts() {
     newEventCount = 0,
   ) => {
     if (label) {
-      // Popup + sound together (same trigger).
+      // Snackbar here; sound plays when the App Order badge increases.
       setSnack(label);
-      if (soundEnabledRef.current) {
-        void playSoundForNotifyPopup().then(played => {
-          if (played || soundHintShownRef.current) return;
-          soundHintShownRef.current = true;
-          setSnack(
-            `${label} — click the page once to enable alert sound`,
-          );
-        });
-      }
     }
     notifyAppOrderNotify(
       {

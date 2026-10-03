@@ -19,7 +19,9 @@ import {
   APP_ORDER_NOTIFY_EVENT,
   AppOrderNotifyEventDetail,
   ONLINE_ORDERS_REFRESH_EVENT,
+  readOnlineOrderAlertsEnabled,
 } from '@/utils/online-order-alerts-preference';
+import { playSoundForNotifyPopup } from '@/utils/online-order-alert-sound';
 
 type ErpBadgesContextValue = {
   memberRequestCount: number;
@@ -135,10 +137,19 @@ export function ErpBadgesProvider({ children }: { children: React.ReactNode }) {
           ? Math.max(0, fromServer)
           : prev;
         // On a real alert, never let a lagging poll shrink the badge.
-        if (detail.label) {
-          return Math.max(server, prev + bump);
+        const next = detail.label
+          ? Math.max(server, prev + bump)
+          : server;
+        // Badge went up because of a new App Order → play sound (same moment).
+        if (
+          Platform.OS === 'web' &&
+          detail.label &&
+          next > prev &&
+          readOnlineOrderAlertsEnabled()
+        ) {
+          void playSoundForNotifyPopup();
         }
-        return server;
+        return next;
       });
     };
     window.addEventListener(ONLINE_ORDERS_REFRESH_EVENT, onRefresh);
