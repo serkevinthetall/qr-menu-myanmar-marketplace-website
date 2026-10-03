@@ -9,7 +9,7 @@ const UNLOCK_KEY = '@qr_shop_web_alert_sound_unlocked';
 const AUDIO_DOM_ID = 'qr-shop-alert-audio';
 const SOUND_PREF_KEY = '@qr_shop_web_alert_sound_id';
 
-export type AlertSoundId = 'beep' | 'bell' | 'chime' | 'order';
+export type AlertSoundId = 'beep' | 'bell' | 'pos_scan' | 'pos_cash' | 'pos_sale' | 'chime' | 'order';
 
 export type AlertSoundOption = {
   id: AlertSoundId;
@@ -28,6 +28,21 @@ export const ALERT_SOUND_OPTIONS: readonly AlertSoundOption[] = [
     id: 'bell',
     label: 'Bell',
     description: 'Clear desk-bell ring',
+  },
+  {
+    id: 'pos_scan',
+    label: 'POS Scan',
+    description: 'Barcode scanner beep',
+  },
+  {
+    id: 'pos_cash',
+    label: 'POS Cash',
+    description: 'Cash drawer ka-ching',
+  },
+  {
+    id: 'pos_sale',
+    label: 'POS Sale',
+    description: 'Checkout success triple tone',
   },
   {
     id: 'chime',
@@ -206,27 +221,155 @@ async function playBell(): Promise<boolean> {
   }
 }
 
+/** Sharp barcode-scanner chirp. */
+async function playPosScan(): Promise<boolean> {
+  const ctx = getAudioContext();
+  if (!ctx) return false;
+  try {
+    if (ctx.state === 'suspended') await ctx.resume();
+    if (ctx.state !== 'running') return false;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(2400, now);
+    osc.frequency.exponentialRampToValueAtTime(1800, now + 0.06);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.28, now + 0.005);
+    gain.gain.linearRampToValueAtTime(0, now + 0.07);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.08);
+    markUnlocked();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Cash-drawer ka-ching. */
+async function playPosCash(): Promise<boolean> {
+  const ctx = getAudioContext();
+  if (!ctx) return false;
+  try {
+    if (ctx.state === 'suspended') await ctx.resume();
+    if (ctx.state !== 'running') return false;
+    const now = ctx.currentTime;
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.7, now);
+    master.connect(ctx.destination);
+
+    // Metallic "cha"
+    const noiseBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.05), ctx.sampleRate);
+    const data = noiseBuf.getChannelData(0);
+    for (let i = 0; i < data.length; i += 1) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuf;
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'highpass';
+    noiseFilter.frequency.value = 2500;
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.22, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(master);
+    noise.start(now);
+    noise.stop(now + 0.05);
+
+    // "ching" ascending tones
+    for (const [offset, freq, dur, amp] of [
+      [0.02, 1200, 0.12, 0.22],
+      [0.08, 1800, 0.22, 0.28],
+      [0.12, 2400, 0.35, 0.18],
+    ] as const) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now + offset);
+      gain.gain.setValueAtTime(0, now + offset);
+      gain.gain.linearRampToValueAtTime(amp, now + offset + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + offset + dur);
+      osc.connect(gain);
+      gain.connect(master);
+      osc.start(now + offset);
+      osc.stop(now + offset + dur + 0.02);
+    }
+    markUnlocked();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Checkout success — three rising POS tones. */
+async function playPosSale(): Promise<boolean> {
+  const ctx = getAudioContext();
+  if (!ctx) return false;
+  try {
+    if (ctx.state === 'suspended') await ctx.resume();
+    if (ctx.state !== 'running') return false;
+    const now = ctx.currentTime;
+    for (const [offset, freq] of [
+      [0, 880],
+      [0.11, 1100],
+      [0.22, 1320],
+    ] as const) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(freq, now + offset);
+      gain.gain.setValueAtTime(0, now + offset);
+      gain.gain.linearRampToValueAtTime(0.26, now + offset + 0.01);
+      gain.gain.linearRampToValueAtTime(0, now + offset + 0.09);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + offset);
+      osc.stop(now + offset + 0.1);
+    }
+    markUnlocked();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function playSynthById(id: AlertSoundId): Promise<boolean> {
+  switch (id) {
+    case 'beep':
+      return playBeep();
+    case 'bell':
+      return playBell();
+    case 'pos_scan':
+      return playPosScan();
+    case 'pos_cash':
+      return playPosCash();
+    case 'pos_sale':
+      return playPosSale();
+    default:
+      return false;
+  }
+}
+
 async function playSelectedAlertSound(id: AlertSoundId): Promise<boolean> {
-  if (id === 'beep') {
-    if (await playBeep()) return true;
-    return playDomAudio(EMBEDDED_ALERT_WAV);
-  }
-  if (id === 'bell') {
-    if (await playBell()) return true;
-    if (await playBeep()) return true;
-    return playDomAudio(EMBEDDED_ALERT_WAV);
-  }
   if (id === 'order') {
     if (await playDomAudio(MP3_URL)) return true;
     if (await playBell()) return true;
     if (await playBeep()) return true;
     return playDomAudio(EMBEDDED_ALERT_WAV);
   }
-  // chime
-  if (await playDomAudio(EMBEDDED_ALERT_WAV)) return true;
-  if (await playBell()) return true;
+  if (id === 'chime') {
+    if (await playDomAudio(EMBEDDED_ALERT_WAV)) return true;
+    if (await playBell()) return true;
+    if (await playBeep()) return true;
+    return playDomAudio(MP3_URL);
+  }
+  if (await playSynthById(id)) return true;
   if (await playBeep()) return true;
-  return playDomAudio(MP3_URL);
+  return playDomAudio(EMBEDDED_ALERT_WAV);
 }
 
 /** Call from native HTML onClick / pointerdown only. */
@@ -236,15 +379,14 @@ export function startAlertSoundFromUserGesture(): Promise<boolean> {
   const soundId = readAlertSoundId();
   void getAudioContext()?.resume();
 
-  if (soundId === 'beep') {
-    return playBeep().then(async ok => {
-      if (ok) return true;
-      return playDomAudio(EMBEDDED_ALERT_WAV);
-    });
-  }
-
-  if (soundId === 'bell') {
-    return playBell().then(async ok => {
+  if (
+    soundId === 'beep' ||
+    soundId === 'bell' ||
+    soundId === 'pos_scan' ||
+    soundId === 'pos_cash' ||
+    soundId === 'pos_sale'
+  ) {
+    return playSynthById(soundId).then(async ok => {
       if (ok) return true;
       if (await playBeep()) return true;
       return playDomAudio(EMBEDDED_ALERT_WAV);
