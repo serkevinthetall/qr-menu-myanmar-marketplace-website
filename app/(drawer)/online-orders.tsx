@@ -58,10 +58,11 @@ import {
 import { useAppTheme } from '@/contexts/theme-context';
 import { useAppColors } from '@/hooks/use-app-colors';
 import { useResponsive } from '@/hooks/use-responsive';
-import { APP_ORDER_LIST_POLL_MS } from '@/services/badges';
+import { APP_ORDER_ALERT_POLL_MS, APP_ORDER_LIST_POLL_MS } from '@/services/badges';
 import {
   createOnlineOrderInvoice,
   fetchOnlineOrderDetail,
+  fetchOnlineOrderNotifyFeed,
   fetchOnlineOrders,
   payOnlineOrderInvoice,
   validateOnlineOrderDelivery,
@@ -664,14 +665,17 @@ export default function OnlineOrdersScreen() {
     void load();
   }, [load]);
 
-  // Keep the App Order list live without a manual refresh (30s, visible tab).
+  // Slow Odoo list refresh + fast Redis notify-feed (Odoo webhook) for new orders.
   useEffect(() => {
     if (!session?.token || selectedId) {
       return;
     }
 
     let cancelled = false;
-    const tick = () => {
+    let revision = 0;
+    let feedReady = false;
+
+    const tickList = () => {
       if (cancelled) return;
       if (
         typeof document !== 'undefined' &&
@@ -682,7 +686,34 @@ export default function OnlineOrdersScreen() {
       void load({ quiet: true });
     };
 
-    const timer = setInterval(tick, APP_ORDER_LIST_POLL_MS);
+    const tickFeed = () => {
+      if (cancelled || !session?.token) return;
+      if (
+        typeof document !== 'undefined' &&
+        document.visibilityState === 'hidden'
+      ) {
+        return;
+      }
+      void (async () => {
+        try {
+          const feed = await fetchOnlineOrderNotifyFeed(session.token, revision);
+          if (!feedReady) {
+            revision = feed.revision;
+            feedReady = true;
+            return;
+          }
+          if (feed.events.length > 0 || feed.revision > revision) {
+            revision = feed.revision;
+            void load({ quiet: true });
+          }
+        } catch {
+          // Ignore transient notify-feed errors.
+        }
+      })();
+    };
+
+    const listTimer = setInterval(tickList, APP_ORDER_LIST_POLL_MS);
+    const feedTimer = setInterval(tickFeed, APP_ORDER_ALERT_POLL_MS);
 
     const onRefresh = () => {
       void load({ quiet: true });
@@ -692,7 +723,8 @@ export default function OnlineOrdersScreen() {
         typeof document !== 'undefined' &&
         document.visibilityState === 'visible'
       ) {
-        tick();
+        tickList();
+        tickFeed();
       }
     };
 
@@ -701,9 +733,12 @@ export default function OnlineOrdersScreen() {
       document.addEventListener('visibilitychange', onVisibility);
     }
 
+    tickFeed();
+
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      clearInterval(listTimer);
+      clearInterval(feedTimer);
       if (typeof window !== 'undefined') {
         window.removeEventListener(ONLINE_ORDERS_REFRESH_EVENT, onRefresh);
         document.removeEventListener('visibilitychange', onVisibility);

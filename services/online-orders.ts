@@ -233,3 +233,39 @@ export async function fetchAppOrderUnreadCount(token: string): Promise<number> {
   );
   return Number(response.data?.unreadCount) || 0;
 }
+
+export type OnlineOrderNotifyEvent = {
+  revision: number;
+  id: string;
+  number: string;
+  customer: string;
+  total: number;
+  at: string;
+};
+
+export type OnlineOrderNotifyFeed = {
+  revision: number;
+  active: boolean;
+  events: OnlineOrderNotifyEvent[];
+  unreadCount: number;
+};
+
+/** Cheap Redis feed driven by Odoo webhook — no Odoo search_read. */
+export async function fetchOnlineOrderNotifyFeed(
+  token: string,
+  sinceRevision = 0,
+): Promise<OnlineOrderNotifyFeed> {
+  const params = new URLSearchParams();
+  if (sinceRevision > 0) params.set('since', String(sinceRevision));
+  const query = params.toString() ? `?${params.toString()}` : '';
+  const response = await webApiRequest<{ data: OnlineOrderNotifyFeed }>(
+    `/online-orders/notify-feed${query}`,
+    { token },
+  );
+  return {
+    revision: Number(response.data?.revision) || 0,
+    active: Boolean(response.data?.active),
+    events: Array.isArray(response.data?.events) ? response.data.events : [],
+    unreadCount: Number(response.data?.unreadCount) || 0,
+  };
+}

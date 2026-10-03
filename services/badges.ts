@@ -27,8 +27,14 @@ export async function fetchErpBadges(token: string): Promise<ErpBadges> {
 /** Sidebar badge poll interval when the ERP tab is visible. */
 export const ERP_BADGE_POLL_MS = 60_000;
 
-/** App Order sound/snackbar poll — faster than badges so staff hear new orders sooner. */
-export const APP_ORDER_ALERT_POLL_MS = 20_000;
+/**
+ * App Order sound/snackbar — polls cheap Redis notify-feed (Odoo webhook).
+ * Keep short so staff hear new orders quickly without hitting Odoo.
+ */
+export const APP_ORDER_ALERT_POLL_MS = 8_000;
 
-/** App Orders page list refresh when the tab is visible. */
-export const APP_ORDER_LIST_POLL_MS = 30_000;
+/**
+ * App Orders page list refresh when the tab is visible.
+ * Slowed down: webhook notify-feed triggers an immediate refresh on new orders.
+ */
+export const APP_ORDER_LIST_POLL_MS = 120_000;

@@ -5,7 +5,7 @@ import { Portal, Snackbar } from 'react-native-paper';
 import { useAuth } from '@/contexts/auth-context';
 import { useVisibleInterval } from '@/hooks/use-visible-interval';
 import { APP_ORDER_ALERT_POLL_MS } from '@/services/badges';
-import { fetchOnlineOrders } from '@/services/online-orders';
+import { fetchOnlineOrderNotifyFeed } from '@/services/online-orders';
 import {
   ONLINE_ORDER_ALERTS_EVENT,
   notifyOnlineOrdersRefresh,
@@ -17,48 +17,37 @@ import {
   unlockOnlineOrderAlertSound,
 } from '@/utils/online-order-alert-sound';
 
-const STORAGE_KEY = '@qr_shop_web_online_order_seen_ids';
+const REVISION_KEY = '@qr_shop_web_online_order_notify_rev';
 
-function readSeenIds(): Set<string> {
-  if (typeof window === 'undefined') {
-    return new Set();
-  }
+function readRevision(): number {
+  if (typeof window === 'undefined') return 0;
   try {
-    const raw = window.sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return new Set();
-    }
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) {
-      return new Set();
-    }
-    return new Set(parsed.map(id => String(id)));
+    const raw = window.sessionStorage.getItem(REVISION_KEY);
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : 0;
   } catch {
-    return new Set();
+    return 0;
   }
 }
 
-function writeSeenIds(ids: Set<string>) {
-  if (typeof window === 'undefined') {
-    return;
-  }
+function writeRevision(revision: number) {
+  if (typeof window === 'undefined') return;
   try {
-    const list = [...ids].slice(-500);
-    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    window.sessionStorage.setItem(REVISION_KEY, String(revision));
   } catch {
     // Ignore quota / private mode failures.
   }
 }
 
 /**
- * Website ERP only: poll App Orders and play sound when a new one appears.
- * 60s while the tab is visible — controlled from Settings → notifications.
+ * Website ERP: listen for Odoo webhook events via cheap notify-feed.
+ * Falls back quietly when the webhook bus is not active yet.
  */
 export function OnlineOrderAlerts() {
   const { session, isAuthenticated } = useAuth();
   const [snack, setSnack] = useState('');
   const [prefEnabled, setPrefEnabled] = useState(false);
-  const seenRef = useRef<Set<string>>(new Set());
+  const revisionRef = useRef(0);
   const readyRef = useRef(false);
 
   useEffect(() => {
@@ -102,39 +91,48 @@ export function OnlineOrderAlerts() {
     ) {
       return;
     }
-    seenRef.current = readSeenIds();
-    readyRef.current = seenRef.current.size > 0;
+    revisionRef.current = readRevision();
+    readyRef.current = revisionRef.current > 0;
   }, [isAuthenticated, session?.token, prefEnabled]);
 
   const poll = () => {
     if (!session?.token) return;
     void (async () => {
       try {
-        const rows = await fetchOnlineOrders(session.token, { limit: 50 });
-        const nextIds = new Set(rows.map(row => row.id));
+        const feed = await fetchOnlineOrderNotifyFeed(
+          session.token,
+          revisionRef.current,
+        );
+
         if (!readyRef.current) {
-          seenRef.current = nextIds;
-          writeSeenIds(nextIds);
+          // Baseline — do not alert on historical backlog.
+          revisionRef.current = feed.revision;
+          writeRevision(feed.revision);
           readyRef.current = true;
           return;
         }
 
-        const newcomers = [...nextIds].filter(id => !seenRef.current.has(id));
-        if (newcomers.length > 0) {
-          for (const id of nextIds) {
-            seenRef.current.add(id);
-          }
-          writeSeenIds(seenRef.current);
-          if (isOnlineOrderAlertSoundUnlocked()) {
-            playOnlineOrderAlertSound();
-          }
-          notifyOnlineOrdersRefresh();
-          const label =
-            newcomers.length === 1
-              ? 'New App Order received'
-              : `${newcomers.length} new App Orders received`;
-          setSnack(label);
+        if (feed.revision > revisionRef.current) {
+          revisionRef.current = feed.revision;
+          writeRevision(feed.revision);
         }
+
+        if (feed.events.length === 0) {
+          return;
+        }
+
+        if (isOnlineOrderAlertSoundUnlocked()) {
+          playOnlineOrderAlertSound();
+        }
+        notifyOnlineOrdersRefresh();
+        const first = feed.events[feed.events.length - 1];
+        const label =
+          feed.events.length === 1
+            ? first?.number
+              ? `New App Order ${first.number}`
+              : 'New App Order received'
+            : `${feed.events.length} new App Orders received`;
+        setSnack(label);
       } catch {
         // Stay quiet on transient API errors.
       }
