@@ -2,7 +2,7 @@
  * Web-only App Order / member-request alert sound.
  *
  * Browsers block audio until a real user gesture. After unlock, HTMLAudio
- * (and a short beep fallback) can play from notify polls.
+ * (and a short beep fallback) can play from notify polls together with the snackbar.
  */
 
 const SOUND_URL = '/sounds/onlinesaleorder.mp3';
@@ -61,7 +61,6 @@ async function playBeep(): Promise<boolean> {
     const gain = ctx.createGain();
     osc.type = 'sine';
     osc.frequency.setValueAtTime(880, now);
-    // linearRamp allows 0; exponentialRamp does not.
     gain.gain.setValueAtTime(0, now);
     gain.gain.linearRampToValueAtTime(0.18, now + 0.02);
     gain.gain.linearRampToValueAtTime(0, now + 0.32);
@@ -76,17 +75,40 @@ async function playBeep(): Promise<boolean> {
 }
 
 async function playMp3(): Promise<boolean> {
-  const audio = getAlertAudio();
-  if (!audio) return false;
+  const base = getAlertAudio();
+  if (!base) return false;
+
+  // Fresh element per play — more reliable when notifies fire while idle.
   try {
-    audio.pause();
-    audio.currentTime = 0;
+    const audio = base.cloneNode(true) as HTMLAudioElement;
     audio.volume = 1;
     audio.muted = false;
     await audio.play();
     return true;
   } catch {
+    // fall through to shared element
+  }
+
+  try {
+    base.pause();
+    base.currentTime = 0;
+    base.volume = 1;
+    base.muted = false;
+    await base.play();
+    return true;
+  } catch {
     return false;
+  }
+}
+
+/** Warm the MP3 so notify + Test sound start faster. */
+export function preloadOnlineOrderAlertSound(): void {
+  const audio = getAlertAudio();
+  if (!audio) return;
+  try {
+    audio.load();
+  } catch {
+    // ignore
   }
 }
 
@@ -100,6 +122,8 @@ export async function unlockOnlineOrderAlertSound(): Promise<boolean> {
     return false;
   }
 
+  preloadOnlineOrderAlertSound();
+
   const ctx = getAudioContext();
   if (ctx) {
     try {
@@ -109,7 +133,6 @@ export async function unlockOnlineOrderAlertSound(): Promise<boolean> {
     }
   }
 
-  // Prefer a real (muted) media play inside the user gesture.
   const audio = getAlertAudio();
   if (audio) {
     try {
@@ -139,17 +162,15 @@ export async function unlockOnlineOrderAlertSound(): Promise<boolean> {
   return audioUnlocked;
 }
 
-/** Play alert sound. Safe to call from notify polls after unlock. */
+/** Play alert sound (notify popup / Test sound / member request). */
 export async function playOnlineOrderAlertSound(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
 
-  // Try MP3 first (the intended notification sound).
   if (await playMp3()) {
     markUnlocked();
     return true;
   }
 
-  // Beep fallback if MP3 blocked or failed.
   if (await playBeep()) {
     markUnlocked();
     return true;
@@ -158,8 +179,14 @@ export async function playOnlineOrderAlertSound(): Promise<boolean> {
   return false;
 }
 
+/**
+ * Pair snackbar notify with sound. Call whenever a new-order / member toast shows.
+ * Returns whether audio actually started.
+ */
+export async function playSoundForNotifyPopup(): Promise<boolean> {
+  return playOnlineOrderAlertSound();
+}
+
 export function isOnlineOrderAlertSoundUnlocked(): boolean {
-  // Must be unlocked in this JS lifetime (page load). sessionStorage alone is
-  // not enough — a new AudioContext starts suspended after reload.
   return audioUnlocked;
 }

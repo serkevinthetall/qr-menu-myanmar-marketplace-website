@@ -9,11 +9,13 @@ import { fetchOnlineOrderNotifyFeed } from '@/services/online-orders';
 import {
   APP_ORDER_NOTIFY_EVENT,
   ONLINE_ORDER_ALERTS_EVENT,
+  ensureOnlineOrderAlertsEnabledDefault,
   notifyAppOrderNotify,
   readOnlineOrderAlertsEnabled,
 } from '@/utils/online-order-alerts-preference';
 import {
-  playOnlineOrderAlertSound,
+  playSoundForNotifyPopup,
+  preloadOnlineOrderAlertSound,
   unlockOnlineOrderAlertSound,
 } from '@/utils/online-order-alert-sound';
 
@@ -62,6 +64,7 @@ export function OnlineOrderAlerts() {
   const readyRef = useRef(false);
   const revisionRef = useRef(0);
   const soundEnabledRef = useRef(soundEnabled);
+  const soundHintShownRef = useRef(false);
   /** Order ids already used for snackbar/badge bump this session. */
   const seenOrderIdsRef = useRef<Set<string>>(new Set());
   const token = session?.token;
@@ -72,7 +75,8 @@ export function OnlineOrderAlerts() {
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
-    setSoundEnabled(readOnlineOrderAlertsEnabled());
+    setSoundEnabled(ensureOnlineOrderAlertsEnabledDefault());
+    preloadOnlineOrderAlertSound();
     const onPref = (event: Event) => {
       const detail = (event as CustomEvent<{ enabled?: boolean }>).detail;
       if (typeof detail?.enabled === 'boolean') {
@@ -90,6 +94,7 @@ export function OnlineOrderAlerts() {
     if (Platform.OS !== 'web' || !isAuthenticated || typeof window === 'undefined') {
       return;
     }
+    preloadOnlineOrderAlertSound();
     const unlock = () => {
       void unlockOnlineOrderAlertSound();
     };
@@ -119,12 +124,17 @@ export function OnlineOrderAlerts() {
     newEventCount = 0,
   ) => {
     if (label) {
-      // Sound with snackbar. Do not await unlock here — that is not a user
-      // gesture and would leave AudioContext suspended. Unlock happens on click.
-      if (soundEnabledRef.current) {
-        void playOnlineOrderAlertSound();
-      }
+      // Popup + sound together (same trigger).
       setSnack(label);
+      if (soundEnabledRef.current) {
+        void playSoundForNotifyPopup().then(played => {
+          if (played || soundHintShownRef.current) return;
+          soundHintShownRef.current = true;
+          setSnack(
+            `${label} — click the page once to enable alert sound`,
+          );
+        });
+      }
     }
     notifyAppOrderNotify(
       {

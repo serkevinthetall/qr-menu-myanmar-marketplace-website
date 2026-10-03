@@ -10,12 +10,13 @@ import {
 } from '@/services/member-requests';
 import { ERP_BADGE_POLL_MS } from '@/services/badges';
 import {
-  isOnlineOrderAlertSoundUnlocked,
-  playOnlineOrderAlertSound,
+  playSoundForNotifyPopup,
+  preloadOnlineOrderAlertSound,
   unlockOnlineOrderAlertSound,
 } from '@/utils/online-order-alert-sound';
 import {
   ONLINE_ORDER_ALERTS_EVENT,
+  ensureOnlineOrderAlertsEnabledDefault,
   readOnlineOrderAlertsEnabled,
 } from '@/utils/online-order-alerts-preference';
 
@@ -59,15 +60,23 @@ function writeSeenIds(ids: Set<string>) {
 export function MemberRequestAlerts() {
   const { session, isAuthenticated } = useAuth();
   const [snack, setSnack] = useState('');
-  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() =>
+    Platform.OS === 'web' ? readOnlineOrderAlertsEnabled() : false,
+  );
+  const soundEnabledRef = useRef(soundEnabled);
   const seenRef = useRef<Set<string>>(new Set());
   const readyRef = useRef(false);
+
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+  }, [soundEnabled]);
 
   useEffect(() => {
     if (Platform.OS !== 'web') {
       return;
     }
-    setSoundEnabled(readOnlineOrderAlertsEnabled());
+    setSoundEnabled(ensureOnlineOrderAlertsEnabledDefault());
+    preloadOnlineOrderAlertSound();
 
     const onPref = (event: Event) => {
       const detail = (event as CustomEvent<{ enabled?: boolean }>).detail;
@@ -82,18 +91,19 @@ export function MemberRequestAlerts() {
   }, []);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || !soundEnabled || typeof window === 'undefined') {
-      return;
-    }
-    if (isOnlineOrderAlertSoundUnlocked()) {
+    if (Platform.OS !== 'web' || !isAuthenticated || typeof window === 'undefined') {
       return;
     }
     const unlock = () => {
       void unlockOnlineOrderAlertSound();
     };
     window.addEventListener('pointerdown', unlock, { passive: true });
-    return () => window.removeEventListener('pointerdown', unlock);
-  }, [soundEnabled]);
+    window.addEventListener('keydown', unlock);
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !isAuthenticated || !session?.token) {
@@ -125,17 +135,16 @@ export function MemberRequestAlerts() {
           seenRef.current = new Set([...seenRef.current, ...nextIds]);
           writeSeenIds(seenRef.current);
           notifyMemberRequestBadgeChanged();
-          if (soundEnabled) {
-            // Play only — unlock must come from a prior click (Settings / page tap).
-            void playOnlineOrderAlertSound();
-          }
           const first = fresh[0];
-          const label = first.name || first.customer || first.phone || first.id;
-          setSnack(
+          const label =
             fresh.length === 1
-              ? `New member request: ${label}`
-              : `${fresh.length} new member requests`,
-          );
+              ? `New member request: ${first.name || first.customer || first.phone || first.id}`
+              : `${fresh.length} new member requests`;
+          // Popup + sound together (same trigger as App Order alerts).
+          setSnack(label);
+          if (soundEnabledRef.current) {
+            void playSoundForNotifyPopup();
+          }
         } else {
           seenRef.current = nextIds;
           writeSeenIds(nextIds);

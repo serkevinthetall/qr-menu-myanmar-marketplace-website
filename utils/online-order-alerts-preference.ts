@@ -26,6 +26,22 @@ export function readOnlineOrderAlertsEnabled(): boolean {
   }
 }
 
+/** Persist default ON once so Settings switch and notify sound stay in sync. */
+export function ensureOnlineOrderAlertsEnabledDefault(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  try {
+    if (window.localStorage.getItem(ENABLED_KEY) === null) {
+      writeOnlineOrderAlertsEnabled(true);
+      return true;
+    }
+  } catch {
+    // ignore
+  }
+  return readOnlineOrderAlertsEnabled();
+}
+
 export function writeOnlineOrderAlertsEnabled(enabled: boolean): void {
   if (typeof window === 'undefined') {
     return;
