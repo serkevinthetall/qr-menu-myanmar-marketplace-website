@@ -463,31 +463,63 @@ export default function SettingsScreen() {
         <List.Section>
           <List.Subheader>Contact list</List.Subheader>
           <Text
-            style={[styles.devicesHint, { color: theme.colors.onSurfaceVariant }]}>
-            Staff contacts workers can call. Tap Call to connect.
+            style={[
+              styles.devicesHint,
+              styles.contactHint,
+              { color: theme.colors.onSurfaceVariant },
+            ]}>
+            Staff contacts workers can call. Tap a number to connect.
           </Text>
           {STAFF_CONTACTS.map(contact => (
             <View key={contact.name} style={styles.contactBlock}>
-              <List.Item
-                title={contact.name}
-                description={contact.phones.join(' · ')}
-                left={props => (
-                  <List.Icon {...props} icon="account-outline" />
-                )}
-              />
+              <Text
+                style={[styles.contactName, { color: theme.colors.onSurface }]}>
+                {contact.name}
+              </Text>
               <View style={styles.contactActions}>
-                {contact.phones.map(phone => (
-                  <Button
-                    key={phone}
-                    mode="outlined"
-                    compact
-                    icon="phone"
-                    onPress={() => {
-                      void Linking.openURL(`tel:${phone}`);
-                    }}>
-                    {phone}
-                  </Button>
-                ))}
+                {contact.phones.map(phone =>
+                  Platform.OS === 'web'
+                    ? createElement(
+                        'button',
+                        {
+                          key: phone,
+                          type: 'button',
+                          onClick: () => {
+                            void Linking.openURL(`tel:${phone}`);
+                          },
+                          style: {
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 4,
+                            padding: '4px 10px',
+                            borderRadius: 6,
+                            border: `1px solid ${theme.colors.outline}`,
+                            backgroundColor: 'transparent',
+                            color: theme.colors.primary,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            lineHeight: '16px',
+                            cursor: 'pointer',
+                          },
+                        },
+                        phone,
+                      )
+                    : (
+                      <Button
+                        key={phone}
+                        mode="outlined"
+                        compact
+                        labelStyle={styles.contactPhoneLabel}
+                        contentStyle={styles.contactPhoneContent}
+                        style={styles.contactPhoneBtn}
+                        onPress={() => {
+                          void Linking.openURL(`tel:${phone}`);
+                        }}>
+                        {phone}
+                      </Button>
+                    ),
+                )}
               </View>
             </View>
           ))}
@@ -590,14 +622,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
+  contactHint: {
+    textAlign: 'center',
+  },
   contactBlock: {
-    marginBottom: 4,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    gap: 8,
+  },
+  contactName: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   contactActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  contactPhoneBtn: {
+    minWidth: 0,
+    margin: 0,
+    borderRadius: 6,
+  },
+  contactPhoneContent: {
+    height: 28,
+    paddingHorizontal: 8,
+    minWidth: 0,
+  },
+  contactPhoneLabel: {
+    fontSize: 12,
+    marginVertical: 0,
+    marginHorizontal: 0,
   },
 });
