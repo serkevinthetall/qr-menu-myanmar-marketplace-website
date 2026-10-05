@@ -4,7 +4,6 @@ import {
   ActivityIndicator,
   Button,
   Chip,
-  DataTable,
   List,
   SegmentedButtons,
   Snackbar,
@@ -39,16 +38,14 @@ import {
 
 const screen = NAV_ITEMS.find(item => item.name === 'settings')!;
 
-/** Hardcoded food-order contact list (Settings reference table). */
-const FOOD_ORDER_CONTACTS: ReadonlyArray<{
+/** Hardcoded staff contact list workers can call from Settings. */
+const STAFF_CONTACTS: ReadonlyArray<{
   name: string;
-  phone1: string;
-  phone2: string;
+  phones: readonly string[];
 }> = [
   {
     name: 'Sone Pyaw',
-    phone1: '09254048093',
-    phone2: '09796868543',
+    phones: ['09254048093', '09796868543'],
   },
 ];
 
@@ -464,55 +461,36 @@ export default function SettingsScreen() {
         </List.Section>
 
         <List.Section>
-          <List.Subheader>Food order contacts</List.Subheader>
+          <List.Subheader>Contact list</List.Subheader>
           <Text
             style={[styles.devicesHint, { color: theme.colors.onSurfaceVariant }]}>
-            Hardcoded list for food order calls. Tap a number to dial.
+            Staff contacts workers can call. Tap Call to connect.
           </Text>
-          <View
-            style={[
-              styles.foodOrderTable,
-              { borderColor: theme.colors.outline },
-            ]}>
-            <DataTable>
-              <DataTable.Header>
-                <DataTable.Title style={styles.foodOrderNameCol}>
-                  Name
-                </DataTable.Title>
-                <DataTable.Title style={styles.foodOrderPhoneCol} numeric>
-                  Phone 1
-                </DataTable.Title>
-                <DataTable.Title style={styles.foodOrderPhoneCol} numeric>
-                  Phone 2
-                </DataTable.Title>
-              </DataTable.Header>
-              {FOOD_ORDER_CONTACTS.map(row => (
-                <DataTable.Row key={row.name}>
-                  <DataTable.Cell style={styles.foodOrderNameCol}>
-                    {row.name}
-                  </DataTable.Cell>
-                  <DataTable.Cell style={styles.foodOrderPhoneCol} numeric>
-                    <Text
-                      style={{ color: theme.colors.primary }}
-                      onPress={() => {
-                        void Linking.openURL(`tel:${row.phone1}`);
-                      }}>
-                      {row.phone1}
-                    </Text>
-                  </DataTable.Cell>
-                  <DataTable.Cell style={styles.foodOrderPhoneCol} numeric>
-                    <Text
-                      style={{ color: theme.colors.primary }}
-                      onPress={() => {
-                        void Linking.openURL(`tel:${row.phone2}`);
-                      }}>
-                      {row.phone2}
-                    </Text>
-                  </DataTable.Cell>
-                </DataTable.Row>
-              ))}
-            </DataTable>
-          </View>
+          {STAFF_CONTACTS.map(contact => (
+            <View key={contact.name} style={styles.contactBlock}>
+              <List.Item
+                title={contact.name}
+                description={contact.phones.join(' · ')}
+                left={props => (
+                  <List.Icon {...props} icon="account-outline" />
+                )}
+              />
+              <View style={styles.contactActions}>
+                {contact.phones.map(phone => (
+                  <Button
+                    key={phone}
+                    mode="outlined"
+                    compact
+                    icon="phone"
+                    onPress={() => {
+                      void Linking.openURL(`tel:${phone}`);
+                    }}>
+                    {phone}
+                  </Button>
+                ))}
+              </View>
+            </View>
+          ))}
         </List.Section>
 
         <List.Section>
@@ -612,17 +590,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
-  foodOrderTable: {
-    marginHorizontal: 16,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderRadius: 8,
-    overflow: 'hidden',
+  contactBlock: {
+    marginBottom: 4,
   },
-  foodOrderNameCol: {
-    flex: 1.2,
-  },
-  foodOrderPhoneCol: {
-    flex: 1.1,
+  contactActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
   },
 });
