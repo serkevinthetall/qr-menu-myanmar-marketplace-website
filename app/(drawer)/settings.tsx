@@ -1,9 +1,10 @@
 import { createElement, useCallback, useEffect, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import {
   ActivityIndicator,
   Button,
   Chip,
+  DataTable,
   List,
   SegmentedButtons,
   Snackbar,
@@ -37,6 +38,19 @@ import {
 } from '@/utils/online-order-alert-sound';
 
 const screen = NAV_ITEMS.find(item => item.name === 'settings')!;
+
+/** Hardcoded food-order contact list (Settings reference table). */
+const FOOD_ORDER_CONTACTS: ReadonlyArray<{
+  name: string;
+  phone1: string;
+  phone2: string;
+}> = [
+  {
+    name: 'Sone Pyaw',
+    phone1: '09254048093',
+    phone2: '09796868543',
+  },
+];
 
 function deviceIcon(platform: string): string {
   const p = platform.toLowerCase();
@@ -450,6 +464,58 @@ export default function SettingsScreen() {
         </List.Section>
 
         <List.Section>
+          <List.Subheader>Food order contacts</List.Subheader>
+          <Text
+            style={[styles.devicesHint, { color: theme.colors.onSurfaceVariant }]}>
+            Hardcoded list for food order calls. Tap a number to dial.
+          </Text>
+          <View
+            style={[
+              styles.foodOrderTable,
+              { borderColor: theme.colors.outline },
+            ]}>
+            <DataTable>
+              <DataTable.Header>
+                <DataTable.Title style={styles.foodOrderNameCol}>
+                  Name
+                </DataTable.Title>
+                <DataTable.Title style={styles.foodOrderPhoneCol} numeric>
+                  Phone 1
+                </DataTable.Title>
+                <DataTable.Title style={styles.foodOrderPhoneCol} numeric>
+                  Phone 2
+                </DataTable.Title>
+              </DataTable.Header>
+              {FOOD_ORDER_CONTACTS.map(row => (
+                <DataTable.Row key={row.name}>
+                  <DataTable.Cell style={styles.foodOrderNameCol}>
+                    {row.name}
+                  </DataTable.Cell>
+                  <DataTable.Cell style={styles.foodOrderPhoneCol} numeric>
+                    <Text
+                      style={{ color: theme.colors.primary }}
+                      onPress={() => {
+                        void Linking.openURL(`tel:${row.phone1}`);
+                      }}>
+                      {row.phone1}
+                    </Text>
+                  </DataTable.Cell>
+                  <DataTable.Cell style={styles.foodOrderPhoneCol} numeric>
+                    <Text
+                      style={{ color: theme.colors.primary }}
+                      onPress={() => {
+                        void Linking.openURL(`tel:${row.phone2}`);
+                      }}>
+                      {row.phone2}
+                    </Text>
+                  </DataTable.Cell>
+                </DataTable.Row>
+              ))}
+            </DataTable>
+          </View>
+        </List.Section>
+
+        <List.Section>
           <List.Subheader>Account</List.Subheader>
           <List.Item
             title={user?.name || 'Signed in'}
@@ -545,5 +611,18 @@ const styles = StyleSheet.create({
   segmented: {
     paddingHorizontal: 16,
     paddingBottom: 8,
+  },
+  foodOrderTable: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  foodOrderNameCol: {
+    flex: 1.2,
+  },
+  foodOrderPhoneCol: {
+    flex: 1.1,
   },
 });
