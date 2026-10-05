@@ -158,6 +158,42 @@ async function fetchAllPages(
   return finalCatalog;
 }
 
+/** Re-fetch from page 0 while keeping existing products on screen. */
+async function refreshCatalogMerging(
+  token: string,
+): Promise<AppProductCatalog> {
+  let products = memory?.products ?? [];
+  let offset = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const page = await fetchAppProducts(token, {
+      limit: PAGE_SIZE,
+      offset,
+    });
+    products = mergeById(products, page.products);
+    offset += page.products.length;
+    hasMore = page.hasMore && page.products.length > 0;
+    emit({
+      products,
+      categories: categoriesFrom(products),
+      updatedAt: Date.now(),
+      complete: !hasMore,
+    });
+    if (page.products.length === 0) break;
+  }
+
+  const finalCatalog: AppProductCatalog = {
+    products,
+    categories: categoriesFrom(products),
+    updatedAt: Date.now(),
+    complete: true,
+  };
+  emit(finalCatalog);
+  await persist(finalCatalog);
+  return finalCatalog;
+}
+
 /**
  * Show cached products immediately, then finish loading remaining pages
  * in the background. Search/filter should use the in-memory catalog —
@@ -179,9 +215,10 @@ export async function ensureAppProductCatalog(
     if (age < FRESH_MS) {
       return memory;
     }
-    // Stale but usable — refresh in background without blocking UI.
+    // Stale but usable — refresh from offset 0 while merging so search never
+    // briefly loses products that aren't on the first page.
     if (!inflight) {
-      inflight = fetchAllPages(token, [])
+      inflight = refreshCatalogMerging(token)
         .catch(() => memory!)
         .finally(() => {
           inflight = null;
@@ -197,6 +234,9 @@ export async function ensureAppProductCatalog(
   inflight = (async () => {
     try {
       if (options?.force) {
+        if (memory && memory.products.length > 0) {
+          return await refreshCatalogMerging(token);
+        }
         return await fetchAllPages(token, []);
       }
       if (memory && !memory.complete && memory.products.length > 0) {

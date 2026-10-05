@@ -160,6 +160,7 @@ async function fetchRemainingPages(
 /**
  * Load the full catalog from Odoo. Emits after the first page and after each
  * following page so the UI can paint early.
+ * Cold start only — do not use when a fuller catalog is already on screen.
  */
 async function fetchAllPages(token: string): Promise<WebProductCatalog> {
   const first = await fetchProductsPage(token, {
@@ -181,9 +182,46 @@ async function fetchAllPages(token: string): Promise<WebProductCatalog> {
   return fetchRemainingPages(token, first.data);
 }
 
+/**
+ * Background refresh that never shrinks the in-memory list.
+ * Stale refresh used to emit page 1 only, which made product search (e.g. "smile")
+ * disappear until a full reload finished.
+ */
+async function refreshCatalogMerging(token: string): Promise<WebProductCatalog> {
+  let products = memory?.products ?? [];
+  let offset = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const page = await fetchProductsPage(token, {
+      limit: PAGE_SIZE,
+      offset,
+    });
+    products = mergeById(products, page.data);
+    offset += page.data.length;
+    hasMore = page.hasMore && page.data.length > 0;
+    emit({
+      products,
+      updatedAt: Date.now(),
+      complete: !hasMore,
+    });
+    if (page.data.length === 0) break;
+  }
+
+  const finalCatalog: WebProductCatalog = {
+    products,
+    updatedAt: Date.now(),
+    complete: true,
+  };
+  emit(finalCatalog);
+  await persist(finalCatalog);
+  return finalCatalog;
+}
+
 function startBackgroundCatalogLoad(token: string): Promise<WebProductCatalog> {
   if (inflight) return inflight;
-  inflight = fetchAllPages(token)
+  const hasExisting = Boolean(memory && memory.products.length > 0);
+  inflight = (hasExisting ? refreshCatalogMerging(token) : fetchAllPages(token))
     .catch(error => {
       if (memory) return memory;
       throw error;
