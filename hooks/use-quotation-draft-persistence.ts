@@ -33,6 +33,19 @@ type UseQuotationDraftPersistenceOptions = {
   onRestore: (draft: StoredQuotationDraft) => void;
 };
 
+function isFormDirty(form: DraftFormState): boolean {
+  return (
+    Boolean(form.customer) ||
+    form.lines.length > 0 ||
+    form.phone.trim().length > 0 ||
+    form.salePersonName.trim().length > 0 ||
+    form.deliveryNote.trim().length > 0 ||
+    form.preferredDeliveryDate.trim().length > 0 ||
+    form.paymentMethodLineId.trim().length > 0 ||
+    form.productSearch.trim().length > 0
+  );
+}
+
 export function useQuotationDraftPersistence({
   userId,
   skipRestore = false,
@@ -42,6 +55,7 @@ export function useQuotationDraftPersistence({
 }: UseQuotationDraftPersistenceOptions) {
   const [draftRestored, setDraftRestored] = useState(false);
   const restoreCheckedRef = useRef(false);
+  const restoreSettledRef = useRef(false);
   const onRestoreRef = useRef(onRestore);
   const formRef = useRef(form);
 
@@ -55,20 +69,38 @@ export function useQuotationDraftPersistence({
 
   useEffect(() => {
     if (!userId || !enabled || skipRestore || restoreCheckedRef.current) {
+      if (skipRestore || !enabled) {
+        restoreSettledRef.current = true;
+      }
       return;
     }
 
     restoreCheckedRef.current = true;
     let cancelled = false;
 
-    loadQuotationDraft(userId).then(draft => {
-      if (cancelled || !draft || !hasStoredDraftContent(draft)) {
-        return;
-      }
+    loadQuotationDraft(userId)
+      .then(draft => {
+        if (cancelled) {
+          return;
+        }
+        if (!draft || !hasStoredDraftContent(draft)) {
+          return;
+        }
 
-      onRestoreRef.current(draft);
-      setDraftRestored(true);
-    });
+        // User already typed / added a product while restore was in flight —
+        // do not wipe their work with a stale draft.
+        if (isFormDirty(formRef.current)) {
+          return;
+        }
+
+        onRestoreRef.current(draft);
+        setDraftRestored(true);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          restoreSettledRef.current = true;
+        }
+      });
 
     return () => {
       cancelled = true;
@@ -81,6 +113,12 @@ export function useQuotationDraftPersistence({
     }
 
     const timer = setTimeout(() => {
+      // Wait until restore attempt finished so we don't save an empty form
+      // over a draft before restore can run.
+      if (!restoreSettledRef.current && !skipRestore) {
+        return;
+      }
+
       const current = formRef.current;
       void saveQuotationDraft(userId, {
         resumeBuilder: true,
@@ -99,7 +137,7 @@ export function useQuotationDraftPersistence({
     }, SAVE_DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [userId, enabled, form]);
+  }, [userId, enabled, form, skipRestore]);
 
   const dismissRestoredNotice = useCallback(() => {
     setDraftRestored(false);

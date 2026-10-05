@@ -1759,7 +1759,8 @@ export function QuotationBuilder({
         <ScrollView
           style={styles.productScroll}
           showsVerticalScrollIndicator={false}
-          nestedScrollEnabled>
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled">
           {productsLoading && products.length === 0 ? (
             <View style={styles.productsLoading}>
               <ActivityIndicator />
