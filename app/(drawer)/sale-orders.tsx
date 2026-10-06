@@ -67,6 +67,7 @@ import { fetchPaymentMethods } from '@/services/quotations';
 import { PaymentMethod } from '@/types/quotation';
 import { SaleOrder, SaleOrderDetail } from '@/types/sale-order';
 import { asIdSet, useListUiCache } from '@/utils/list-ui-cache';
+import { exportSelectedSaleOrders } from '@/utils/export-sale-orders-excel';
 import { groupOrdersByMonthDay } from '@/utils/order-date-groups';
 import { pushOrderDeliveries } from '@/utils/order-delivery-nav';
 import { pushOrderInvoices } from '@/utils/order-invoice-nav';
@@ -663,7 +664,8 @@ export default function SaleOrdersScreen() {
       return;
     }
     const targets = items.filter(
-      order => selectedIds.has(order.id) && order.canValidateDelivery,
+      order =>
+        selectedIds.has(String(order.id)) && order.canValidateDelivery,
     );
     if (targets.length === 0) {
       return;
@@ -849,20 +851,46 @@ export default function SaleOrdersScreen() {
     setViewMode(prev => (prev === 'list' ? 'card' : 'list'));
   }, []);
 
-  const selectedValidatable = useMemo(
-    () =>
-      items.filter(
-        order => selectedIds.has(order.id) && Boolean(order.canValidateDelivery),
-      ),
+  const selectedOrders = useMemo(
+    () => items.filter(order => selectedIds.has(String(order.id))),
     [items, selectedIds],
   );
 
+  const selectedValidatable = useMemo(
+    () =>
+      selectedOrders.filter(order => Boolean(order.canValidateDelivery)),
+    [selectedOrders],
+  );
+
+  const exportExcel = useCallback(() => {
+    if (selectedOrders.length === 0) {
+      setSnackbar('Select one or more sale orders to export.');
+      return;
+    }
+    const ok = exportSelectedSaleOrders(selectedOrders);
+    setSnackbar(
+      ok
+        ? `Exported ${selectedOrders.length} sale order${selectedOrders.length === 1 ? '' : 's'} to Excel.`
+        : 'Excel export is only available on web.',
+    );
+  }, [selectedOrders]);
 
   const headerActions = useMemo<HeaderAction[]>(() => {
     if (selectedId) {
       return [];
     }
+    const selectedCount = selectedOrders.length;
     const actions: HeaderAction[] = [
+      {
+        key: 'excel',
+        icon: 'microsoft-excel',
+        label: selectedCount > 0 ? String(selectedCount) : undefined,
+        onPress: exportExcel,
+        accessibilityLabel:
+          selectedCount > 0
+            ? `Export ${selectedCount} selected sale order${selectedCount === 1 ? '' : 's'} to Excel`
+            : 'Export selected sale orders to Excel',
+      },
       {
         key: 'view',
         icon: viewMode === 'list' ? 'view-grid-outline' : 'format-list-bulleted',
@@ -897,6 +925,8 @@ export default function SaleOrdersScreen() {
     selectionMode,
     selectedValidatable,
     openDeliveriesPage,
+    exportExcel,
+    selectedOrders.length,
   ]);
 
   useHeaderActions(headerActions);
@@ -961,7 +991,7 @@ export default function SaleOrdersScreen() {
   }, []);
 
   const selectedOnPage = paged.reduce(
-    (count, order) => count + (selectedIds.has(order.id) ? 1 : 0),
+    (count, order) => count + (selectedIds.has(String(order.id)) ? 1 : 0),
     0,
   );
   const headerStatus: 'checked' | 'unchecked' | 'indeterminate' =
@@ -972,12 +1002,13 @@ export default function SaleOrdersScreen() {
         : 'indeterminate';
 
   const toggleOne = useCallback((id: string) => {
+    const key = String(id);
     setSelectedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
+      if (next.has(key)) {
+        next.delete(key);
       } else {
-        next.add(id);
+        next.add(key);
       }
       return next;
     });
@@ -986,7 +1017,7 @@ export default function SaleOrdersScreen() {
   const toggleAllOnPage = useCallback(() => {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      const ids = paged.map(order => order.id);
+      const ids = paged.map(order => String(order.id));
       const allSelected = ids.length > 0 && ids.every(id => next.has(id));
       ids.forEach(id => (allSelected ? next.delete(id) : next.add(id)));
       return next;
@@ -1182,7 +1213,7 @@ export default function SaleOrdersScreen() {
                                           key={item.id}
                                           item={item}
                                           index={index}
-                                          selected={selectedIds.has(item.id)}
+                                          selected={selectedIds.has(String(item.id))}
                                           selectionMode={selectionMode}
                                           onToggle={toggleOne}
                                           onOpen={openDetail}
@@ -1206,7 +1237,7 @@ export default function SaleOrdersScreen() {
                       key={item.id}
                       item={item}
                       index={index}
-                      selected={selectedIds.has(item.id)}
+                      selected={selectedIds.has(String(item.id))}
                       selectionMode={selectionMode}
                       onToggle={toggleOne}
                       onOpen={openDetail}
@@ -1240,7 +1271,7 @@ export default function SaleOrdersScreen() {
               ]}>
               <SaleOrderCard
                 item={item}
-                selected={selectedIds.has(item.id)}
+                selected={selectedIds.has(String(item.id))}
                 selectionMode={selectionMode}
                 onToggle={toggleOne}
                 onOpen={openDetail}
@@ -1276,7 +1307,11 @@ export default function SaleOrdersScreen() {
           total={filtered.length}
           pageSize={PAGE_SIZE}
           onChange={setPage}
-          centerLabel={`${filtered.length} from Odoo`}
+          centerLabel={
+            selectedOrders.length > 0
+              ? `${selectedOrders.length} selected · ${filtered.length} from Odoo`
+              : `${filtered.length} from Odoo`
+          }
           itemLabel="order"
         />
       )}

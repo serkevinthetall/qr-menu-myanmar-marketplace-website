@@ -813,7 +813,8 @@ export default function OnlineOrdersScreen() {
       return;
     }
     const targets = items.filter(
-      order => selectedIds.has(order.id) && order.canValidateDelivery,
+      order =>
+        selectedIds.has(String(order.id)) && order.canValidateDelivery,
     );
     if (targets.length === 0) {
       return;
@@ -1039,50 +1040,66 @@ export default function OnlineOrdersScreen() {
     }
   }, [filtered, markAllOrdersRead, load]);
 
-  const selectedValidatable = useMemo(
-    () =>
-      items.filter(
-        order => selectedIds.has(order.id) && Boolean(order.canValidateDelivery),
-      ),
+  const selectedOrders = useMemo(
+    () => items.filter(order => selectedIds.has(String(order.id))),
     [items, selectedIds],
+  );
+
+  const selectedValidatable = useMemo(
+    () => selectedOrders.filter(order => Boolean(order.canValidateDelivery)),
+    [selectedOrders],
   );
 
   const exportMonthlyExcel = useCallback(() => {
     const search = query.trim();
     const dateActive = hasActiveSaleOrderFilters(orderFilters);
-    if (filtered.length === 0) {
+    const selectedOnly = selectedOrders.length > 0;
+    const exportRows = selectedOnly ? selectedOrders : filtered;
+    if (exportRows.length === 0) {
       setSnackbar(
         search ? 'No app orders match your search.' : 'No app orders to export.',
       );
       return;
     }
-    const ok = exportAppOrdersMonthlyExcel(filtered, {
-      search,
+    const ok = exportAppOrdersMonthlyExcel(exportRows, {
+      search: selectedOnly ? '' : search,
       dateLabel: dateActive
         ? getSaleOrderFilterDateLabel(orderFilters)
         : '',
-      readFilter,
+      readFilter: selectedOnly ? 'all' : readFilter,
+      selectedOnly,
     });
     if (!ok) {
       setSnackbar('Excel export is only available on web.');
       return;
     }
+    if (selectedOnly) {
+      setSnackbar(
+        `Exported ${exportRows.length} selected app order${exportRows.length === 1 ? '' : 's'} by month.`,
+      );
+      return;
+    }
     const searchNote = search ? ` matching “${search}”` : '';
     setSnackbar(
-      `Exported ${filtered.length} app order(s)${searchNote} by month.`,
+      `Exported ${exportRows.length} app order(s)${searchNote} by month.`,
     );
-  }, [filtered, query, orderFilters, readFilter]);
+  }, [filtered, selectedOrders, query, orderFilters, readFilter]);
 
   const headerActions = useMemo<HeaderAction[]>(() => {
     if (selectedId) {
       return [];
     }
+    const selectedCount = selectedOrders.length;
     const actions: HeaderAction[] = [
       {
         key: 'excel',
         icon: 'microsoft-excel',
+        label: selectedCount > 0 ? String(selectedCount) : undefined,
         onPress: exportMonthlyExcel,
-        accessibilityLabel: 'Export app orders monthly cost to Excel',
+        accessibilityLabel:
+          selectedCount > 0
+            ? `Export ${selectedCount} selected app order${selectedCount === 1 ? '' : 's'} to Excel`
+            : 'Export app orders monthly cost to Excel',
       },
       {
         key: 'mark-all-read',
@@ -1128,6 +1145,7 @@ export default function OnlineOrdersScreen() {
     selectedValidatable,
     openDeliveriesPage,
     exportMonthlyExcel,
+    selectedOrders.length,
   ]);
 
   useHeaderActions(headerActions);
@@ -1175,7 +1193,7 @@ export default function OnlineOrdersScreen() {
   }, []);
 
   const selectedOnPage = paged.reduce(
-    (count, order) => count + (selectedIds.has(order.id) ? 1 : 0),
+    (count, order) => count + (selectedIds.has(String(order.id)) ? 1 : 0),
     0,
   );
   const headerStatus: 'checked' | 'unchecked' | 'indeterminate' =
@@ -1186,12 +1204,13 @@ export default function OnlineOrdersScreen() {
         : 'indeterminate';
 
   const toggleOne = useCallback((id: string) => {
+    const key = String(id);
     setSelectedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
+      if (next.has(key)) {
+        next.delete(key);
       } else {
-        next.add(id);
+        next.add(key);
       }
       return next;
     });
@@ -1200,7 +1219,7 @@ export default function OnlineOrdersScreen() {
   const toggleAllOnPage = useCallback(() => {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      const ids = paged.map(order => order.id);
+      const ids = paged.map(order => String(order.id));
       const allSelected = ids.length > 0 && ids.every(id => next.has(id));
       ids.forEach(id => (allSelected ? next.delete(id) : next.add(id)));
       return next;
@@ -1396,7 +1415,7 @@ export default function OnlineOrdersScreen() {
                                           key={item.id}
                                           item={item}
                                           index={index}
-                                          selected={selectedIds.has(item.id)}
+                                          selected={selectedIds.has(String(item.id))}
                                           selectionMode={selectionMode}
                                           onToggle={toggleOne}
                                           onOpen={openDetail}
@@ -1420,7 +1439,7 @@ export default function OnlineOrdersScreen() {
                       key={item.id}
                       item={item}
                       index={index}
-                      selected={selectedIds.has(item.id)}
+                      selected={selectedIds.has(String(item.id))}
                       selectionMode={selectionMode}
                       onToggle={toggleOne}
                       onOpen={openDetail}
@@ -1454,7 +1473,7 @@ export default function OnlineOrdersScreen() {
               ]}>
               <SaleOrderCard
                 item={item}
-                selected={selectedIds.has(item.id)}
+                selected={selectedIds.has(String(item.id))}
                 selectionMode={selectionMode}
                 onToggle={toggleOne}
                 onOpen={openDetail}
@@ -1490,7 +1509,11 @@ export default function OnlineOrdersScreen() {
           total={filtered.length}
           pageSize={PAGE_SIZE}
           onChange={setPage}
-          centerLabel={`${filtered.length} from Odoo`}
+          centerLabel={
+            selectedOrders.length > 0
+              ? `${selectedOrders.length} selected · ${filtered.length} from Odoo`
+              : `${filtered.length} from Odoo`
+          }
           itemLabel="order"
         />
       )}

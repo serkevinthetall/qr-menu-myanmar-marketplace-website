@@ -44,9 +44,9 @@ function buildMonthRows(orders: SaleOrder[], monthTotal: number): Cell[][] {
 
   const dataRows = orders.map(order => [
     formatMyanmarDateTime(order.orderDate) || order.orderDate || '',
-    order.number || '',
+    String(order.number ?? ''),
     order.customer || '',
-    order.phoneNumber || '',
+    order.phoneNumber?.trim() || '',
     Number.isFinite(order.total) ? order.total : 0,
   ]);
 
@@ -83,6 +83,8 @@ export type AppOrdersMonthlyExportOptions = {
   /** Optional date-range / period label from the filter bar. */
   dateLabel?: string;
   readFilter?: 'all' | 'unread' | 'read';
+  /** When true, export is limited to checkbox-selected rows. */
+  selectedOnly?: boolean;
 };
 
 /**
@@ -108,12 +110,14 @@ export function exportAppOrdersMonthlyExcel(
   const search = String(options.search ?? '').trim();
   const dateLabel = String(options.dateLabel ?? '').trim();
   const readFilter = options.readFilter ?? 'all';
+  const selectedOnly = Boolean(options.selectedOnly);
 
   const scopeRows: Cell[][] = [
     ['Export scope'],
     ['Search', search || '(all)'],
     ['Date filter', dateLabel || '(all dates)'],
     ['Read filter', readFilter],
+    ['Selection', selectedOnly ? 'Selected rows only' : 'All visible (filtered)'],
     ['Orders in export', orders.length],
     [],
   ];

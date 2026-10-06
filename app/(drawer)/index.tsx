@@ -528,12 +528,13 @@ export default function QuotationScreen() {
   }, [quotations, query]);
 
   const toggleOne = useCallback((id: string) => {
+    const key = String(id);
     setSelectedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
+      if (next.has(key)) {
+        next.delete(key);
       } else {
-        next.add(id);
+        next.add(key);
       }
       return next;
     });
@@ -1016,21 +1017,24 @@ export default function QuotationScreen() {
   useDetailHeader(detailHeaderConfig);
 
 
+  const selectedQuotations = useMemo(
+    () => quotations.filter(quotation => selectedIds.has(String(quotation.id))),
+    [quotations, selectedIds],
+  );
+
   const exportExcel = useCallback(async () => {
     if (!session?.token) {
       return;
     }
 
-    const selected = filteredQuotations.filter(quotation =>
-      selectedIds.has(quotation.id),
-    );
-
-    if (selected.length === 0) {
+    if (selectedQuotations.length === 0) {
       setSnackbar('Select one or more quotations to export.');
       return;
     }
 
-    const localSelected = selected.filter(quotation => quotation.id.startsWith('local-'));
+    const localSelected = selectedQuotations.filter(quotation =>
+      String(quotation.id).startsWith('local-'),
+    );
     if (localSelected.length > 0) {
       setSnackbar('Local quotations cannot be exported. Select an Odoo quotation.');
       return;
@@ -1039,10 +1043,10 @@ export default function QuotationScreen() {
     setSnackbar('Preparing export...');
 
     try {
-      const ok = exportSelectedQuotations(selected);
+      const ok = exportSelectedQuotations(selectedQuotations);
       setSnackbar(
         ok
-          ? `Exported ${selected.length} quotation${selected.length === 1 ? '' : 's'} to Excel.`
+          ? `Exported ${selectedQuotations.length} quotation${selectedQuotations.length === 1 ? '' : 's'} to Excel.`
           : 'Export is only available on web.',
       );
     } catch (err) {
@@ -1050,40 +1054,39 @@ export default function QuotationScreen() {
         err instanceof Error ? err.message : 'Failed to export quotation.',
       );
     }
-  }, [filteredQuotations, selectedIds, session?.token]);
+  }, [selectedQuotations, session?.token]);
 
   const exportPdf = useCallback(() => {
     if (!session?.token) {
       return;
     }
 
-    const selected = filteredQuotations.filter(quotation =>
-      selectedIds.has(quotation.id),
-    );
-
-    if (selected.length === 0) {
+    if (selectedQuotations.length === 0) {
       setSnackbar('Select one or more quotations to export.');
       return;
     }
 
-    const localSelected = selected.filter(quotation => quotation.id.startsWith('local-'));
+    const localSelected = selectedQuotations.filter(quotation =>
+      String(quotation.id).startsWith('local-'),
+    );
     if (localSelected.length > 0) {
       setSnackbar('Local quotations cannot be exported. Select an Odoo quotation.');
       return;
     }
 
-    const ok = exportSelectedQuotationsPdf(selected);
+    const ok = exportSelectedQuotationsPdf(selectedQuotations);
     setSnackbar(
       ok
         ? 'Print dialog opened — choose Save as PDF to export.'
         : 'PDF export is only available on web.',
     );
-  }, [filteredQuotations, selectedIds, session?.token]);
+  }, [selectedQuotations, session?.token]);
 
   const headerActions = useMemo<HeaderAction[]>(() => {
     if (builderOpen || detailId) {
       return [];
     }
+    const selectedCount = selectedQuotations.length;
     return [
       {
         key: 'view',
@@ -1094,16 +1097,24 @@ export default function QuotationScreen() {
       {
         key: 'excel',
         icon: 'microsoft-excel',
+        label: selectedCount > 0 ? String(selectedCount) : undefined,
         onPress: () => {
           void exportExcel();
         },
-        accessibilityLabel: 'Export selected quotations to Excel',
+        accessibilityLabel:
+          selectedCount > 0
+            ? `Export ${selectedCount} selected quotation${selectedCount === 1 ? '' : 's'} to Excel`
+            : 'Export selected quotations to Excel',
       },
       {
         key: 'pdf',
         icon: 'file-pdf-box',
+        label: selectedCount > 0 ? String(selectedCount) : undefined,
         onPress: exportPdf,
-        accessibilityLabel: 'Export selected quotations to PDF',
+        accessibilityLabel:
+          selectedCount > 0
+            ? `Export ${selectedCount} selected quotation${selectedCount === 1 ? '' : 's'} to PDF`
+            : 'Export selected quotations to PDF',
       },
       {
         key: 'create',
@@ -1120,6 +1131,7 @@ export default function QuotationScreen() {
     exportExcel,
     exportPdf,
     openBuilder,
+    selectedQuotations.length,
   ]);
 
   useHeaderActions(headerActions);
@@ -1184,7 +1196,8 @@ export default function QuotationScreen() {
   }, []);
 
   const selectedOnPage = pagedQuotations.reduce(
-    (count, quotation) => count + (selectedIds.has(quotation.id) ? 1 : 0),
+    (count, quotation) =>
+      count + (selectedIds.has(String(quotation.id)) ? 1 : 0),
     0,
   );
   const headerStatus: 'checked' | 'unchecked' | 'indeterminate' =
@@ -1197,7 +1210,7 @@ export default function QuotationScreen() {
   const toggleAllOnPage = useCallback(() => {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      const ids = pagedQuotations.map(quotation => quotation.id);
+      const ids = pagedQuotations.map(quotation => String(quotation.id));
       const allSelected = ids.length > 0 && ids.every(id => next.has(id));
       ids.forEach(id => (allSelected ? next.delete(id) : next.add(id)));
       return next;
@@ -1599,7 +1612,7 @@ export default function QuotationScreen() {
                                           key={item.id}
                                           item={item}
                                           index={index}
-                                          selected={selectedIds.has(item.id)}
+                                          selected={selectedIds.has(String(item.id))}
                                           selectionMode={selectionMode}
                                           onToggle={toggleOne}
                                           onOpen={openDetail}
@@ -1618,7 +1631,7 @@ export default function QuotationScreen() {
                       key={item.id}
                       item={item}
                       index={index}
-                      selected={selectedIds.has(item.id)}
+                      selected={selectedIds.has(String(item.id))}
                       selectionMode={selectionMode}
                       onToggle={toggleOne}
                       onOpen={openDetail}
@@ -1647,7 +1660,7 @@ export default function QuotationScreen() {
               ]}>
               <QuotationCard
                 item={item}
-                selected={selectedIds.has(item.id)}
+                selected={selectedIds.has(String(item.id))}
                 selectionMode={selectionMode}
                 onToggle={toggleOne}
                 onOpen={openDetail}
@@ -1679,7 +1692,11 @@ export default function QuotationScreen() {
           total={filteredQuotations.length}
           pageSize={PAGE_SIZE}
           onChange={setPage}
-          centerLabel={`${filteredQuotations.length} from Odoo`}
+          centerLabel={
+            selectedQuotations.length > 0
+              ? `${selectedQuotations.length} selected · ${filteredQuotations.length} from Odoo`
+              : `${filteredQuotations.length} from Odoo`
+          }
           itemLabel="quotation"
         />
       )}

@@ -51,10 +51,13 @@ export function quotationExportFilename(
   extension: 'xlsx' | 'pdf',
 ): string {
   if (quotations.length === 1) {
-    const safeNumber = quotations[0].number.replace(/[^\w.-]+/g, '_');
+    const safeNumber = String(quotations[0].number || quotations[0].id).replace(
+      /[^\w.-]+/g,
+      '_',
+    );
     return `quotation-${safeNumber}.${extension}`;
   }
-  return `quotations-selected.${extension}`;
+  return `quotations-selected-${quotations.length}.${extension}`;
 }
 
 /** Shared table rows for Excel and PDF export. */
@@ -64,19 +67,23 @@ export function buildQuotationSummaryRows(quotations: Quotation[]): Cell[][] {
       'Number',
       'Creation Date',
       'Customer',
+      'Phone',
       'Total',
       'Status',
       'Payment Method',
+      'Sale Person',
       'Remark',
       'Sign',
     ],
     ...quotations.map(quotation => [
-      quotation.number,
+      String(quotation.number ?? ''),
       formatDateTime(quotation.createDate),
-      quotation.customer,
+      quotation.customer || '',
+      quotation.phoneNumber?.trim() || '',
       formatMoney(quotation.total),
       statusLabel(quotation.status),
       quotation.paymentMethod?.trim() || '—',
+      quotation.salePersonName?.trim() || '',
       '',
       '',
     ]),
@@ -141,9 +148,9 @@ export function buildQuotationSummaryPrintHtml(rows: Cell[][]): string {
     tbody tr:nth-child(even) td {
       background: #f8fafc;
     }
-    td:nth-child(4) { text-align: right; }
-    td:nth-child(7),
-    td:nth-child(8) { min-width: 100px; }
+    td:nth-child(5) { text-align: right; }
+    td:nth-child(9),
+    td:nth-child(10) { min-width: 100px; }
   </style>
 </head>
 <body>
