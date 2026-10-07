@@ -203,6 +203,14 @@ const RECONCILE: NavItem = {
     'Posted journal items with residual amount (account.move.line).',
 };
 
+const CHART_OF_ACCOUNTS: NavItem = {
+  name: 'chart-of-accounts',
+  label: 'Chart of Accounts',
+  icon: 'bookshelf',
+  title: 'Chart of Accounts',
+  description: 'Chart of accounts from Odoo Accounting (account.account).',
+};
+
 const SETTINGS: NavItem = {
   name: 'settings',
   label: 'Settings',
@@ -247,6 +255,7 @@ export const NAV_ENTRIES: NavEntry[] = [
       VENDOR_PAYMENTS,
       JOURNAL_ENTRIES,
       RECONCILE,
+      CHART_OF_ACCOUNTS,
       VENDORS,
     ],
   },
