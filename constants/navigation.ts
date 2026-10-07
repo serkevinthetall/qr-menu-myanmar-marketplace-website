@@ -162,6 +162,15 @@ const MEMBER_REQUESTS: NavItem = {
   description: 'Membership applications (x_membership_applicati).',
 };
 
+const ACCOUNTING: NavItem = {
+  name: 'accounting',
+  label: 'Accounting',
+  icon: 'book-open-page-variant-outline',
+  title: 'Accounting',
+  description:
+    'Customer invoices, vendor bills, and payments (UI shell — Odoo data next).',
+};
+
 const SETTINGS: NavItem = {
   name: 'settings',
   label: 'Settings',
@@ -195,6 +204,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     icon: 'cart-arrow-down',
     children: [PURCHASE_ORDERS, VENDORS],
   },
+  { type: 'item', item: ACCOUNTING },
   // @temp-feature app-install-call-list — App User List + App Promoter under App List
   ...(ENABLE_APP_INSTALL_CALL_LIST
     ? [
