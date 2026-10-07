@@ -162,13 +162,12 @@ const MEMBER_REQUESTS: NavItem = {
   description: 'Membership applications (x_membership_applicati).',
 };
 
-const ACCOUNTING: NavItem = {
-  name: 'accounting',
-  label: 'Accounting',
-  icon: 'book-open-page-variant-outline',
-  title: 'Accounting',
-  description:
-    'Monthly rebate review, invoices, bills, and payments from Odoo.',
+const MONTHLY_REBATE_REVIEW: NavItem = {
+  name: 'monthly-rebate-review',
+  label: 'Monthly Rebate Review',
+  icon: 'cash-refund',
+  title: 'Monthly Rebate Review',
+  description: 'Odoo Monthly Rebate Review (x_monthly_rebate_revie).',
 };
 
 const SETTINGS: NavItem = {
@@ -204,7 +203,13 @@ export const NAV_ENTRIES: NavEntry[] = [
     icon: 'cart-arrow-down',
     children: [PURCHASE_ORDERS, VENDORS],
   },
-  { type: 'item', item: ACCOUNTING },
+  {
+    type: 'group',
+    id: 'accounting',
+    label: 'Accounting',
+    icon: 'book-open-page-variant-outline',
+    children: [MONTHLY_REBATE_REVIEW],
+  },
   // @temp-feature app-install-call-list — App User List + App Promoter under App List
   ...(ENABLE_APP_INSTALL_CALL_LIST
     ? [
