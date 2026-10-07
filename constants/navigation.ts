@@ -216,7 +216,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     id: 'accounting',
     label: 'Accounting',
     icon: 'book-open-page-variant-outline',
-    children: [MONTHLY_REBATE_REVIEW, VENDOR_BILLS],
+    children: [MONTHLY_REBATE_REVIEW, VENDOR_BILLS, VENDORS],
   },
   // @temp-feature app-install-call-list — App User List + App Promoter under App List
   ...(ENABLE_APP_INSTALL_CALL_LIST
@@ -241,6 +241,16 @@ export const NAV_ENTRIES: NavEntry[] = [
 ];
 
 /** Flat list of all screens (for drawer route registration). */
-export const NAV_ITEMS: NavItem[] = NAV_ENTRIES.flatMap(entry =>
-  entry.type === 'item' ? [entry.item] : entry.children,
-);
+export const NAV_ITEMS: NavItem[] = (() => {
+  const seen = new Set<string>();
+  const items: NavItem[] = [];
+  for (const entry of NAV_ENTRIES) {
+    const leaves = entry.type === 'item' ? [entry.item] : entry.children;
+    for (const item of leaves) {
+      if (seen.has(item.name)) continue;
+      seen.add(item.name);
+      items.push(item);
+    }
+  }
+  return items;
+})();
