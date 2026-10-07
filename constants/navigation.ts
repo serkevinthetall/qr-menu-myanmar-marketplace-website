@@ -170,6 +170,15 @@ const MONTHLY_REBATE_REVIEW: NavItem = {
   description: 'Odoo Monthly Rebate Review (x_monthly_rebate_revie).',
 };
 
+const CUSTOMER_INVOICES: NavItem = {
+  name: 'customer-invoices',
+  label: 'Customer Invoices',
+  icon: 'file-document-outline',
+  title: 'Customer Invoices',
+  description:
+    'Customer invoices from Odoo Accounting, grouped by invoice month.',
+};
+
 const VENDOR_BILLS: NavItem = {
   name: 'vendor-bills',
   label: 'Vendor Bill',
@@ -251,6 +260,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     icon: 'book-open-page-variant-outline',
     children: [
       MONTHLY_REBATE_REVIEW,
+      CUSTOMER_INVOICES,
       VENDOR_BILLS,
       VENDOR_PAYMENTS,
       JOURNAL_ENTRIES,
