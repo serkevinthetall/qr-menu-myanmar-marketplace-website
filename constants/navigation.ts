@@ -168,7 +168,7 @@ const ACCOUNTING: NavItem = {
   icon: 'book-open-page-variant-outline',
   title: 'Accounting',
   description:
-    'Customer invoices, vendor bills, and payments (UI shell — Odoo data next).',
+    'Monthly rebate review, invoices, bills, and payments from Odoo.',
 };
 
 const SETTINGS: NavItem = {
