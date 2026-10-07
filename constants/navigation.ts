@@ -170,6 +170,14 @@ const MONTHLY_REBATE_REVIEW: NavItem = {
   description: 'Odoo Monthly Rebate Review (x_monthly_rebate_revie).',
 };
 
+const VENDOR_BILLS: NavItem = {
+  name: 'vendor-bills',
+  label: 'Vendor Bill',
+  icon: 'receipt-text-outline',
+  title: 'Vendor Bills',
+  description: 'Vendor bills from Odoo Accounting (account.move).',
+};
+
 const SETTINGS: NavItem = {
   name: 'settings',
   label: 'Settings',
@@ -208,7 +216,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     id: 'accounting',
     label: 'Accounting',
     icon: 'book-open-page-variant-outline',
-    children: [MONTHLY_REBATE_REVIEW],
+    children: [MONTHLY_REBATE_REVIEW, VENDOR_BILLS],
   },
   // @temp-feature app-install-call-list — App User List + App Promoter under App List
   ...(ENABLE_APP_INSTALL_CALL_LIST
