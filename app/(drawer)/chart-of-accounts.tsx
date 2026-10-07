@@ -10,7 +10,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { Chip, Icon, Switch, Text, useTheme } from 'react-native-paper';
+import { Icon, Switch, Text, useTheme } from 'react-native-paper';
 
 import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { Pagination } from '@/components/ui/Pagination';
@@ -22,24 +22,10 @@ import {
 } from '@/contexts/search-context';
 import { useResponsive } from '@/hooks/use-responsive';
 import { fetchChartOfAccounts } from '@/services/chart-of-accounts';
-import {
-  ChartAccount,
-  ChartAccountFilter,
-} from '@/types/chart-account';
+import { ChartAccount } from '@/types/chart-account';
 
 const PAGE_SIZE = 50;
 const EMPTY_HEADER_ACTIONS: HeaderAction[] = [];
-
-const FILTERS: { key: ChartAccountFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'reconcilable', label: 'Reconcilable' },
-  { key: 'asset_receivable', label: 'Receivable' },
-  { key: 'liability_payable', label: 'Payable' },
-  { key: 'asset_cash', label: 'Bank and Cash' },
-  { key: 'asset_current', label: 'Current Assets' },
-  { key: 'income', label: 'Income' },
-  { key: 'expense', label: 'Expenses' },
-];
 
 const COLUMNS = [
   { key: 'code', label: 'Code', flex: 1 },
@@ -127,7 +113,6 @@ export default function ChartOfAccountsScreen() {
   const query = useModuleSearch('Search accounts by code or name');
   useHeaderActions(EMPTY_HEADER_ACTIONS);
 
-  const [typeFilter, setTypeFilter] = useState<ChartAccountFilter>('all');
   const [codePrefix, setCodePrefix] = useState('');
   const [expandedPrefixes, setExpandedPrefixes] = useState<Set<string>>(
     () => new Set(),
@@ -152,7 +137,6 @@ export default function ChartOfAccountsScreen() {
       try {
         const data = await fetchChartOfAccounts(session.token, {
           q: query.trim() || undefined,
-          filter: typeFilter === 'all' ? undefined : typeFilter,
           limit: 500,
           offset: 0,
         });
@@ -172,7 +156,7 @@ export default function ChartOfAccountsScreen() {
         setRefreshing(false);
       }
     },
-    [session?.token, query, typeFilter],
+    [session?.token, query],
   );
 
   useEffect(() => {
@@ -315,7 +299,7 @@ export default function ChartOfAccountsScreen() {
             marginTop: 8,
             textAlign: 'center',
           }}>
-          {query.trim() || typeFilter !== 'all' || codePrefix
+          {query.trim() || codePrefix
             ? 'No matching accounts'
             : 'No accounts found'}
         </Text>
@@ -446,50 +430,6 @@ export default function ChartOfAccountsScreen() {
         </View>
       </View>
 
-      <View
-        style={[
-          styles.statusBar,
-          {
-            backgroundColor: theme.colors.surface,
-            borderBottomColor:
-              theme.colors.outlineVariant ?? theme.colors.outline,
-          },
-        ]}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.statusScroll}
-          contentContainerStyle={styles.statusRow}>
-          {FILTERS.map(item => {
-            const selected = typeFilter === item.key;
-            return (
-              <Chip
-                key={item.key}
-                compact
-                selected={selected}
-                onPress={() => setTypeFilter(item.key)}
-                style={[
-                  styles.statusChip,
-                  {
-                    backgroundColor: selected
-                      ? theme.colors.secondaryContainer
-                      : theme.colors.surfaceVariant,
-                  },
-                ]}
-                textStyle={{
-                  color: selected
-                    ? theme.colors.onSecondaryContainer
-                    : theme.colors.onSurfaceVariant,
-                  fontWeight: '600',
-                  fontSize: 12,
-                }}>
-                {item.label}
-              </Chip>
-            );
-          })}
-        </ScrollView>
-      </View>
-
       <View style={styles.bodyRow}>
         <View
           style={[
@@ -606,28 +546,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
-  },
-  statusBar: {
-    flexGrow: 0,
-    flexShrink: 0,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  statusScroll: {
-    flexGrow: 0,
-    maxHeight: 52,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexGrow: 0,
-  },
-  statusChip: {
-    borderRadius: 16,
-    height: 32,
-    alignSelf: 'center',
   },
   headerRow: {
     flexDirection: 'row',
