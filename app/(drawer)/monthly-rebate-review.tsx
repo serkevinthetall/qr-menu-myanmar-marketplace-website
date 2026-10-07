@@ -255,38 +255,49 @@ export default function MonthlyRebateReviewScreen() {
         </View>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.statusRow}>
-        {REBATE_STATUS_FILTERS.map(item => {
-          const selected = statusFilter === item.key;
-          return (
-            <Chip
-              key={item.key}
-              compact
-              selected={selected}
-              onPress={() => setStatusFilter(item.key)}
-              style={[
-                styles.statusChip,
-                {
-                  backgroundColor: selected
-                    ? theme.colors.secondaryContainer
-                    : theme.colors.surfaceVariant,
-                },
-              ]}
-              textStyle={{
-                color: selected
-                  ? theme.colors.onSecondaryContainer
-                  : theme.colors.onSurfaceVariant,
-                fontWeight: '600',
-                fontSize: 12,
-              }}>
-              {item.label}
-            </Chip>
-          );
-        })}
-      </ScrollView>
+      <View
+        style={[
+          styles.statusBar,
+          {
+            backgroundColor: theme.colors.surface,
+            borderBottomColor:
+              theme.colors.outlineVariant ?? theme.colors.outline,
+          },
+        ]}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.statusScroll}
+          contentContainerStyle={styles.statusRow}>
+          {REBATE_STATUS_FILTERS.map(item => {
+            const selected = statusFilter === item.key;
+            return (
+              <Chip
+                key={item.key}
+                compact
+                selected={selected}
+                onPress={() => setStatusFilter(item.key)}
+                style={[
+                  styles.statusChip,
+                  {
+                    backgroundColor: selected
+                      ? theme.colors.secondaryContainer
+                      : theme.colors.surfaceVariant,
+                  },
+                ]}
+                textStyle={{
+                  color: selected
+                    ? theme.colors.onSecondaryContainer
+                    : theme.colors.onSurfaceVariant,
+                  fontWeight: '600',
+                  fontSize: 12,
+                }}>
+                {item.label}
+              </Chip>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       {error ? (
         <View style={styles.center}>
@@ -462,14 +473,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
+  statusBar: {
+    flexGrow: 0,
+    flexShrink: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  statusScroll: {
+    flexGrow: 0,
+    maxHeight: 52,
+  },
   statusRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
+    flexGrow: 0,
   },
   statusChip: {
     borderRadius: 16,
+    height: 32,
+    alignSelf: 'center',
   },
   headerRow: {
     flexDirection: 'row',
