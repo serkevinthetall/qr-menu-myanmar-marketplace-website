@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Chip, Icon, Text, useTheme } from 'react-native-paper';
 
+import { JournalEntryDetailView } from '@/components/journal-entry/JournalEntryDetailView';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { Pagination } from '@/components/ui/Pagination';
@@ -21,12 +22,17 @@ import {
   HeaderAction,
   useHeaderActions,
   useModuleSearch,
+  useSearch,
 } from '@/contexts/search-context';
 import { useAppTheme } from '@/contexts/theme-context';
 import { useResponsive } from '@/hooks/use-responsive';
-import { fetchJournalEntries } from '@/services/journal-entries';
+import {
+  fetchJournalEntries,
+  fetchJournalEntryDetail,
+} from '@/services/journal-entries';
 import {
   JournalEntry,
+  JournalEntryDetail,
   JournalEntryStatusFilter,
 } from '@/types/journal-entry';
 import { formatMyanmarDate } from '@/utils/myanmar-datetime';
@@ -121,8 +127,12 @@ export default function JournalEntriesScreen() {
   const theme = useTheme();
   const { session } = useAuth();
   const { isDesktop } = useResponsive();
+  const { mode } = useAppTheme();
+  const { setDetailHeader } = useSearch();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const query = useModuleSearch(
     'Search entries by number, partner, reference, or journal',
+    !selectedId,
   );
   useHeaderActions(EMPTY_HEADER_ACTIONS);
 
@@ -134,6 +144,9 @@ export default function JournalEntriesScreen() {
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const hasLoadedOnceRef = useRef(false);
+  const [detail, setDetail] = useState<JournalEntryDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
 
   const load = useCallback(
     async (opts?: { soft?: boolean }) => {
@@ -180,6 +193,61 @@ export default function JournalEntriesScreen() {
     void load({ soft: true });
   }, [load]);
 
+  const closeDetail = useCallback(() => {
+    setSelectedId(null);
+    setDetail(null);
+    setDetailError('');
+  }, []);
+
+  const openDetail = useCallback((id: string) => {
+    setSelectedId(id);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedId || !session?.token) {
+      return;
+    }
+    let cancelled = false;
+    setDetailLoading(true);
+    setDetailError('');
+    void fetchJournalEntryDetail(session.token, selectedId)
+      .then(data => {
+        if (!cancelled) setDetail(data);
+      })
+      .catch(err => {
+        if (!cancelled) {
+          setDetail(null);
+          setDetailError(
+            err instanceof Error
+              ? err.message
+              : 'Failed to load journal entry.',
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId, session?.token]);
+
+  useEffect(() => {
+    if (!selectedId) {
+      setDetailHeader(null);
+      return;
+    }
+    setDetailHeader({
+      title: detail?.number ?? 'Journal Entry',
+      onBack: closeDetail,
+      statusLabel: detail
+        ? getEntryStatusColors(mode, detail.statusLabel, detail.state).label
+        : undefined,
+      breadcrumbParent: 'Journal Entries',
+    });
+    return () => setDetailHeader(null);
+  }, [selectedId, detail, closeDetail, setDetailHeader, mode]);
+
   const visibleColumns = useMemo(() => {
     if (isDesktop) return COLUMNS;
     return COLUMNS.filter(col =>
@@ -202,6 +270,22 @@ export default function JournalEntriesScreen() {
   const refreshControl = (
     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
   );
+
+  if (selectedId) {
+    return (
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: theme.colors.background },
+        ]}>
+        <JournalEntryDetailView
+          detail={detail}
+          loading={detailLoading}
+          error={detailError}
+        />
+      </View>
+    );
+  }
 
   if (loading && !hasLoadedOnceRef.current) {
     return <ListSkeleton variant="invoices" />;
@@ -344,6 +428,7 @@ export default function JournalEntriesScreen() {
               return (
                 <Pressable
                   key={row.id}
+                  onPress={() => openDetail(row.id)}
                   style={({ hovered, pressed }) => [
                     styles.dataRow,
                     {

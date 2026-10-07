@@ -1,4 +1,7 @@
-import { JournalEntry } from '@/types/journal-entry';
+import {
+  JournalEntry,
+  JournalEntryDetail,
+} from '@/types/journal-entry';
 import { webApiRequest } from '@/services/web/client';
 
 type ListResponse = {
@@ -9,6 +12,10 @@ type ListResponse = {
     count: number;
     hasMore: boolean;
   };
+};
+
+type DetailResponse = {
+  data: JournalEntryDetail;
 };
 
 export async function fetchJournalEntries(
@@ -30,6 +37,17 @@ export async function fetchJournalEntries(
   const query = params.toString() ? `?${params.toString()}` : '';
   const response = await webApiRequest<ListResponse>(
     `/journal-entries${query}`,
+    { token },
+  );
+  return response.data;
+}
+
+export async function fetchJournalEntryDetail(
+  token: string,
+  id: string,
+): Promise<JournalEntryDetail> {
+  const response = await webApiRequest<DetailResponse>(
+    `/journal-entries/${encodeURIComponent(id)}`,
     { token },
   );
   return response.data;
