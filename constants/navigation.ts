@@ -178,6 +178,31 @@ const VENDOR_BILLS: NavItem = {
   description: 'Vendor bills from Odoo Accounting (account.move).',
 };
 
+const VENDOR_PAYMENTS: NavItem = {
+  name: 'vendor-payments',
+  label: 'Vendor Payment',
+  icon: 'cash-multiple',
+  title: 'Vendor Payments',
+  description: 'Vendor payments from Odoo Accounting (account.payment).',
+};
+
+const JOURNAL_ENTRIES: NavItem = {
+  name: 'journal-entries',
+  label: 'Journal Entries',
+  icon: 'book-open-variant',
+  title: 'Journal Entries',
+  description: 'Journal entries from Odoo Accounting (account.move).',
+};
+
+const RECONCILE: NavItem = {
+  name: 'reconcile',
+  label: 'Reconcile',
+  icon: 'swap-horizontal-bold',
+  title: 'Journal Items to Reconcile',
+  description:
+    'Posted journal items with residual amount (account.move.line).',
+};
+
 const SETTINGS: NavItem = {
   name: 'settings',
   label: 'Settings',
@@ -216,7 +241,14 @@ export const NAV_ENTRIES: NavEntry[] = [
     id: 'accounting',
     label: 'Accounting',
     icon: 'book-open-page-variant-outline',
-    children: [MONTHLY_REBATE_REVIEW, VENDOR_BILLS, VENDORS],
+    children: [
+      MONTHLY_REBATE_REVIEW,
+      VENDOR_BILLS,
+      VENDOR_PAYMENTS,
+      JOURNAL_ENTRIES,
+      RECONCILE,
+      VENDORS,
+    ],
   },
   // @temp-feature app-install-call-list — App User List + App Promoter under App List
   ...(ENABLE_APP_INSTALL_CALL_LIST
