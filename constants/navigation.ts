@@ -63,6 +63,14 @@ const CUSTOMERS: NavItem = {
   description: 'Contacts, partners, and customer records.',
 };
 
+const PICKUP_POINTS: NavItem = {
+  name: 'pickup-points',
+  label: 'Pickup Point',
+  icon: 'map-marker-radius-outline',
+  title: 'Pickup Point',
+  description: 'Pickup points from Odoo (x_pickup_point). Create and edit.',
+};
+
 const CALL_LIST: NavItem = {
   // @temp-feature app-install-call-list — independent module (NOT App Order / online-orders)
   name: 'call-list',
@@ -239,6 +247,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     children: [QUOTATION, SALE_ORDERS, ONLINE_ORDERS],
   },
   { type: 'item', item: CUSTOMERS },
+  { type: 'item', item: PICKUP_POINTS },
   {
     type: 'group',
     id: 'inventory',

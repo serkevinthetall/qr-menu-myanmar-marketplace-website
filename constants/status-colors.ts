@@ -49,6 +49,11 @@ export function canCancelQuotation(status: string): boolean {
   return status === 'draft';
 }
 
+/** Remove order lines while still a quotation (draft or sent). */
+export function canRemoveQuotationLine(status: string): boolean {
+  return status === 'draft' || status === 'sent';
+}
+
 /** Confirm → Sales Order: draft (Quotation) or sent (Quotation Sent). */
 export function canConfirmQuotation(status: string): boolean {
   return status === 'draft' || status === 'sent';

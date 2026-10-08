@@ -1195,8 +1195,26 @@ export function QuotationBuilder({
     );
   };
 
-  const removeLine = (productId: string) => {
-    setLines(prev => prev.filter(line => line.product.id !== productId));
+  const [removeConfirmProductId, setRemoveConfirmProductId] = useState<
+    string | null
+  >(null);
+
+  const removeConfirmLine = useMemo(
+    () =>
+      lines.find(line => line.product.id === removeConfirmProductId) ?? null,
+    [lines, removeConfirmProductId],
+  );
+
+  const requestRemoveLine = (productId: string) => {
+    setRemoveConfirmProductId(productId);
+  };
+
+  const confirmRemoveLine = () => {
+    if (!removeConfirmProductId) return;
+    setLines(prev =>
+      prev.filter(line => line.product.id !== removeConfirmProductId),
+    );
+    setRemoveConfirmProductId(null);
   };
 
   const handleSave = () => {
@@ -1848,7 +1866,7 @@ export function QuotationBuilder({
                   onQtyChange={setQty}
                   onUnitPriceChange={setUnitPrice}
                   onDiscountChange={setDiscount}
-                  onRemove={removeLine}
+                  onRemove={requestRemoveLine}
                 />
               ))}
             </ScrollView>
@@ -1883,7 +1901,7 @@ export function QuotationBuilder({
                   onQtyChange={setQty}
                   onUnitPriceChange={setUnitPrice}
                   onDiscountChange={setDiscount}
-                  onRemove={removeLine}
+                  onRemove={requestRemoveLine}
                 />
               ))
             )}
@@ -2245,6 +2263,33 @@ export function QuotationBuilder({
                 setCreateContactOpen(true);
               }}>
               Yes, create contact
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      <Portal>
+        <Dialog
+          visible={Boolean(removeConfirmProductId)}
+          onDismiss={() => setRemoveConfirmProductId(null)}>
+          <Dialog.Title>Remove product?</Dialog.Title>
+          <Dialog.Content>
+            <Text>
+              Remove{' '}
+              {removeConfirmLine?.product.name?.trim() || 'this product'} from
+              the quotation?
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setRemoveConfirmProductId(null)}>
+              Keep
+            </Button>
+            <Button
+              mode="contained"
+              buttonColor={theme.colors.error}
+              textColor={theme.colors.onError}
+              onPress={confirmRemoveLine}>
+              Remove
             </Button>
           </Dialog.Actions>
         </Dialog>

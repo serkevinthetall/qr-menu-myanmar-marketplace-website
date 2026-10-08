@@ -60,6 +60,7 @@ import {
   cancelQuotation,
   confirmQuotation,
   payQuotationInvoice,
+  removeQuotationLine,
   fetchPaymentMethods,
 } from '@/services/quotations';
 import {
@@ -433,6 +434,7 @@ export default function QuotationScreen() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
   const [detailCancelling, setDetailCancelling] = useState(false);
+  const [removingLineId, setRemovingLineId] = useState<string | null>(null);
   const [cancelConfirmVisible, setCancelConfirmVisible] = useState(false);
   const [detailConfirming, setDetailConfirming] = useState(false);
   const [confirmConfirmVisible, setConfirmConfirmVisible] = useState(false);
@@ -841,6 +843,42 @@ export default function QuotationScreen() {
       setDetailCancelling(false);
     }
   }, [session?.token, detailId]);
+
+  const handleRemoveQuotationLine = useCallback(
+    async (lineId: string) => {
+      if (!session?.token || !detailId) {
+        return;
+      }
+      setRemovingLineId(lineId);
+      setDetailError('');
+      try {
+        const updated = await removeQuotationLine(
+          session.token,
+          detailId,
+          lineId,
+        );
+        setDetail(updated);
+        setQuotations(prev =>
+          prev.map(item =>
+            item.id === updated.id
+              ? { ...item, status: updated.status, total: updated.total }
+              : item,
+          ),
+        );
+        setSnackbar(`Product removed from ${updated.number}.`);
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : 'Failed to remove product from quotation.';
+        setDetailError(message);
+        throw err instanceof Error ? err : new Error(message);
+      } finally {
+        setRemovingLineId(null);
+      }
+    },
+    [session?.token, detailId],
+  );
 
   const handleConfirmDetail = useCallback(async () => {
     if (!session?.token || !detailId) {
@@ -1369,6 +1407,8 @@ export default function QuotationScreen() {
           error={detailError}
           onBack={closeDetail}
           onReorder={handleReorderFromDetail}
+          onRemoveLine={handleRemoveQuotationLine}
+          removingLineId={removingLineId}
           token={session?.token}
           chatterBasePath="/quotations"
         />

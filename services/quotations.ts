@@ -108,6 +108,18 @@ export async function cancelQuotation(
   return response.data;
 }
 
+export async function removeQuotationLine(
+  token: string,
+  quotationId: string,
+  lineId: string,
+): Promise<QuotationDetail> {
+  const response = await webApiRequest<QuotationDetailResponse>(
+    `/quotations/${encodeURIComponent(quotationId)}/lines/${encodeURIComponent(lineId)}`,
+    { method: 'DELETE', token },
+  );
+  return response.data;
+}
+
 export async function confirmQuotation(
   token: string,
   id: string,

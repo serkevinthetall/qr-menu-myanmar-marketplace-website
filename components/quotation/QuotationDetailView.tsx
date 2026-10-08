@@ -1,10 +1,20 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { Button, Checkbox, Icon, Text, useTheme } from 'react-native-paper';
+import {
+  Button,
+  Checkbox,
+  Dialog,
+  Icon,
+  IconButton,
+  Portal,
+  Text,
+  useTheme,
+} from 'react-native-paper';
 
 import { ChatterPanel } from '@/components/chatter/ChatterPanel';
 import { CustomerNameText } from '@/components/ui/CustomerNameText';
 import { DetailSkeleton } from '@/components/ui/ListSkeleton';
+import { canRemoveQuotationLine } from '@/constants/status-colors';
 import { useDetailTheme } from '@/hooks/use-detail-theme';
 import { useResponsive } from '@/hooks/use-responsive';
 import { ChatterBasePath } from '@/types/chatter';
@@ -192,15 +202,22 @@ function LinesTable({
   selectedIds,
   onToggleLine,
   compact = false,
+  canRemove = false,
+  onRemoveLine,
+  removingLineId,
 }: {
   lines: QuotationLine[];
   selectionMode?: boolean;
   selectedIds?: Set<string>;
   onToggleLine?: (lineId: string) => void;
   compact?: boolean;
+  canRemove?: boolean;
+  onRemoveLine?: (line: QuotationLine) => void;
+  removingLineId?: string | null;
 }) {
   const theme = useTheme();
   const detail = useDetailTheme();
+  const showRemove = canRemove && !selectionMode && Boolean(onRemoveLine);
 
   if (compact) {
     return (
@@ -247,6 +264,16 @@ function LinesTable({
                   numberOfLines={4}>
                   {line.product}
                 </CustomerNameText>
+                {showRemove ? (
+                  <IconButton
+                    icon="trash-can-outline"
+                    size={18}
+                    iconColor={theme.colors.error}
+                    disabled={removingLineId === line.id}
+                    onPress={() => onRemoveLine?.(line)}
+                    accessibilityLabel={`Remove ${line.product}`}
+                  />
+                ) : null}
               </View>
               <Text
                 style={[styles.mobileLineMeta, { color: detail.label }]}
@@ -327,6 +354,7 @@ function LinesTable({
             AMOUNT
           </Text>
         </View>
+        {showRemove ? <View style={styles.lineColDelete} /> : null}
       </View>
 
       {lines.map(line => {
@@ -432,6 +460,18 @@ function LinesTable({
                 {formatMoney(line.amount)}
               </Text>
             </View>
+            {showRemove ? (
+              <View style={styles.lineColDelete}>
+                <IconButton
+                  icon="trash-can-outline"
+                  size={16}
+                  iconColor={theme.colors.error}
+                  disabled={removingLineId === line.id}
+                  onPress={() => onRemoveLine?.(line)}
+                  accessibilityLabel={`Remove ${line.product}`}
+                />
+              </View>
+            ) : null}
           </View>
         );
       })}
@@ -495,6 +535,9 @@ type QuotationDetailViewProps = {
   error: string;
   onBack: () => void;
   onReorder?: (seed: QuotationReorderSeed) => void;
+  /** Remove a product line (draft / Quotation Sent only). */
+  onRemoveLine?: (lineId: string) => Promise<void> | void;
+  removingLineId?: string | null;
   /** Extra scroll padding (e.g. floating Print FAB on phone app). */
   contentBottomInset?: number;
   /** Required to load/post chatter (Odoo mail). */
@@ -507,6 +550,8 @@ export function QuotationDetailView({
   loading,
   error,
   onReorder,
+  onRemoveLine,
+  removingLineId = null,
   contentBottomInset = 0,
   token,
   chatterBasePath = '/quotations',
@@ -518,6 +563,8 @@ export function QuotationDetailView({
   const [tab, setTab] = useState<DetailTab>('lines');
   const [reorderMode, setReorderMode] = useState(false);
   const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(new Set());
+  const [removeConfirmLine, setRemoveConfirmLine] =
+    useState<QuotationLine | null>(null);
 
   useEffect(() => {
     setReorderMode(false);
@@ -573,6 +620,22 @@ export function QuotationDetailView({
         discountPercent: line.discountPercent,
       })),
     });
+  };
+
+  const canRemoveLines =
+    Boolean(onRemoveLine) &&
+    Boolean(detail) &&
+    canRemoveQuotationLine(detail!.status);
+
+  const handleConfirmRemoveLine = async () => {
+    if (!removeConfirmLine || !onRemoveLine) return;
+    const lineId = removeConfirmLine.id;
+    try {
+      await onRemoveLine(lineId);
+      setRemoveConfirmLine(null);
+    } catch {
+      // Parent surfaces the error; keep dialog open so user can retry/dismiss.
+    }
   };
 
   const untaxed =
@@ -691,6 +754,9 @@ export function QuotationDetailView({
                       selectionMode={reorderMode}
                       selectedIds={selectedLineIds}
                       onToggleLine={handleToggleLine}
+                      canRemove={canRemoveLines}
+                      onRemoveLine={line => setRemoveConfirmLine(line)}
+                      removingLineId={removingLineId}
                     />
                   )}
                 </View>
@@ -741,6 +807,40 @@ export function QuotationDetailView({
           </View>
         </ScrollView>
       ) : null}
+
+      <Portal>
+        <Dialog
+          visible={Boolean(removeConfirmLine)}
+          onDismiss={() =>
+            removingLineId ? undefined : setRemoveConfirmLine(null)
+          }>
+          <Dialog.Title>Remove product?</Dialog.Title>
+          <Dialog.Content>
+            <Text>
+              Remove {removeConfirmLine?.product?.trim() || 'this product'} from
+              this quotation? This cannot be undone from here.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button
+              disabled={Boolean(removingLineId)}
+              onPress={() => setRemoveConfirmLine(null)}>
+              Keep
+            </Button>
+            <Button
+              mode="contained"
+              buttonColor={theme.colors.error}
+              textColor={theme.colors.onError}
+              loading={Boolean(removingLineId)}
+              disabled={Boolean(removingLineId)}
+              onPress={() => {
+                void handleConfirmRemoveLine();
+              }}>
+              Remove
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
@@ -993,6 +1093,11 @@ const styles = StyleSheet.create({
   lineColTaxes: { flex: 0.45, minWidth: 48, justifyContent: 'center' },
   lineColDisc: { flex: 0.45, minWidth: 48, justifyContent: 'center' },
   lineColAmount: { flex: 1.1, minWidth: 88, justifyContent: 'center' },
+  lineColDelete: {
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cellTextRight: { textAlign: 'right' },
   cellTextCenter: { textAlign: 'center' },
   otherGrid: {
